@@ -26,7 +26,9 @@
     "reportsNearby_other": "{{count}} signalements autour de vous",
     "viewTunisia": "Voir la Tunisie",
     "viewAlgeria": "Voir l'Algérie",
-    "viewFrance": "Voir la France"
+    "viewFrance": "Voir la France",
+    "zoomIn": "Zoom avant",
+    "zoomOut": "Zoom arrière"
   },
   "report": {
     "add": "Signaler",
@@ -239,7 +241,10 @@
     "vipTitle": "Ajouter un lieu VIP",
     "vipSave": "Enregistrer en VIP",
     "promo": "Promotion (optionnel)",
-    "promoPlaceholder": "Ex : -20 % cette semaine"
+    "promoPlaceholder": "Ex : -20 % cette semaine",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "coordsInvalid": "Coordonnées GPS invalides."
   },
   "placeCategories": {
     "pharmacie": "Pharmacie",

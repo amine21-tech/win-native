@@ -4,6 +4,7 @@ import {
   Layer,
   Map,
   type CameraRef,
+  type MapRef,
 } from '@maplibre/maplibre-react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -38,6 +39,8 @@ import { ReportVoteCard } from '../src/components/ReportVoteCard';
 import { SearchBar } from '../src/components/SearchBar';
 import { SearchResults } from '../src/components/SearchResults';
 import { SeasonalBanner } from '../src/components/SeasonalBanner';
+import { SpeedBadge } from '../src/components/SpeedBadge';
+import { SpeedLimitBadge } from '../src/components/SpeedLimitBadge';
 import { SosPanel } from '../src/components/SosPanel';
 import { StepsSheet } from '../src/components/StepsSheet';
 import { Toast } from '../src/components/Toast';
@@ -58,6 +61,7 @@ import { useLiveLocation } from '../src/navigation/useLiveLocation';
 import { hasVoiceFor } from '../src/speech/voice';
 import { useNavigationSession } from '../src/navigation/useNavigationSession';
 import { useSmoothCamera, type SnappedPoint } from '../src/navigation/useSmoothCamera';
+import { useSpeedLimit } from '../src/navigation/useSpeedLimit';
 import { useRoutePreview } from '../src/navigation/useRoutePreview';
 import { locateOnRoute, pointOnRoute, type Route, type RouteMode } from '../src/navigation/routing';
 import type { LiveFix } from '../src/navigation/useLiveLocation';
@@ -116,7 +120,14 @@ export default function MapScreen() {
    * meme mesure, elles coincident par construction. Partir de `useWindowDimensions` aurait
    * suffi a les decaler de quelques points sur les telephones ou la carte passe sous la
    * barre de navigation d'Android — soit exactement un vehicule dessine a cote de la route. */
+  const mapRef = useRef<MapRef | null>(null);
   const [mapSize, setMapSize] = useState<{ w: number; h: number } | null>(null);
+  /* Hauteur reelle du bloc du haut (barre de recherche + puces de categories, et la liste de
+   * resultats quand elle est ouverte). Le bandeau saisonnier se posait jusqu'ici a une hauteur
+   * CALCULEE — barre + marge — qui ne tenait pas compte des puces : il chevauchait la barre de
+   * recherche, alors que sur le site il respire nettement en dessous. On mesure donc plutot que
+   * de supposer : la mesure suit toutes les langues et toutes les tailles de police. */
+  const [topBlockH, setTopBlockH] = useState(0);
   const mapW = mapSize?.w ?? windowWidth;
   const mapH = mapSize?.h ?? windowHeight;
   /** Paysage : seulement possible pendant la navigation (voir le verrou d'orientation). */
@@ -508,6 +519,15 @@ export default function MapScreen() {
       duration: 600,
     });
   }, [nav.route, position, landscape, navCardWidth]);
+
+  /** Boutons + / - de la carte, comme sur le site. Le niveau courant est demande a la carte
+   * plutot que suivi dans un etat : le zoom change aussi aux pincements, et un etat local
+   * finirait par mentir. */
+  const zoomBy = useCallback((delta: number) => {
+    void mapRef.current?.getZoom().then((zoom) => {
+      cameraRef.current?.zoomTo(Math.min(20, Math.max(2, zoom + delta)), { duration: 220 });
+    });
+  }, []);
 
   const resumeFollow = useCallback(() => setFollowMode(true), []);
 
@@ -947,6 +967,21 @@ export default function MapScreen() {
 
   /* ------------------------------------------------------------------ */
 
+  /* Limite reglementaire du troncon en cours, lue sous le vehicule. En suivi, le vehicule est
+   * au point focal de la camera ; carte deplacee a la main, on lit sous le centre de l'ecran. */
+  const speedLimit = useSpeedLimit({
+    active: navigating,
+    mapRef,
+    here: position,
+    vehiclePoint: useCallback(
+      (): [number, number] =>
+        followMode
+          ? [(mapW + navPadding.left) / 2, (mapH + navPadding.top) / 2]
+          : [mapW / 2, mapH / 2],
+      [followMode, mapW, mapH, navPadding.left, navPadding.top],
+    ),
+  });
+
   const mapStyle = useMapStyle(scheme === 'dark' ? MAP_STYLES.night : MAP_STYLES.day);
 
   return (
@@ -958,6 +993,9 @@ export default function MapScreen() {
       }}
     >
       <Map
+        // La reference sert a lire le type de route sous le vehicule (voir useSpeedLimit) :
+        // les tuiles sont deja a l'ecran, cette lecture ne coute aucune requete reseau.
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
         mapStyle={mapStyle}
         logo={false}
@@ -1204,7 +1242,10 @@ export default function MapScreen() {
 
       {/* Sous la barre de recherche (HIT_SIZE de haut), jamais par-dessus — elle la cachait
           entierement auparavant, meme hauteur de depart que les deux. */}
-      <SeasonalBanner top={insets.top + HEADER_HEIGHT + HIT_SIZE + spacing.md} colors={colors} />
+      <SeasonalBanner
+        top={insets.top + HEADER_HEIGHT + (topBlockH || HIT_SIZE) + spacing.lg}
+        colors={colors}
+      />
 
       {/* Boussole : n'apparait QUE lorsque la carte est tournee, et la remet au nord. Cote
           gauche, pour ne pas s'ajouter a la colonne de droite qui est deja pleine. */}
@@ -1227,6 +1268,31 @@ export default function MapScreen() {
               elle montre ou est le nord, pas une direction fixe. */}
           <Text style={[styles.compassGlyph, { transform: [{ rotate: `${-mapBearing}deg` }] }]}>🧭</Text>
         </Pressable>
+      ) : null}
+
+      {/* Cadre du bas, cote gauche : les boutons + et - de la carte, absents de la version
+          Android alors que le site les affiche. Masques pendant le guidage, ou le bandeau de
+          consignes et la barre du bas occupent deja l'ecran. */}
+      {!navigating ? (
+        <View style={[styles.zoomBox, { bottom: insets.bottom + spacing.xxl, backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('map.zoomIn')}
+            onPress={() => zoomBy(1)}
+            style={({ pressed }) => [styles.zoomBtn, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Text style={[styles.zoomGlyph, { color: colors.text }]}>+</Text>
+          </Pressable>
+          <View style={[styles.zoomDivider, { backgroundColor: colors.border }]} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('map.zoomOut')}
+            onPress={() => zoomBy(-1)}
+            style={({ pressed }) => [styles.zoomBtn, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Text style={[styles.zoomGlyph, { color: colors.text }]}>−</Text>
+          </Pressable>
+        </View>
       ) : null}
 
       {/* Marqueur du vehicule, FIXE a l'ecran : c'est la carte qui bouge dessous, et la
@@ -1279,6 +1345,23 @@ export default function MapScreen() {
           leftInset={insets.left}
           rightInset={insets.right}
         />
+        {/* Compteur de vitesse et limite reglementaire, en bas a gauche comme sur le site.
+            Les deux s'abonnent eux-memes au flux de position : leur rafraichissement ne
+            re-rend jamais l'ecran de carte. En paysage, ils passent a droite — la gauche est
+            occupee par la colonne de consignes. */}
+        <SpeedBadge
+          subscribe={subscribeFix}
+          colors={colors}
+          bottom={insets.bottom + (landscape ? spacing.md : 128)}
+          right={landscape ? insets.right + spacing.md : undefined}
+        />
+        <SpeedLimitBadge
+          limitKmh={speedLimit}
+          subscribe={subscribeFix}
+          bottom={insets.bottom + (landscape ? spacing.md + 66 : 194)}
+          right={landscape ? insets.right + spacing.md + 4 : undefined}
+        />
+
         {/* Detour : la recherche reste accessible en cours de route (via l'assistant vocal ou
             la liste ci-dessous). Choisir un resultat ne coupe pas le guidage — il change de
             destination et recalcule depuis l'endroit exact ou l'on se trouve. La liste se pose
@@ -1347,7 +1430,13 @@ export default function MapScreen() {
       <Header colors={colors} top={insets.top} />
 
       {/* Barre de recherche + resultats, en haut */}
-      <View style={[styles.top, { top: insets.top + HEADER_HEIGHT }]}>
+      <View
+        style={[styles.top, { top: insets.top + HEADER_HEIGHT }]}
+        onLayout={(e) => {
+          const h = Math.round(e.nativeEvent.layout.height);
+          setTopBlockH((prev) => (prev === h ? prev : h));
+        }}
+      >
         <SearchBar
           value={search.query}
           onChangeText={(text) => {
@@ -1677,6 +1766,24 @@ const styles = StyleSheet.create({
   compassGlyph: { fontSize: 21, lineHeight: 25 },
   // Fleche bleue sur pastille blanche, comme sur les cartes de navigation courantes. La
   // camera tourne avec la route : la fleche pointe donc toujours vers le haut.
+  // Meme forme que sur le site : deux carres blancs empiles, coins arrondis, fin lisere.
+  zoomBox: {
+    position: 'absolute',
+    left: spacing.lg,
+    width: 44,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  zoomBtn: { height: 44, alignItems: 'center', justifyContent: 'center' },
+  zoomDivider: { height: 1 },
+  zoomGlyph: { fontSize: 22, fontWeight: '600' as const, lineHeight: 26 },
+
   navPuck: {
     position: 'absolute',
     width: NAV_PUCK_SIZE,

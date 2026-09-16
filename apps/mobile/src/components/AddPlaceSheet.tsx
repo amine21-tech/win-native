@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, ApiError, uploadPhoto } from '../api/client';
 import { clearSearchCache } from '../search/usePlaceSearch';
 import { PLACE_CATEGORIES, type PlaceCategory } from '../shared';
@@ -73,6 +74,14 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
   const [vipInput, setVipInput] = useState('');
   const [vipChecking, setVipChecking] = useState(false);
   const [vipError, setVipError] = useState<string | null>(null);
+  /* Coordonnees saisissables, en plus de celles de l'appui long.
+   *
+   * Un partenaire VIP est souvent enregistre au bureau, a partir de coordonnees relevees sur
+   * place ou communiquees par le commercant : il faut pouvoir les ECRIRE, pas seulement viser
+   * un point sur la carte. Les deux champs partent de l'endroit touche, et le lieu est
+   * enregistre a l'endroit affiche ici. */
+  const [coordText, setCoordText] = useState({ lat: '', lon: '' });
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (coords) {
@@ -84,6 +93,7 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
       setVip(null);
       setVipInput('');
       setVipError(null);
+      setCoordText({ lat: coords.lat.toFixed(6), lon: coords.lon.toFixed(6) });
     }
   }, [coords]);
 
@@ -174,9 +184,24 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
 
   const vipCode = vip && typeof vip === 'object' ? vip.code : null;
 
+  /** Coordonnees retenues : celles saisies si elles sont valides, sinon celles de l'appui long.
+   * Une latitude hors [-90, 90] ou une longitude hors [-180, 180] est refusee a l'enregistrement
+   * plutot que d'aller poser un lieu a l'autre bout du monde. */
+  const typedLat = Number(coordText.lat.replace(',', '.'));
+  const typedLon = Number(coordText.lon.replace(',', '.'));
+  const coordsValid =
+    Number.isFinite(typedLat) && Number.isFinite(typedLon) &&
+    Math.abs(typedLat) <= 90 && Math.abs(typedLon) <= 180;
+  const saveLat = coordsValid ? typedLat : coords.lat;
+  const saveLon = coordsValid ? typedLon : coords.lon;
+
   const submit = async () => {
     if (!form.name.trim()) {
       setError(t('addPlace.nameRequired'));
+      return;
+    }
+    if (!coordsValid) {
+      setError(t('addPlace.coordsInvalid'));
       return;
     }
     setError(null);
@@ -211,9 +236,9 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
         body: {
           name: form.name.trim(),
           category: form.category,
-          lat: coords.lat,
-          lon: coords.lon,
-          country: countryAt(coords.lat, coords.lon),
+          lat: saveLat,
+          lon: saveLon,
+          country: countryAt(saveLat, saveLon),
           street: form.street.trim() || undefined,
           houseNumber: form.houseNumber.trim() || undefined,
           city: form.city.trim() || undefined,
@@ -255,7 +280,10 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View style={[styles.box, { backgroundColor: colors.surface }]}>
+        {/* `maxHeight` laisse une bande libre en haut, et la marge basse suit la barre de
+            navigation du telephone : le bouton « Enregistrer » touchait le bord inferieur de
+            l'ecran, sans aucune respiration. */}
+        <View style={[styles.box, { backgroundColor: colors.surface, paddingBottom: insets.bottom + spacing.md }]}>
           <View style={styles.head}>
             <Text style={[typography.heading, { color: colors.text }]}>
               {vipCode ? `⭐ ${t('addPlace.vipTitle')}` : t('addPlace.title')}
@@ -278,8 +306,29 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
           ) : (
           <ScrollView keyboardShouldPersistTaps="handled">
             <Text style={[typography.caption, styles.coords, { color: colors.accent, backgroundColor: colors.surfaceAlt }]}>
-              📍 {coords.lat.toFixed(5)}, {coords.lon.toFixed(5)}
+              📍 {saveLat.toFixed(5)}, {saveLon.toFixed(5)}
             </Text>
+
+            {/* Coordonnees modifiables : indispensables pour enregistrer un partenaire VIP dont
+                on a releve la position ailleurs, sans avoir a viser le point sur la carte. */}
+            <View style={styles.row2}>
+              <Field label={t('addPlace.latitude')} colors={colors} style={{ flex: 1 }}>
+                <TextInput
+                  value={coordText.lat}
+                  onChangeText={(v) => setCoordText((c) => ({ ...c, lat: v }))}
+                  keyboardType="numbers-and-punctuation"
+                  style={[styles.input, { color: colors.text, borderColor: coordsValid ? colors.border : colors.danger }]}
+                />
+              </Field>
+              <Field label={t('addPlace.longitude')} colors={colors} style={{ flex: 1 }}>
+                <TextInput
+                  value={coordText.lon}
+                  onChangeText={(v) => setCoordText((c) => ({ ...c, lon: v }))}
+                  keyboardType="numbers-and-punctuation"
+                  style={[styles.input, { color: colors.text, borderColor: coordsValid ? colors.border : colors.danger }]}
+                />
+              </Field>
+            </View>
 
             <Field label={t('addPlace.name')} colors={colors}>
               <TextInput

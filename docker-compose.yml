@@ -50,9 +50,16 @@ services:
       # des services. Valhalla, lui, tourne sur l'hote.
       DATABASE_URL: postgres://${POSTGRES_USER:-win}:${POSTGRES_PASSWORD:-win}@db:5432/${POSTGRES_DB:-win}
       REDIS_URL: redis://redis:6379
-      VALHALLA_URL: http://host.docker.internal:8002
-      # Second moteur Valhalla, dedie a l'Europe (France) : renseigne seulement quand le
-      # conteneur correspondant tourne. Sans lui, tout passe par le moteur ci-dessus.
+      # Adresses des moteurs Valhalla, surchargeables depuis le fichier .env.
+      #
+      # `host.docker.internal` ne marche que si Valhalla publie son port sur TOUTES les
+      # interfaces de l'hote. Sur le VPS il n'ecoute que sur 127.0.0.1 : la connexion est alors
+      # refusee depuis un conteneur. On branche donc les conteneurs Valhalla sur le reseau de
+      # cette pile (`docker network connect`) et on les appelle par leur nom — voir le fichier
+      # .env du serveur, qui contient VALHALLA_URL=http://valhalla_win:8002.
+      VALHALLA_URL: ${VALHALLA_URL:-http://host.docker.internal:8002}
+      # Second moteur, dedie a l'Europe (France) : renseigne seulement quand le conteneur
+      # correspondant tourne. Sans lui, tout passe par le moteur ci-dessus.
       VALHALLA_EU_URL: ${VALHALLA_EU_URL:-}
       NODE_ENV: production
       PORT: 3002

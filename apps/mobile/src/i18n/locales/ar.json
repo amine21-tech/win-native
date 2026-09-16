@@ -26,7 +26,9 @@
     "reportsNearby_other": "{{count}} بلاغات حولك",
     "viewTunisia": "عرض تونس",
     "viewAlgeria": "عرض الجزائر",
-    "viewFrance": "عرض فرنسا"
+    "viewFrance": "عرض فرنسا",
+    "zoomIn": "تكبير",
+    "zoomOut": "تصغير"
   },
   "report": {
     "add": "الإبلاغ",
@@ -239,7 +241,10 @@
     "vipTitle": "إضافة مكان VIP",
     "vipSave": "حفظ كـ VIP",
     "promo": "عرض ترويجي (اختياري)",
-    "promoPlaceholder": "مثال: تخفيض 20% هذا الأسبوع"
+    "promoPlaceholder": "مثال: تخفيض 20% هذا الأسبوع",
+    "latitude": "خط العرض",
+    "longitude": "خط الطول",
+    "coordsInvalid": "إحداثيات GPS غير صالحة."
   },
   "placeCategories": {
     "pharmacie": "صيدلية",

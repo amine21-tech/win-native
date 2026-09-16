@@ -94,6 +94,43 @@ const routes: FastifyPluginAsync = async (app) => {
       return response.json();
     },
   );
+
+  /**
+   * Limite de vitesse reglementaire du troncon le plus proche, quand OpenStreetMap la connait.
+   *
+   * Valhalla la conserve dans ses tuiles (`edge_info.speed_limit`, en km/h ; `0` = non
+   * renseignee). L'application interroge cette route rarement — au plus une fois toutes les
+   * vingt secondes et apres 250 m parcourus — et se rabat sinon sur le type de route lu dans
+   * les tuiles deja affichees. Aucune limite inventee : `null` quand on ne sait pas.
+   */
+  app.get('/routing/speed-limit', {
+    config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+  }, async (req) => {
+    const { lat, lon } = parse(
+      z.object({ lat: latitude, lon: longitude }),
+      { lat: Number((req.query as Record<string, string>).lat), lon: Number((req.query as Record<string, string>).lon) },
+    );
+
+    try {
+      const response = await fetch(`${valhallaFor({ lat, lon }, { lat, lon })}/locate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ locations: [{ lat, lon }], costing: 'auto', verbose: true }),
+        signal: AbortSignal.timeout(6_000),
+      });
+      if (!response.ok) return { limitKmh: null };
+
+      const data = (await response.json()) as
+        | { edges?: { edge_info?: { speed_limit?: number } }[] }[]
+        | undefined;
+      const limit = data?.[0]?.edges?.[0]?.edge_info?.speed_limit ?? 0;
+      return { limitKmh: limit > 0 ? limit : null };
+    } catch {
+      // Moteur injoignable ou trop lent : pas de limite plutot qu'une erreur. Ce n'est qu'un
+      // affichage d'appoint, il ne doit jamais gener la navigation.
+      return { limitKmh: null };
+    }
+  });
 };
 
 export default routes;

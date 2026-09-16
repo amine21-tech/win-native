@@ -60,6 +60,12 @@ case "${1:-}" in
       -e server_threads=4 \
       "$IMAGE"
 
+    # L'API joint les moteurs PAR LEUR NOM, sur le reseau Docker de sa propre pile. Les ports
+    # 8002 et 8003 ne sont publies que sur 127.0.0.1 de l'hote : un conteneur qui essaie de les
+    # atteindre par la se fait refuser la connexion (ECONNREFUSED). Ce rattachement est donc
+    # indispensable, et il est A REFAIRE apres chaque recreation du conteneur.
+    docker network connect win-native_default valhalla_fr 2>/dev/null       && echo "Rattache au reseau de l'API (joignable sous le nom valhalla_fr)."       || echo "Deja rattache au reseau de l'API, ou reseau absent."
+
     echo
     echo "Construction lancee (une a deux heures). Suivre :"
     echo "  docker logs -f --tail 50 valhalla_fr"
