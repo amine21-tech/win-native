@@ -1,0 +1,105 @@
+{
+  "expo": {
+    "name": "WIN",
+    "slug": "win-dz",
+    "version": "0.1.0",
+    "orientation": "default",
+    "scheme": "win",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "icon": "./assets/icon.png",
+    "android": {
+      "package": "dz.win.app",
+      "versionCode": 18,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0A5840"
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "dz.win.app",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "audio"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "@maplibre/maplibre-react-native",
+        {
+          "android": {
+            "locationEngine": "google"
+          }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "WIN utilise votre position pour vous guider sur la route et vous prevenir des radars, dos d'ane et accidents signales devant vous.",
+          "locationWhenInUsePermission": "WIN utilise votre position pour vous localiser sur la carte et calculer votre itineraire.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "WIN accede a vos photos pour illustrer les lieux que vous ajoutez.",
+          "cameraPermission": "WIN utilise l'appareil photo pour prendre la photo d'un lieu que vous ajoutez."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "WIN utilise le microphone pour que vous puissiez dicter votre recherche au lieu de la taper.",
+          "speechRecognitionPermission": "WIN transcrit ce que vous dictez pour lancer la recherche d'une adresse."
+        }
+      ],
+      "expo-secure-store",
+      "expo-localization",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0A5840"
+        }
+      ]
+    ],
+    "extra": {
+      "apiBaseUrl": "https://51.77.194.25.nip.io/v2",
+      "router": {},
+      "eas": {
+        "projectId": "2177ab7a-7faa-4046-bad5-c2005f63d726"
+      }
+    },
+    "owner": "arsanne",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2177ab7a-7faa-4046-bad5-c2005f63d726"
+    }
+  }
+}

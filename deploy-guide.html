@@ -1,0 +1,414 @@
+<title>Du VPS à l'APK</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+:root{
+  --paper:#F2F4F3; --surface:#FFFFFF; --surface-2:#E8ECEA;
+  --ink:#10161A; --ink-2:#3D4A48; --ink-3:#6B7977;
+  --line:#D3DAD8; --line-strong:#B6C0BD;
+  --accent:#006B45; --accent-soft:#DCEBE4;
+  --amber:#9A6100; --amber-soft:#F6EBD6;
+  --rose:#9B2C2C; --rose-soft:#F6DEDE;
+  --term-bg:#0E1719; --term-ink:#D8E4DF; --term-dim:#7C8F8A; --term-accent:#5FD3A0;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0D1214; --surface:#151D1F; --surface-2:#1D2729;
+    --ink:#E4EBE8; --ink-2:#AFBDB9; --ink-3:#7E8D8A;
+    --line:#26332F; --line-strong:#3A4A46;
+    --accent:#46C58C; --accent-soft:#122C22;
+    --amber:#EFB63F; --amber-soft:#2E2413;
+    --rose:#E88B8B; --rose-soft:#2E1919;
+    --term-bg:#080E0F; --term-ink:#D8E4DF; --term-dim:#6F817C; --term-accent:#5FD3A0;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0D1214; --surface:#151D1F; --surface-2:#1D2729;
+  --ink:#E4EBE8; --ink-2:#AFBDB9; --ink-3:#7E8D8A;
+  --line:#26332F; --line-strong:#3A4A46;
+  --accent:#46C58C; --accent-soft:#122C22;
+  --amber:#EFB63F; --amber-soft:#2E2413;
+  --rose:#E88B8B; --rose-soft:#2E1919;
+  --term-bg:#080E0F; --term-ink:#D8E4DF; --term-dim:#6F817C; --term-accent:#5FD3A0;
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Source Serif 4","Iowan Old Style",Georgia,serif;
+  font-size:17px; line-height:1.62; -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,.ui{font-family:"Archivo","Helvetica Neue",Arial,sans-serif;}
+code,kbd,pre,.mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;}
+
+.wrap{max-width:820px;margin:0 auto;padding:0 24px 96px;}
+
+.masthead{border-bottom:1px solid var(--line);padding:56px 0 28px;margin-bottom:40px;}
+.eyebrow{
+  font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3);display:flex;flex-wrap:wrap;
+  gap:8px 18px;margin-bottom:20px;
+}
+.masthead h1{
+  font-size:clamp(32px,6vw,52px);line-height:1.03;font-weight:700;
+  letter-spacing:-.025em;margin:0 0 16px;text-wrap:balance;
+}
+.masthead h1 em{font-style:normal;color:var(--accent);}
+.standfirst{font-size:clamp(17px,2.1vw,19px);color:var(--ink-2);max-width:60ch;margin:0;}
+
+p{margin:0 0 16px;max-width:66ch;}
+a{color:var(--accent);}
+strong{font-weight:600;}
+
+/* ---------- carte d'architecture ---------- */
+.arch{
+  border:1px solid var(--line);border-radius:10px;background:var(--surface);
+  padding:18px;margin:0 0 32px;
+}
+.arch h3{
+  font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-3);margin:0 0 14px;font-weight:600;
+}
+.routes{display:flex;flex-direction:column;gap:8px;}
+.route{
+  display:grid;grid-template-columns:minmax(120px,auto) 22px 1fr;
+  align-items:center;gap:10px;font-size:14px;
+}
+.route .from{
+  font-family:"JetBrains Mono",monospace;font-size:12.5px;
+  background:var(--surface-2);border:1px solid var(--line);
+  border-radius:5px;padding:4px 8px;text-align:center;white-space:nowrap;
+}
+.route .arrow{color:var(--line-strong);text-align:center;}
+.route .to{color:var(--ink-2);font-size:14.5px;}
+.route.is-new .from{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600;}
+.arch .foot{
+  margin-top:14px;padding-top:12px;border-top:1px solid var(--line);
+  font-size:13.5px;color:var(--ink-3);
+}
+
+/* ---------- etapes ---------- */
+.step{
+  border-top:1px solid var(--line);padding-top:26px;margin-top:34px;
+  scroll-margin-top:20px;
+}
+.step-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap;}
+.step-num{
+  font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:600;
+  color:var(--accent);background:var(--accent-soft);border-radius:5px;
+  padding:3px 8px;flex:none;
+}
+.step h2{
+  font-family:"Archivo",sans-serif;font-size:clamp(20px,3vw,25px);font-weight:600;
+  letter-spacing:-.02em;margin:0;line-height:1.2;flex:1;min-width:200px;
+}
+.step-time{
+  font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-3);
+  white-space:nowrap;
+}
+.where{
+  font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-3);margin:0 0 14px;
+}
+
+/* ---------- terminal ---------- */
+pre{
+  background:var(--term-bg);color:var(--term-ink);
+  border-radius:9px;padding:14px 16px;margin:0 0 18px;
+  overflow-x:auto;font-size:13px;line-height:1.62;
+  border:1px solid rgba(255,255,255,.06);
+}
+pre .c{color:var(--term-dim);}
+pre .p{color:var(--term-accent);}
+code{
+  font-size:.86em;background:var(--surface-2);padding:1px 5px;
+  border-radius:4px;border:1px solid var(--line);
+}
+pre code{background:none;border:none;padding:0;font-size:inherit;}
+
+ul.plain,ol.plain{margin:0 0 18px;padding-left:22px;max-width:66ch;}
+ul.plain li,ol.plain li{margin-bottom:7px;}
+ul.plain li::marker,ol.plain li::marker{color:var(--line-strong);}
+
+/* ---------- encadres ---------- */
+.note{
+  border-left:3px solid var(--amber);background:var(--amber-soft);
+  border-radius:0 8px 8px 0;padding:13px 17px;margin:0 0 20px;
+}
+.note p{margin:0;max-width:none;font-size:15.5px;}
+.note p + p{margin-top:9px;}
+.note .lbl{
+  font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--amber);font-weight:600;display:block;margin-bottom:5px;
+}
+.note.good{border-color:var(--accent);background:var(--accent-soft);}
+.note.good .lbl{color:var(--accent);}
+.note.stop{border-color:var(--rose);background:var(--rose-soft);}
+.note.stop .lbl{color:var(--rose);}
+
+/* ---------- tableau ---------- */
+.scroller{overflow-x:auto;margin:0 0 20px;border:1px solid var(--line);border-radius:8px;background:var(--surface);}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:520px;}
+th,td{text-align:left;padding:11px 15px;border-bottom:1px solid var(--line);vertical-align:top;}
+thead th{
+  font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-3);font-weight:600;background:var(--surface-2);
+  white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:none;}
+
+footer{
+  border-top:1px solid var(--line);margin-top:48px;padding-top:20px;
+  font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-3);
+  display:flex;flex-wrap:wrap;gap:6px 20px;
+}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;}}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <span>Guide de mise en route</span>
+      <span>WIN natif — lot 0</span>
+      <span>23 août 2026</span>
+    </div>
+    <h1>Du VPS à <em>l'APK</em></h1>
+    <p class="standfirst">Mettre la nouvelle API en ligne à côté de l'ancienne, puis installer l'application sur votre téléphone Android. Environ trois heures, dont une d'attente pendant la compilation.</p>
+  </header>
+
+  <p>Rien de ce qui suit ne touche à la v83. La nouvelle API écoute sur un autre port, répond sur une autre adresse, et écrit dans une autre base de données. Si quelque chose se passe mal, l'étape 12 remet tout comme avant en deux commandes.</p>
+
+  <div class="arch">
+    <h3>Ce que Nginx servira après l'opération</h3>
+    <div class="routes">
+      <div class="route"><span class="from">/</span><span class="arrow">→</span><span class="to">index.html de la v83 — inchangé</span></div>
+      <div class="route"><span class="from">/api/</span><span class="arrow">→</span><span class="to">ancien backend, port 3001 — inchangé</span></div>
+      <div class="route"><span class="from">/uploads/</span><span class="arrow">→</span><span class="to">photos de la v83 — inchangé</span></div>
+      <div class="route"><span class="from">/valhalla/</span><span class="arrow">→</span><span class="to">conteneur de routage, port 8002 — inchangé</span></div>
+      <div class="route is-new"><span class="from">/v2/</span><span class="arrow">→</span><span class="to"><strong>nouvelle API, port 3002</strong> — c'est tout ce qu'on ajoute</span></div>
+    </div>
+    <p class="foot">Le port 3002 n'est ouvert que sur <code>127.0.0.1</code> : seul Nginx peut lui parler. Rien à changer dans le pare-feu.</p>
+  </div>
+
+  <!-- ---------------------------------------------------------------- -->
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">01</span><h2>Sauvegarder avant de toucher à quoi que ce soit</h2><span class="step-time">5 min</span></div>
+    <p class="where">Sur le VPS, via PuTTY</p>
+    <pre><code><span class="c"># les données de l'ancien backend, et la configuration de Nginx</span>
+cd ~ && mkdir -p sauvegardes
+cp -r ~/winbackend/data ~/sauvegardes/data-$(date +%F)
+sudo cp /etc/nginx/sites-available/default ~/sauvegardes/nginx-default-$(date +%F).bak
+
+<span class="c"># vérifier que Docker est bien là (Valhalla tourne déjà avec)</span>
+docker --version
+docker compose version</code></pre>
+    <p>Si <code>docker compose version</code> répond une erreur, installez le greffon : <code>sudo apt install -y docker-compose-plugin</code>.</p>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">02</span><h2>Envoyer le code sur le serveur</h2><span class="step-time">5 min</span></div>
+    <p class="where">WinSCP, puis PuTTY</p>
+    <p>Déposez <code>win-native-lot0.zip</code> dans <code>/home/ubuntu/</code> avec WinSCP, puis :</p>
+    <pre><code>cd ~ && mkdir -p win-native && cd win-native
+unzip -o ~/win-native-lot0.zip
+ls</code></pre>
+    <div class="note stop">
+      <span class="lbl">Vérifiez le dossier avant de décompresser</span>
+      <p>Le <code>-o</code> écrase sans demander. Il doit être lancé depuis <code>~/win-native</code> et nulle part ailleurs — surtout pas depuis <code>~/winbackend</code>, où il effacerait vos adresses.</p>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">03</span><h2>Écrire la configuration</h2><span class="step-time">10 min</span></div>
+    <p class="where">Sur le VPS</p>
+    <p>Deux fichiers : un pour le mot de passe de la base, un pour l'API.</p>
+    <pre><code><span class="c"># 1. mot de passe de la base de données</span>
+cd ~/win-native
+cp .env.example .env
+openssl rand -base64 32          <span class="c"># copiez le résultat</span>
+nano .env                        <span class="c"># collez-le dans POSTGRES_PASSWORD</span>
+
+<span class="c"># 2. configuration de l'API</span>
+cd ~/win-native/apps/api
+cp .env.example .env
+openssl rand -base64 48          <span class="c"># copiez le résultat</span>
+nano .env</code></pre>
+    <p>Dans <code>apps/api/.env</code>, seules trois lignes comptent vraiment :</p>
+    <pre><code>JWT_SECRET=<span class="c">&lt;la valeur générée par openssl&gt;</span>
+PUBLIC_BASE_URL=https://51.77.194.25.nip.io/v2
+NODE_ENV=production</code></pre>
+    <p>Laissez <code>DATABASE_URL</code> et <code>REDIS_URL</code> tels quels : le fichier <code>docker-compose.yml</code> les remplace automatiquement par les adresses internes des conteneurs.</p>
+    <div class="note good">
+      <span class="lbl">Pourquoi c'est mieux qu'avant</span>
+      <p>Si une variable manque ou si <code>JWT_SECRET</code> est trop court, l'API refuse de démarrer et vous dit laquelle. L'ancien backend, lui, démarrait à moitié configuré et vous ne le découvriez que plus tard.</p>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">04</span><h2>Construire et démarrer</h2><span class="step-time">10 min</span></div>
+    <p class="where">Sur le VPS</p>
+    <pre><code>cd ~/win-native
+docker compose up -d --build
+
+docker compose ps                <span class="c"># les trois services doivent être "running"</span>
+docker compose logs -f api       <span class="c"># Ctrl+C pour sortir des logs</span></code></pre>
+    <p>Vous devez voir <code>Base prête, PostGIS 3.5</code> puis <code>Server listening</code>. Premier contrôle, depuis le VPS :</p>
+    <pre><code>curl -s http://127.0.0.1:3002/status</code></pre>
+    <p>Réponse attendue : <code>{"ok":true,"service":"win-api",...}</code></p>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">05</span><h2>Créer les tables</h2><span class="step-time">2 min</span></div>
+    <p class="where">Sur le VPS</p>
+    <pre><code>docker compose exec api node dist/src/db/migrate.js</code></pre>
+    <p>Affiche <code>+ 0000_init.sql</code> puis <code>1 migration(s) appliquée(s)</code>. Relancer la commande ne casse rien : elle saute ce qui est déjà passé.</p>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">06</span><h2>Reprendre vos adresses existantes</h2><span class="step-time">15 min</span></div>
+    <p class="where">Sur le VPS</p>
+    <p>Sans cette étape, l'application s'ouvrira sur une carte vide. Les données de l'ancien backend sont déjà sur le serveur : on les monte <strong>en lecture seule</strong> dans le conteneur, elles ne peuvent donc pas être abîmées.</p>
+    <pre><code><span class="c"># d'abord à blanc : aucune écriture, juste un rapport</span>
+docker compose run --rm \
+  -v /home/ubuntu/winbackend/data/db:/legacy:ro \
+  api node dist/scripts/migrate-legacy.js --source /legacy --dry-run</code></pre>
+    <p>Lisez le tableau : combien d'enregistrements lus, combien importables, et lesquels sont écartés avec la raison. <strong>On ne passe à la suite que quand ce rapport vous paraît juste.</strong> Ensuite seulement :</p>
+    <pre><code>docker compose run --rm \
+  -v /home/ubuntu/winbackend/data/db:/legacy:ro \
+  api node dist/scripts/migrate-legacy.js --source /legacy</code></pre>
+    <div class="note">
+      <span class="lbl">Si le rapport écarte beaucoup de lignes</span>
+      <p>C'est le signe que les noms de champs de vos JSON diffèrent de ceux que le script attend. Envoyez-moi le rapport : j'ajuste la correspondance, c'est cinq minutes de travail. N'importez pas un fichier à moitié.</p>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">07</span><h2>Créer votre compte administrateur</h2><span class="step-time">3 min</span></div>
+    <p class="where">Sur le VPS</p>
+    <pre><code>docker compose run --rm api node dist/scripts/seed-admin.js \
+  --email vous@exemple.dz --name "Amiir" --role admin</code></pre>
+    <p>Le mot de passe est demandé au clavier, jamais écrit dans la commande — sinon il resterait dans l'historique du shell. Douze caractères minimum. Ce compte remplace le code <code>1154</code>, qui était écrit en clair dans <code>index.html</code> et donc lisible par n'importe qui.</p>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">08</span><h2>Ouvrir la route dans Nginx</h2><span class="step-time">10 min</span></div>
+    <p class="where">Sur le VPS</p>
+    <pre><code>cat ~/win-native/deploy/nginx-win-v2.conf     <span class="c"># le contenu à coller</span>
+sudo nano /etc/nginx/sites-available/default</code></pre>
+    <p>Collez les deux blocs <code>location</code> <strong>à l'intérieur du bloc <code>server</code> qui écoute en 443</strong>, juste avant son accolade fermante. Ne modifiez aucune ligne existante.</p>
+    <pre><code>sudo nginx -t                    <span class="c"># doit répondre "syntax is ok" et "test is successful"</span>
+sudo systemctl reload nginx</code></pre>
+    <div class="note stop">
+      <span class="lbl">L'ordre des deux blocs compte</span>
+      <p><code>/v2/socket.io/</code> doit être écrit <strong>avant</strong> <code>/v2/</code>. Nginx choisit le préfixe le plus long, donc l'ordre importe peu en théorie — mais gardez-le, c'est ce qui rend le fichier lisible quand vous y reviendrez dans six mois. Sans ce premier bloc, les signalements en temps réel n'arriveront jamais sur le téléphone.</p>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">09</span><h2>Vérifier — et vérifier que l'ancienne vit toujours</h2><span class="step-time">5 min</span></div>
+    <p class="where">Sur le VPS</p>
+    <pre><code><span class="c"># la nouvelle API</span>
+curl -s https://51.77.194.25.nip.io/v2/status
+curl -s https://51.77.194.25.nip.io/v2/status/full
+curl -s "https://51.77.194.25.nip.io/v2/places/search?q=pharm" | head -c 300
+
+<span class="c"># LE contrôle qui compte : la v83 doit répondre exactement comme avant</span>
+curl -s https://51.77.194.25.nip.io/api/status
+curl -s "https://51.77.194.25.nip.io/api/addresses/search?q=a" | head -c 200</code></pre>
+    <p><code>/v2/status/full</code> vérifie aussi Valhalla. S'il répond <code>"valhalla":{"ok":false}</code>, le routage est en panne — mais la carte et les signalements fonctionneront quand même.</p>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">10</span><h2>Préparer la compilation sur votre PC</h2><span class="step-time">20 min</span></div>
+    <p class="where">Sur Windows, dans PowerShell</p>
+    <p>Il faut Node 22 ou plus : <a href="https://nodejs.org">nodejs.org</a>, version LTS. Vérifiez avec <code>node -v</code>. C'est le seul prérequis — <strong>ni Android Studio, ni le SDK Android</strong>, qui représenteraient une dizaine de gigaoctets de téléchargement.</p>
+    <p>Créez un compte gratuit sur <a href="https://expo.dev">expo.dev</a>, puis :</p>
+    <pre><code>cd C:\Users\user\Desktop\WINDZ\win-native\apps\mobile
+.\build-apk.ps1</code></pre>
+    <p>Le script fait tout dans l'ordre : vérifier Node, installer les dépendances, compiler la partie partagée, mettre en place <code>eas-cli</code>, vous connecter, créer le projet chez Expo au premier lancement, puis lancer la compilation.</p>
+    <div class="note">
+      <span class="lbl">Deux messages qui inquiètent à tort</span>
+      <p>Si PowerShell refuse d'exécuter le script, lancez d'abord <code>Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass</code> dans la même fenêtre.</p>
+      <p>Si EAS signale que le dossier n'est pas un dépôt Git, répondez oui pour continuer. Vous pouvez aussi faire <code>git init && git add . && git commit -m "lot 0"</code> — ce serait de toute façon une bonne idée avant le lot 1.</p>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">11</span><h2>Récupérer l'APK et l'installer</h2><span class="step-time">20 à 45 min d'attente</span></div>
+    <p class="where">Sur Windows, puis sur le téléphone</p>
+    <p><strong>La compilation ne se fait pas sur votre PC.</strong> Le code est envoyé chez Expo, qui compile sur ses machines et vous renvoie un lien de téléchargement et un QR code. Vous pouvez fermer la fenêtre pendant l'attente : le travail continue, et le lien reste disponible sur <a href="https://expo.dev">expo.dev</a>, section <em>Builds</em>.</p>
+    <p>Ensuite, sur le téléphone :</p>
+    <ol class="plain">
+      <li>Ouvrez le lien (ou scannez le QR code) et téléchargez le fichier <code>.apk</code>.</li>
+      <li>Android demandera d'autoriser l'installation depuis cette source — acceptez.</li>
+      <li>Au premier lancement, accordez l'accès à la position <strong>« pendant l'utilisation »</strong>. L'autorisation d'arrière-plan ne servira qu'au lot 3.</li>
+    </ol>
+    <div class="note good">
+      <span class="lbl">Ce que vous devez voir</span>
+      <p>La carte de l'Algérie, votre position bleue après quelques secondes, le bouton <code>◎</code> qui recentre, et — si vous avez fait l'étape 6 — vos signalements permanents affichés en pastilles ambre. Le bandeau du haut annonce combien il y en a autour de vous.</p>
+      <p>Test du temps réel : ajoutez un signalement depuis la v83 sur votre ordinateur, il doit apparaître sur le téléphone en une seconde, sans rien rafraîchir.</p>
+    </div>
+    <div class="note">
+      <span class="lbl">L'adresse du serveur est figée dans l'APK</span>
+      <p>Elle est lue dans <code>app.json</code>, ligne <code>apiBaseUrl</code>, au moment de la compilation. Si vous changez de nom de domaine plus tard — en remplaçant <code>nip.io</code> par un vrai domaine, par exemple — il faudra recompiler un APK. Ce n'est pas grave, mais mieux vaut le savoir avant de distribuer le fichier à douze testeurs.</p>
+      <p>Rien ne vous empêche de compiler l'APK <strong>avant</strong> d'avoir déployé le serveur : la carte, le fond de plan et votre position fonctionneront. Seuls les lieux et les signalements resteront vides tant que <code>/v2/</code> ne répond pas.</p>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">12</span><h2>Revenir en arrière, si besoin</h2><span class="step-time">3 min</span></div>
+    <p class="where">Sur le VPS</p>
+    <pre><code>cd ~/win-native
+docker compose down
+
+sudo cp ~/sauvegardes/nginx-default-<span class="c">&lt;date&gt;</span>.bak /etc/nginx/sites-available/default
+sudo nginx -t && sudo systemctl reload nginx</code></pre>
+    <div class="note stop">
+      <span class="lbl">Jamais l'option -v</span>
+      <p><code>docker compose down -v</code> supprime aussi les volumes, donc la base de données et toutes les photos envoyées. <code>docker compose down</code> seul arrête les conteneurs et garde tout.</p>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">↻</span><h2>Publier une mise à jour, plus tard</h2></div>
+    <p>Quand je vous livrerai le lot 1, la manœuvre se réduit à ceci :</p>
+    <pre><code><span class="c"># serveur</span>
+cd ~/win-native && docker compose up -d --build && docker compose exec api node dist/src/db/migrate.js
+
+<span class="c"># application</span>
+cd apps\mobile && npm run build:apk</code></pre>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-num">?</span><h2>Si ça coince</h2></div>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Symptôme</th><th>Cause la plus probable</th><th>Quoi faire</th></tr></thead>
+        <tbody>
+          <tr><td><code>permission denied … docker.sock</code></td><td>Votre utilisateur n'est pas dans le groupe docker</td><td><code>sudo usermod -aG docker ubuntu</code> puis reconnectez-vous</td></tr>
+          <tr><td>Le conteneur <code>api</code> redémarre en boucle</td><td>Une variable de configuration manque ou est invalide</td><td><code>docker compose logs api</code> — le message nomme la variable fautive</td></tr>
+          <tr><td><code>502 Bad Gateway</code> sur <code>/v2/status</code></td><td>Le conteneur n'écoute pas sur 3002</td><td><code>docker compose ps</code> puis <code>curl 127.0.0.1:3002/status</code></td></tr>
+          <tr><td>La v83 ne répond plus</td><td>Une ligne existante a été modifiée dans Nginx</td><td>Restaurez la sauvegarde de l'étape 1, puis recollez le bloc proprement</td></tr>
+          <tr><td>Carte vide, aucun lieu</td><td>L'étape 6 n'a pas été faite, ou tout a été écarté</td><td>Relancez la migration en <code>--dry-run</code> et lisez le rapport</td></tr>
+          <tr><td>Les signalements n'arrivent pas en direct</td><td>Le bloc <code>/v2/socket.io/</code> manque</td><td>Vérifiez l'étape 8, puis <code>sudo systemctl reload nginx</code></td></tr>
+          <tr><td><code>eas build</code> parle d'un projectId</td><td><code>eas init</code> n'a pas été lancé</td><td>Relancez <code>eas init</code> dans <code>apps/mobile</code></td></tr>
+          <tr><td>Carte grise sur le téléphone</td><td>Les tuiles OpenFreeMap ne se téléchargent pas</td><td>Vérifiez la connexion du téléphone ; les tuiles viennent d'Internet, pas de votre VPS</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Dans tous les cas, envoyez-moi la sortie de <code>docker compose logs --tail 50 api</code> : c'est presque toujours suffisant pour trancher.</p>
+  </section>
+
+  <footer>
+    <span>WIN — guide de mise en route, lot 0</span>
+    <span>API sur /v2, port 3002</span>
+    <span>La v83 reste en production sur /</span>
+  </footer>
+
+</div>

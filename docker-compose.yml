@@ -1,0 +1,84 @@
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    container_name: win_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-win}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-win}
+      POSTGRES_DB: ${POSTGRES_DB:-win}
+    # Jamais expose sur l'exterieur : seul l'hote peut s'y connecter.
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - win_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-win} -d ${POSTGRES_DB:-win}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: win_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - win_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: win_api
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    env_file:
+      - ./apps/api/.env
+    environment:
+      # Ces trois valeurs remplacent celles du .env : a l'interieur du reseau
+      # Docker, la base et Redis ne sont pas sur 127.0.0.1 mais sur les noms
+      # des services. Valhalla, lui, tourne sur l'hote.
+      DATABASE_URL: postgres://${POSTGRES_USER:-win}:${POSTGRES_PASSWORD:-win}@db:5432/${POSTGRES_DB:-win}
+      REDIS_URL: redis://redis:6379
+      VALHALLA_URL: http://host.docker.internal:8002
+      # Second moteur Valhalla, dedie a l'Europe (France) : renseigne seulement quand le
+      # conteneur correspondant tourne. Sans lui, tout passe par le moteur ci-dessus.
+      VALHALLA_EU_URL: ${VALHALLA_EU_URL:-}
+      NODE_ENV: production
+      PORT: 3002
+      HOST: 0.0.0.0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # 3002, parce que l'ancien backend occupe toujours le 3001.
+    ports:
+      - "127.0.0.1:3002:3002"
+    volumes:
+      - win_uploads:/app/apps/api/data/uploads
+
+  # Le conteneur Valhalla existant reste inchange. Il est declare ici pour
+  # memoire : sur le VPS il tourne deja sous le nom valhalla_win et ecoute
+  # sur 127.0.0.1:8002. Ne pas le recreer sans avoir sauvegarde les tuiles.
+  #
+  # valhalla:
+  #   image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+  #   container_name: valhalla_win
+  #   restart: unless-stopped
+  #   ports:
+  #     - "127.0.0.1:8002:8002"
+  #   volumes:
+  #     - /home/ubuntu/valhalla/custom_files:/custom_files
+
+volumes:
+  win_db_data:
+  win_redis_data:
+  win_uploads:

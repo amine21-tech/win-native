@@ -1,0 +1,30 @@
+{
+  "name": "win-native",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WIN — application de navigation pour l'Algerie. Monorepo Node.js : API Fastify + application mobile React Native.",
+  "workspaces": [
+    "packages/*",
+    "apps/api"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:reset": "docker compose down -v && docker compose up -d",
+    "db:push": "npm run db:push -w @win/api",
+    "db:migrate-legacy": "npm run migrate:legacy -w @win/api",
+    "api:dev": "npm run dev -w @win/api",
+    "api:build": "npm run build -w @win/api",
+    "api:start": "npm run start -w @win/api",
+    "mobile:dev": "cd apps/mobile && npx expo start",
+    "mobile:android": "cd apps/mobile && npx expo run:android",
+    "build": "npm run build -w @win/shared && npm run build -w @win/api",
+    "typecheck": "npm run typecheck -w @win/shared && npm run typecheck -w @win/api"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

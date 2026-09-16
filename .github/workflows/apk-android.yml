@@ -1,0 +1,77 @@
+# Fabrication de l'APK Android sur les machines de GitHub.
+#
+# Remplace les compilations EAS, dont le quota gratuit est epuise chaque mois. Le resultat est
+# identique : c'est le meme projet Expo, compile avec les memes outils, mais sur une machine
+# GitHub plutot que sur les serveurs d'Expo.
+#
+# Lancement : onglet « Actions » du depot -> « APK Android » -> « Run workflow ».
+# L'APK se recupere en bas de la page de l'execution, dans « Artifacts ».
+name: APK Android
+
+on:
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    # Une compilation Android complete depasse les 10 minutes par defaut la premiere fois
+    # (telechargement des dependances natives, compilation C++ de MapLibre).
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      # Java 17 : version exigee par Gradle 8 et le greffon Android.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Dependances
+        working-directory: apps/mobile
+        run: npm ci
+
+      # `prebuild` regenere le dossier android/ a partir de app.json. Il n'est volontairement
+      # pas conserve dans le depot : il se reconstruit a l'identique a chaque fois, et le
+      # garder reviendrait a versionner des milliers de fichiers generes.
+      - name: Generer le projet Android
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android --no-install
+
+      # Signature. Sans les secrets, l'APK est signe avec la cle de developpement d'Android :
+      # il s'installe et fonctionne, mais PAS par-dessus une version signee autrement.
+      - name: Signature
+        working-directory: apps/mobile
+        env:
+          WIN_KEYSTORE_BASE64: ${{ secrets.WIN_KEYSTORE_BASE64 }}
+          WIN_KEYSTORE_PASSWORD: ${{ secrets.WIN_KEYSTORE_PASSWORD }}
+          WIN_KEY_ALIAS: ${{ secrets.WIN_KEY_ALIAS }}
+          WIN_KEY_PASSWORD: ${{ secrets.WIN_KEY_PASSWORD }}
+        run: node scripts/ci-signing.mjs
+
+      # Les mots de passe sont lus par Gradle depuis l'environnement, jamais ecrits dans un
+      # fichier du projet (voir scripts/ci-signing.mjs).
+      - name: Compiler l'APK
+        working-directory: apps/mobile/android
+        env:
+          WIN_KEYSTORE_PASSWORD: ${{ secrets.WIN_KEYSTORE_PASSWORD }}
+          WIN_KEY_ALIAS: ${{ secrets.WIN_KEY_ALIAS }}
+          WIN_KEY_PASSWORD: ${{ secrets.WIN_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Version
+        id: version
+        working-directory: apps/mobile
+        run: echo "code=$(node -p "require('./app.json').expo.android.versionCode")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win-v${{ steps.version.outputs.code }}-apk
+          path: apps/mobile/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
