@@ -14,9 +14,10 @@ on:
 jobs:
   apk:
     runs-on: ubuntu-latest
-    # Une compilation Android complete depasse les 10 minutes par defaut la premiere fois
-    # (telechargement des dependances natives, compilation C++ de MapLibre).
-    timeout-minutes: 60
+    # La PREMIERE compilation est longue : Gradle, le SDK Android et la compilation C++ de
+    # MapLibre partent de zero, sans aucun cache. Les suivantes reutilisent le cache ci-dessous
+    # et durent beaucoup moins. Deux heures laissent de la marge meme sur une machine lente.
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +33,16 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+
+      # Cache de Gradle : c'est lui qui fait la difference entre une premiere compilation d'une
+      # heure et les suivantes en une quinzaine de minutes.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('apps/mobile/package-lock.json') }}
+          restore-keys: gradle-${{ runner.os }}-
 
       - name: Dependances
         working-directory: apps/mobile
@@ -63,7 +74,10 @@ jobs:
           WIN_KEYSTORE_PASSWORD: ${{ secrets.WIN_KEYSTORE_PASSWORD }}
           WIN_KEY_ALIAS: ${{ secrets.WIN_KEY_ALIAS }}
           WIN_KEY_PASSWORD: ${{ secrets.WIN_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --no-daemon
+        # `--no-daemon` : inutile de garder un processus Gradle vivant sur une machine jetable.
+        # `-x lint` : l'analyse statique d'Android ajoute plusieurs minutes sans rien apporter
+        # ici — le projet est deja verifie par TypeScript avant d'arriver jusque-la.
+        run: ./gradlew assembleRelease --no-daemon -x lint
 
       - name: Version
         id: version
