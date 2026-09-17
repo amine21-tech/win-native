@@ -7,6 +7,7 @@ import {
   CITY_ALIASES,
   CURATED_AIRPORTS,
   CURATED_PORTS,
+  countryFromCoords,
   countryLabel,
   mergeCurated,
   normalizeCity,
@@ -36,7 +37,13 @@ export function clearSearchCache() {
 function mapPlace(p: Place, lang: Language): GeocodedResult {
   const line1 = [p.houseNumber, p.street].filter(Boolean).join(' ') || p.enseigne || p.name;
   const line2 = [p.postalCode, p.city].filter(Boolean).join(' ');
-  const pays = countryLabel({ countryCode: p.country }, lang === 'dz' ? 'ar' : lang);
+  // Le pays vient des COORDONNEES, avec le champ enregistre en secours : des fiches ajoutees
+  // par une version anterieure portent « DZ » en dur, d'ou une adresse parisienne etiquetee
+  // « Algerie » dans les resultats.
+  const pays = countryLabel(
+    { countryCode: countryFromCoords(p.lat, p.lon) ?? p.country },
+    lang === 'dz' ? 'ar' : lang,
+  );
   return {
     name: p.name || line1,
     displayName: [line1, line2, pays].filter(Boolean).join(', '),

@@ -39,14 +39,13 @@ import { ReportVoteCard } from '../src/components/ReportVoteCard';
 import { SearchBar } from '../src/components/SearchBar';
 import { SearchResults } from '../src/components/SearchResults';
 import { SeasonalBanner } from '../src/components/SeasonalBanner';
-import { SpeedBadge } from '../src/components/SpeedBadge';
-import { SpeedLimitBadge } from '../src/components/SpeedLimitBadge';
 import { SosPanel } from '../src/components/SosPanel';
 import { StepsSheet } from '../src/components/StepsSheet';
 import { Toast } from '../src/components/Toast';
 import { VoicePanel } from '../src/components/VoicePanel';
 import { TripSummary, type Trip } from '../src/components/TripSummary';
 import { useRealtime } from '../src/hooks/useRealtime';
+import { NavArrow } from '../src/components/NavArrow';
 import { MeMarker } from '../src/map/MeMarker';
 import { COUNTRY_VIEWS, INITIAL_VIEW_STATE, MAP_STYLES, REPORT_COLORS, type CountryView } from '../src/map/style';
 import { useMapStyle } from '../src/map/useMapStyle';
@@ -84,7 +83,7 @@ const ARRIVAL_RADIUS_M = 50;
  * ordinaire d'un GPS de telephone en ville, sans masquer une vraie sortie de route. */
 const SNAP_RADIUS_M = 25;
 /** Diametre du marqueur de navigation, en points. */
-const NAV_PUCK_SIZE = 38;
+const NAV_PUCK_SIZE = 46;
 
 /** Colonne de boutons : nombre de boutons, et place occupee en haut par le bandeau de marque,
  * la barre de recherche et la rangee de categories. Sert a calculer une taille de bouton qui
@@ -140,17 +139,18 @@ export default function MapScreen() {
   // Taille des boutons de la colonne, calculee a partir de la hauteur reellement disponible
   // plutot que figee : sur un ecran court, ils retrecissent (jamais sous 38 pt, la limite de
   // confort tactile) au lieu de deborder hors de l'ecran.
-  const fabSize = useMemo(() => {
+  const baseFabSize = useMemo(() => {
     const available =
       windowHeight - (insets.top + HEADER_HEIGHT + FAB_TOP_RESERVE) - (insets.bottom + spacing.xl);
     const gaps = (FAB_COUNT - 1) * spacing.md;
     const raw = (available - gaps) / (FAB_COUNT - 1 + FAB_PRIMARY_RATIO);
     return Math.max(38, Math.min(HIT_SIZE, Math.floor(raw)));
   }, [windowHeight, insets.top, insets.bottom]);
-  const fabPrimarySize = Math.round(fabSize * FAB_PRIMARY_RATIO);
 
   const [liveReports, setLiveReports] = useState<Report[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(null);
+  /** Fiche du lieu rouverte pendant le guidage, via « Retour » du cadre du bas. */
+  const [destSheetOpen, setDestSheetOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [reportMenuOpen, setReportMenuOpen] = useState(false);
   const [votingReport, setVotingReport] = useState<Report | null>(null);
@@ -163,6 +163,12 @@ export default function MapScreen() {
   // Declare avant tout le reste : la cadence du GPS en depend (1 Hz en navigation contre
   // une mesure toutes les 3 s au repos), donc la source de position aussi.
   const [navigating, setNavigating] = useState(false);
+
+  /* Pendant le guidage, la colonne partage la hauteur avec le bandeau de consigne et le cadre
+   * du bas : les boutons passent a 78 % de leur taille plutot que d'etre masques, ce que fait
+   * aussi la version web. 34 points restent tactilement utilisables. */
+  const fabSize = navigating ? Math.max(34, Math.round(baseFabSize * 0.78)) : baseFabSize;
+  const fabPrimarySize = Math.round(fabSize * FAB_PRIMARY_RATIO);
 
   /**
    * Orientation : portrait partout, SAUF pendant la navigation.
@@ -984,6 +990,172 @@ export default function MapScreen() {
 
   const mapStyle = useMapStyle(scheme === 'dark' ? MAP_STYLES.night : MAP_STYLES.day);
 
+  /* Colonne des dix boutons. Elle etait ecrite dans la branche « accueil » du rendu, donc
+   * absente pendant le guidage — le client a constate qu'il ne restait que le bouton du son.
+   * Elle est desormais rendue dans les deux etats, et elle retrecit pendant le trajet pour
+   * laisser la place au bandeau de consigne et au cadre du bas (comme ajusterColonneFab en v86). */
+  // Ordre EXACT donne par le client (chantier #20), repris de la colonne de v83, de haut en
+  // bas : assistant vocal, SOS, partager, mode nuit, signalement, voix du guidage, ma
+  // position, profil, drapeau, Qibla.
+  const fabColumn = (
+      <View style={[styles.column, { bottom: insets.bottom + spacing.xl }]}>
+        {isLoading ? <ActivityIndicator color={colors.accent} /> : null}
+
+        {/* Assistant vocal : « pharmacie de garde », « combien de temps pour arriver »,
+            « emmene-moi a Blida ». Distinct du micro de la barre de recherche, qui ne fait
+            que dicter du texte — ici l'application comprend et agit. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('assistant.title')}
+          onPress={() => void assistant.start()}
+          style={({ pressed }) => [
+            styles.fab,
+            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
+            {
+              backgroundColor: assistant.listening ? colors.accent : colors.surface,
+              borderColor: colors.goldDeep,
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+        >
+          <Text style={[styles.fabGlyph, { fontSize: 20 }]}>🎙️</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('sos.title')}
+          onPress={() => setSosOpen(true)}
+          style={({ pressed }) => [
+            styles.fab,
+            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
+            { backgroundColor: colors.danger, borderColor: colors.danger, opacity: pressed ? 0.8 : 1 },
+          ]}
+        >
+          <Text style={styles.sosGlyph}>SOS</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('map.share')}
+          onPress={sharePosition}
+          style={({ pressed }) => [
+            styles.fab,
+            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
+            { backgroundColor: colors.surface, borderColor: colors.goldDeep, opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <Text style={[styles.fabGlyph, { color: colors.accent, fontSize: 20 }]}>🔗</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('map.nightMode')}
+          onPress={toggleNightMode}
+          style={({ pressed }) => [
+            styles.fab,
+            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
+            { backgroundColor: colors.surface, borderColor: colors.goldDeep, opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          {/* Lune sur fond clair, soleil sur fond sombre — c'est-a-dire le pictogramme de ce
+              vers quoi on bascule, exactement comme `iconMoon`/`iconSun` en v83. */}
+          <Text style={[styles.fabGlyph, { color: colors.accent, fontSize: 20 }]}>{scheme === 'dark' ? '☀️' : '🌙'}</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('report.add')}
+          onPress={openReportMenu}
+          style={({ pressed }) => [
+            styles.fab,
+            styles.fabPrimary,
+            { width: fabPrimarySize, height: fabPrimarySize, borderRadius: fabPrimarySize / 2 },
+            // Rouge, comme `#alertBtn` en v83 (background:#c8102e) : c'est le seul bouton
+            // d'alerte de la colonne, il ne doit pas se confondre avec le vert de l'interface.
+            { backgroundColor: colors.danger, opacity: pressed ? 0.8 : 1 },
+          ]}
+        >
+          <Text style={[styles.fabGlyph, { color: '#fff' }]}>⚠</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('map.voiceGuidance')}
+          accessibilityHint={t('voice.title')}
+          onPress={toggleVoiceGuidance}
+          onLongPress={() => setVoicePanelOpen(true)}
+          style={({ pressed }) => [
+            styles.fab,
+            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
+            { backgroundColor: colors.surface, borderColor: colors.goldDeep, opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <Text style={[styles.fabGlyph, { color: colors.accent, fontSize: 20 }]}>{voiceGuidanceEnabled ? '🔊' : '🔇'}</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('map.locateMe')}
+          onPress={() => void recenter()}
+          style={({ pressed }) => [
+            styles.fab,
+            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.goldDeep,
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+        >
+          <Text style={[styles.fabGlyph, { color: colors.accent }]}>◎</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('profile.title')}
+          onPress={() => setProfileOpen(true)}
+          style={({ pressed }) => [
+            styles.fab,
+            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
+            { backgroundColor: colors.surface, borderColor: colors.goldDeep, opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <Text style={[styles.fabGlyph, { fontSize: 18 }]}>👤</Text>
+        </Pressable>
+
+        {/* Affiche le drapeau du pays vers lequel on bascule, jamais celui affiche a l'ecran :
+            sur la carte d'Algerie on propose 🇹🇳, et une fois en Tunisie on propose le retour 🇩🇿. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={mapCountry === 'DZ' ? t('map.viewTunisia') : mapCountry === 'TN' ? t('map.viewFrance') : t('map.viewAlgeria')}
+          onPress={toggleCountryView}
+          style={({ pressed }) => [
+            styles.fab,
+            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
+            { backgroundColor: colors.surface, borderColor: colors.goldDeep, opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <Text style={[styles.fabGlyph, { fontSize: 20 }]}>{mapCountry === 'DZ' ? '🇹🇳' : mapCountry === 'TN' ? '🇫🇷' : '🇩🇿'}</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('qibla.title')}
+          onPress={() => setQiblaOpen(true)}
+          style={({ pressed }) => [
+            styles.fab,
+            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
+            { backgroundColor: colors.surface, borderColor: colors.goldDeep, opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          {/* Libelle texte « Qibla », comme `.qibla-lbl` en v83 — pas d'emoji Kaaba : le site
+              affiche le mot, et les deux doivent coincider. */}
+          <Text style={[styles.qiblaLabel, { color: colors.accentDark }]}>Qibla</Text>
+        </Pressable>
+      </View>
+  );
+
+
   return (
     <View
       style={styles.root}
@@ -1028,7 +1200,7 @@ export default function MapScreen() {
             source="route"
             filter={['==', ['get', 'kind'], 'alt']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{ 'line-color': colors.textMuted, 'line-width': 6, 'line-opacity': 0.55 }}
+            paint={{ 'line-color': colors.textMuted, 'line-width': 8, 'line-opacity': 0.55 }}
           />
           {/* Liseré clair sous TOUT l'itineraire (parcouru comme restant). Sans lui, le trace
               vert se confond avec les routes du fond des qu'elles sont orange ou beiges — ce
@@ -1041,7 +1213,7 @@ export default function MapScreen() {
             source="route"
             filter={['!=', ['get', 'kind'], 'alt']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{ 'line-color': colors.surface, 'line-width': 14, 'line-opacity': 0.95 }}
+            paint={{ 'line-color': colors.surface, 'line-width': 19, 'line-opacity': 0.95 }}
           />
           {/* Portion deja parcourue, en gris — meme teinte que le `#b9c4bf` de v83. Bout coupe
               net (`line-cap: butt`) et non arrondi : arrondi, elle depasserait du point de
@@ -1052,7 +1224,7 @@ export default function MapScreen() {
             source="route"
             filter={['==', ['get', 'kind'], 'traveled']}
             layout={{ 'line-cap': 'butt', 'line-join': 'round' }}
-            paint={{ 'line-color': '#B9C4BF', 'line-width': 7, 'line-opacity': 0.9 }}
+            paint={{ 'line-color': '#B9C4BF', 'line-width': 10, 'line-opacity': 0.9 }}
           />
           <Layer
             id="route-primary"
@@ -1060,7 +1232,9 @@ export default function MapScreen() {
             source="route"
             filter={['==', ['get', 'kind'], 'primary']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{ 'line-color': colors.accent, 'line-width': 9 }}
+            // Epaisseur relevee de 9 a 13 points : le client trouvait le trace trop fin par
+            // rapport a la version web, ou il domine nettement les rues du fond.
+            paint={{ 'line-color': colors.accent, 'line-width': 13 }}
           />
           {/* Ecart de duree affiche sur chaque alternatif ("+8 min" / "Meme duree"), pour rester
               identifiable une fois les traces epaissis et rapproches (doc 110 #2). */}
@@ -1309,7 +1483,7 @@ export default function MapScreen() {
             },
           ]}
         >
-          <View style={styles.navPuckArrow} />
+          <NavArrow size={NAV_PUCK_SIZE} />
         </View>
       ) : null}
 
@@ -1328,9 +1502,8 @@ export default function MapScreen() {
           onShowSteps={() => setStepsOpen(true)}
           onOverview={showRouteOverview}
           onRecenter={resumeFollow}
-          voiceEnabled={voiceGuidanceEnabled}
-          onToggleVoice={toggleVoiceGuidance}
-          onChooseVoice={() => setVoicePanelOpen(true)}
+          onBack={() => setDestSheetOpen(true)}
+          limitKmh={speedLimit}
           onSearch={() => {
             search.setQuery('');
             setResultsOpen(true);
@@ -1345,22 +1518,9 @@ export default function MapScreen() {
           leftInset={insets.left}
           rightInset={insets.right}
         />
-        {/* Compteur de vitesse et limite reglementaire, en bas a gauche comme sur le site.
-            Les deux s'abonnent eux-memes au flux de position : leur rafraichissement ne
-            re-rend jamais l'ecran de carte. En paysage, ils passent a droite — la gauche est
-            occupee par la colonne de consignes. */}
-        <SpeedBadge
-          subscribe={subscribeFix}
-          colors={colors}
-          bottom={insets.bottom + (landscape ? spacing.md : 128)}
-          right={landscape ? insets.right + spacing.md : undefined}
-        />
-        <SpeedLimitBadge
-          limitKmh={speedLimit}
-          subscribe={subscribeFix}
-          bottom={insets.bottom + (landscape ? spacing.md + 66 : 194)}
-          right={landscape ? insets.right + spacing.md + 4 : undefined}
-        />
+        {/* Le compteur de vitesse et la limite reglementaire sont desormais dessines par
+            NavigationOverlay, en haut a gauche : ils l'etaient ici ET la-bas, d'ou la pastille
+            en double signalee par le client. */}
 
         {/* Detour : la recherche reste accessible en cours de route (via l'assistant vocal ou
             la liste ci-dessous). Choisir un resultat ne coupe pas le guidage — il change de
@@ -1392,6 +1552,19 @@ export default function MapScreen() {
                 listening={false}
                 onMicPressIn={() => {}}
                 onMicPressOut={() => {}}
+              />
+            ) : null}
+            {/* Puces de categories pendant le trajet : le menu « Nouvel itineraire » ne
+                proposait plus qu'une loupe, alors qu'une version anterieure donnait acces aux
+                rubriques (station-service, administration…). C'est precisement ce qu'on cherche
+                en route — et le detour ne coupe pas le guidage. */}
+            {navSearchOpen && search.query.trim().length < 2 ? (
+              <CategoryChips
+                colors={colors}
+                onPick={(dataQ, label) => {
+                  search.searchCategory(dataQ, label);
+                  setResultsOpen(true);
+                }}
               />
             ) : null}
             <Pressable
@@ -1495,166 +1668,14 @@ export default function MapScreen() {
         ) : null}
       </View>
 
-      {/* Colonne de boutons, en bas a droite. Ordre EXACT donne par le client (chantier #20)
-          et repris de la colonne de v83, de haut en bas : assistant vocal, SOS, partager,
-          mode nuit, signalement, voix du guidage, ma position, profil, drapeau, Qibla. */}
-      <View style={[styles.column, { bottom: insets.bottom + spacing.xl }]}>
-        {isLoading ? <ActivityIndicator color={colors.accent} /> : null}
-
-        {/* Assistant vocal : « pharmacie de garde », « combien de temps pour arriver »,
-            « emmene-moi a Blida ». Distinct du micro de la barre de recherche, qui ne fait
-            que dicter du texte — ici l'application comprend et agit. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('assistant.title')}
-          onPress={() => void assistant.start()}
-          style={({ pressed }) => [
-            styles.fab,
-            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
-            {
-              backgroundColor: assistant.listening ? colors.accent : colors.surface,
-              borderColor: colors.goldDeep,
-              opacity: pressed ? 0.7 : 1,
-            },
-          ]}
-        >
-          <Text style={[styles.fabGlyph, { fontSize: 20 }]}>🎙️</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('sos.title')}
-          onPress={() => setSosOpen(true)}
-          style={({ pressed }) => [
-            styles.fab,
-            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
-            { backgroundColor: colors.danger, borderColor: colors.danger, opacity: pressed ? 0.8 : 1 },
-          ]}
-        >
-          <Text style={styles.sosGlyph}>SOS</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('map.share')}
-          onPress={sharePosition}
-          style={({ pressed }) => [
-            styles.fab,
-            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
-            { backgroundColor: colors.surface, borderColor: colors.goldDeep, opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <Text style={[styles.fabGlyph, { color: colors.accent, fontSize: 20 }]}>🔗</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('map.nightMode')}
-          onPress={toggleNightMode}
-          style={({ pressed }) => [
-            styles.fab,
-            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
-            { backgroundColor: colors.surface, borderColor: colors.goldDeep, opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          {/* Lune sur fond clair, soleil sur fond sombre — c'est-a-dire le pictogramme de ce
-              vers quoi on bascule, exactement comme `iconMoon`/`iconSun` en v83. */}
-          <Text style={[styles.fabGlyph, { color: colors.accent, fontSize: 20 }]}>{scheme === 'dark' ? '☀️' : '🌙'}</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('report.add')}
-          onPress={openReportMenu}
-          style={({ pressed }) => [
-            styles.fab,
-            styles.fabPrimary,
-            { width: fabPrimarySize, height: fabPrimarySize, borderRadius: fabPrimarySize / 2 },
-            // Rouge, comme `#alertBtn` en v83 (background:#c8102e) : c'est le seul bouton
-            // d'alerte de la colonne, il ne doit pas se confondre avec le vert de l'interface.
-            { backgroundColor: colors.danger, opacity: pressed ? 0.8 : 1 },
-          ]}
-        >
-          <Text style={[styles.fabGlyph, { color: '#fff' }]}>⚠</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('map.voiceGuidance')}
-          accessibilityHint={t('voice.title')}
-          onPress={toggleVoiceGuidance}
-          onLongPress={() => setVoicePanelOpen(true)}
-          style={({ pressed }) => [
-            styles.fab,
-            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
-            { backgroundColor: colors.surface, borderColor: colors.goldDeep, opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <Text style={[styles.fabGlyph, { color: colors.accent, fontSize: 20 }]}>{voiceGuidanceEnabled ? '🔊' : '🔇'}</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('map.locateMe')}
-          onPress={() => void recenter()}
-          style={({ pressed }) => [
-            styles.fab,
-            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.goldDeep,
-              opacity: pressed ? 0.7 : 1,
-            },
-          ]}
-        >
-          <Text style={[styles.fabGlyph, { color: colors.accent }]}>◎</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('profile.title')}
-          onPress={() => setProfileOpen(true)}
-          style={({ pressed }) => [
-            styles.fab,
-            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
-            { backgroundColor: colors.surface, borderColor: colors.goldDeep, opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <Text style={[styles.fabGlyph, { fontSize: 18 }]}>👤</Text>
-        </Pressable>
-
-        {/* Affiche le drapeau du pays vers lequel on bascule, jamais celui affiche a l'ecran :
-            sur la carte d'Algerie on propose 🇹🇳, et une fois en Tunisie on propose le retour 🇩🇿. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={mapCountry === 'DZ' ? t('map.viewTunisia') : mapCountry === 'TN' ? t('map.viewFrance') : t('map.viewAlgeria')}
-          onPress={toggleCountryView}
-          style={({ pressed }) => [
-            styles.fab,
-            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
-            { backgroundColor: colors.surface, borderColor: colors.goldDeep, opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <Text style={[styles.fabGlyph, { fontSize: 20 }]}>{mapCountry === 'DZ' ? '🇹🇳' : mapCountry === 'TN' ? '🇫🇷' : '🇩🇿'}</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('qibla.title')}
-          onPress={() => setQiblaOpen(true)}
-          style={({ pressed }) => [
-            styles.fab,
-            { width: fabSize, height: fabSize, borderRadius: fabSize / 2 },
-            { backgroundColor: colors.surface, borderColor: colors.goldDeep, opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          {/* Libelle texte « Qibla », comme `.qibla-lbl` en v83 — pas d'emoji Kaaba : le site
-              affiche le mot, et les deux doivent coincider. */}
-          <Text style={[styles.qiblaLabel, { color: colors.accentDark }]}>Qibla</Text>
-        </Pressable>
-      </View>
         </>
       )}
+
+      {/* La colonne est rendue APRES le ternaire, donc visible a l'accueil comme en trajet :
+          c'est une seule vue en position absolue, pas deux. En paysage pendant le guidage,
+          elle laisserait moins de place a la carte que de confort gagne — la hauteur ne
+          suffit pas pour dix boutons — et le cadre du bas porte alors les commandes. */}
+      {navigating && landscape ? null : fabColumn}
 
       {votingReport ? (
         /* En navigation, le bandeau d'instruction occupe le haut de l'ecran : la carte de vote
@@ -1717,17 +1738,23 @@ export default function MapScreen() {
       />
       <Toast message={toast} onHide={() => setToast(null)} />
 
-      {!navigating ? (
+      {!navigating || destSheetOpen ? (
         <PlaceSheet
           place={selectedPlace}
           isFavorite={selectedPlace ? places.isFavorite(toBookmark(selectedPlace)) : false}
           onToggleFavorite={() => selectedPlace && places.toggleFavorite(toBookmark(selectedPlace))}
-          onClose={closeSheet}
+          onClose={() => {
+            setDestSheetOpen(false);
+            if (!navigating) closeSheet();
+          }}
           colors={colors}
           hasUserPosition={!!position}
           routes={previewRoutes}
-          routesLoading={preview.isLoading}
-          routesError={preview.isError}
+          routesLoading={preview.isLoading && !navigating}
+          // Un trajet EN COURS ne doit jamais afficher « Itineraire indisponible » : le client
+          // a vu ce bandeau apparaitre alors qu'il roulait, trace affiche et 563 km restants.
+          // C'est l'apercu d'itineraire qui echouait en arriere-plan, pas le trajet.
+          routesError={preview.isError && !navigating}
           routeMode={routeMode}
           onRouteModeChange={setRouteMode}
           selectedRouteIndex={selectedRouteIndex}
@@ -1788,8 +1815,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: NAV_PUCK_SIZE,
     height: NAV_PUCK_SIZE,
-    borderRadius: NAV_PUCK_SIZE / 2,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 6,
@@ -1797,17 +1822,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
-  },
-  navPuckArrow: {
-    width: 0,
-    height: 0,
-    marginTop: -3,
-    borderLeftWidth: 9,
-    borderRightWidth: 9,
-    borderBottomWidth: 19,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: '#1A73E8',
   },
   navResults: {
     position: 'absolute',

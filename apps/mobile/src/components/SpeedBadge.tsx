@@ -6,9 +6,12 @@ import { spacing, type Palette } from '../theme';
 type Props = {
   subscribe: (listener: FixListener) => () => void;
   colors: Palette;
-  bottom: number;
-  /** En paysage, le compteur passe a droite : la gauche est occupee par la colonne de
-   * consignes. Absent, il reste a gauche. */
+  /** Placement : `top` OU `bottom`, jamais les deux. Le site le place en haut a gauche pendant
+   * le guidage ; le mode paysage le renvoie en bas a droite, ou la colonne de consignes ne
+   * l'atteint pas. */
+  top?: number;
+  bottom?: number;
+  left?: number;
   right?: number;
 };
 
@@ -24,7 +27,7 @@ type Props = {
  * la vitesse maximale par troncon dans notre integration — et afficher un chiffre invente
  * serait dangereux au volant.
  */
-export const SpeedBadge = memo(function SpeedBadge({ subscribe, colors, bottom, right }: Props) {
+export const SpeedBadge = memo(function SpeedBadge({ subscribe, colors, top, bottom, left, right }: Props) {
   const [kmh, setKmh] = useState<number | null>(null);
   const shownRef = useRef<number | null>(null);
 
@@ -45,8 +48,9 @@ export const SpeedBadge = memo(function SpeedBadge({ subscribe, colors, bottom, 
     <View
       style={[
         styles.badge,
-        right != null ? { right } : { left: spacing.md },
-        { bottom, backgroundColor: colors.surface, borderColor: colors.border },
+        right != null ? { right } : { left: left ?? spacing.md },
+        top != null ? { top } : { bottom },
+        { backgroundColor: colors.surface, borderColor: colors.border },
       ]}
       pointerEvents="none"
     >

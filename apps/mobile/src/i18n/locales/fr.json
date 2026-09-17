@@ -57,12 +57,13 @@
     "recalculating": "Nouvel itinéraire...",
     "arrived": "Vous êtes arrivé.",
     "remaining": "Restant",
-    "eta": "Arrivée",
+    "eta": "arrivée",
     "overview": "Vue d'ensemble de l'itinéraire",
     "recenter": "Recentrer",
     "steps": "Étapes de l'itinéraire",
     "closeSteps": "Fermer les étapes",
-    "then": "puis"
+    "then": "puis",
+    "back": "Retour"
   },
   "consent": {
     "title": "Avant de commencer",

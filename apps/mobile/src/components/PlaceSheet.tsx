@@ -415,12 +415,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   adminPanelText: { fontWeight: '800' as const, fontSize: 13.5 },
+  // Marge franche autour de la croix : le client a releve deux icones collees en haut a droite
+  // de cette fiche. Elle est desormais decalee du bord et plus large que son pictogramme, donc
+  // impossible a confondre — ou a toucher — avec un element voisin.
   closeBtn: {
     position: 'absolute',
     top: spacing.md,
-    right: spacing.lg,
-    width: 32,
-    height: 32,
+    right: spacing.lg + spacing.xs,
+    width: 36,
+    height: 36,
     borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',

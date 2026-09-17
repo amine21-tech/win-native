@@ -20,13 +20,21 @@ type Props = {
   /** Limite en km/h, ou `null` quand elle est inconnue — la pastille disparait alors. */
   limitKmh: number | null;
   subscribe: (listener: FixListener) => () => void;
-  /** Distance au bas de l'ecran, en points. */
-  bottom: number;
-  /** Cote gauche par defaut ; en paysage, la colonne de consignes occupe la gauche. */
+  /** Placement : `top` OU `bottom`. Sous le compteur de vitesse dans les deux cas. */
+  top?: number;
+  bottom?: number;
+  left?: number;
   right?: number;
 };
 
-export const SpeedLimitBadge = memo(function SpeedLimitBadge({ limitKmh, subscribe, bottom, right }: Props) {
+export const SpeedLimitBadge = memo(function SpeedLimitBadge({
+  limitKmh,
+  subscribe,
+  top,
+  bottom,
+  left,
+  right,
+}: Props) {
   const [over, setOver] = useState(false);
   const overRef = useRef(false);
   const limitRef = useRef(limitKmh);
@@ -66,8 +74,8 @@ export const SpeedLimitBadge = memo(function SpeedLimitBadge({ limitKmh, subscri
       pointerEvents="none"
       style={[
         styles.badge,
-        right != null ? { right } : styles.left,
-        { bottom },
+        right != null ? { right } : { left: left ?? 16 },
+        top != null ? { top } : { bottom },
         // Le clignotement joue sur l'echelle et non sur la couleur : une animation de couleur
         // ne peut pas utiliser le moteur natif, et ferait travailler le fil JavaScript en pleine
         // navigation — exactement le fil qu'il faut menager.
@@ -97,7 +105,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
   },
-  left: { left: 16 },
   value: { fontSize: 19, fontWeight: '800', color: '#141816', lineHeight: 21 },
   unit: { fontSize: 7, fontWeight: '700', color: '#6B7570', marginTop: 1, letterSpacing: 0.2 },
 });

@@ -6,6 +6,7 @@ import type { Maneuver } from '../navigation/routing';
 import type { FixListener } from '../navigation/useLiveLocation';
 import { formatDistance, formatDuration, type Language } from '../shared';
 import { SpeedBadge } from './SpeedBadge';
+import { SpeedLimitBadge } from './SpeedLimitBadge';
 import { radius, spacing, titleFontFor, typography, type Palette } from '../theme';
 import { formatClock24, useClock } from '../utils/clock';
 
@@ -37,14 +38,15 @@ type Props = {
    * camera a quitte le suivi automatique. */
   onOverview: () => void;
   onRecenter: () => void;
-  /** Guidage vocal. Il n'etait reglable que depuis la colonne de l'ecran principal, qui
-   * disparait pendant la navigation : couper le son en route etait donc impossible sans
-   * arreter le trajet. */
-  voiceEnabled: boolean;
-  onToggleVoice: () => void;
-  /** Appui LONG sur le haut-parleur : choisir la voix. Un appui court coupe le son — deux
-   * gestes sur le meme bouton, parce que la colonne est deja pleine. */
-  onChooseVoice: () => void;
+  /** Retour a la fiche du lieu SANS couper le guidage (bouton « Retour » du cadre du bas en
+   * v86). Le conducteur veut revoir l'adresse, le telephone du commerce, sa promotion — pas
+   * arreter son trajet pour cela. */
+  onBack: () => void;
+  /** Limite reglementaire du troncon, affichee sous le compteur de vitesse. `null` = inconnue,
+   * la pastille disparait alors (voir useSpeedLimit). */
+  limitKmh: number | null;
+  /* Le guidage vocal ne se regle plus depuis cet ecran : la colonne des dix boutons de
+   * l'accueil — dont celui du son — reste affichee pendant tout le trajet. */
   /** Ouvre la recherche SANS quitter le guidage (le detour). Elle n'etait joignable qu'a la
    * voix : un conducteur qui prefere taper — ou dont l'assistant ne comprend pas dans le bruit
    * — n'avait aucun moyen de chercher une station-service en route. */
@@ -79,9 +81,8 @@ export const NavigationOverlay = memo(function NavigationOverlay({
   onShowSteps,
   onOverview,
   onRecenter,
-  voiceEnabled,
-  onToggleVoice,
-  onChooseVoice,
+  onBack,
+  limitKmh,
   onSearch,
   following,
   colors,
@@ -161,8 +162,17 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         {/* Heure courante, seule : l'heure d'ARRIVEE a rejoint le cadre du bas, sur la meme
             ligne que la distance. Le client demande l'horloge visible en permanence
             (chantier #22) — elle reste donc ici, ou rien ne la masque jamais. */}
+        {/* Heure d'arrivee estimee et distance restante, EN HAUT comme EN BAS : le client les
+            veut lisibles sans avoir a baisser les yeux vers le cadre du bas, qui peut etre
+            masque. L'horloge courante reste affichee en permanence (chantier #22). */}
         <View style={styles.clockRow}>
           <Text style={styles.clockItem}>🕐 {formatClock24(now)}</Text>
+          {remaining ? (
+            <Text style={styles.clockItem} numberOfLines={1}>
+              {formatDistance(remaining.distanceM)}
+              {eta ? ` · ${t('nav.eta')} ${formatClock24(eta)}` : ''}
+            </Text>
+          ) : null}
         </View>
 
         {/* Poignee discrete : sans elle, rien n'indique que le bandeau s'ouvre. */}
@@ -191,68 +201,47 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         </View>
       ) : null}
 
+      {/* Compteur de vitesse et limite reglementaire, EN HAUT A GAUCHE et l'un sous l'autre,
+          comme sur le site (`.speed-badge` puis `.limit-badge`). Ils etaient en bas, et un
+          second compteur etait dessine par l'ecran de carte : d'ou la pastille en double.
+          Ici, un seul endroit les affiche, et ils descendent juste sous le bandeau — dont la
+          hauteur est MESUREE, pour ne jamais le chevaucher quelle que soit la consigne. */}
       {landscape ? (
-        <SpeedBadge
-          subscribe={subscribeFix}
-          colors={colors}
-          bottom={bottomInset + spacing.md}
-          right={rightInset + spacing.md}
-        />
+        <>
+          <SpeedBadge
+            subscribe={subscribeFix}
+            colors={colors}
+            bottom={bottomInset + spacing.md}
+            right={rightInset + spacing.md}
+          />
+          <SpeedLimitBadge
+            limitKmh={limitKmh}
+            subscribe={subscribeFix}
+            bottom={bottomInset + spacing.md + 66}
+            right={rightInset + spacing.md + 4}
+          />
+        </>
       ) : (
-        <SpeedBadge subscribe={subscribeFix} colors={colors} bottom={bottomInset + 100} />
+        <>
+          <SpeedBadge
+            subscribe={subscribeFix}
+            colors={colors}
+            top={bannerTop + bannerHeight + spacing.md}
+            left={spacing.md}
+          />
+          <SpeedLimitBadge
+            limitKmh={limitKmh}
+            subscribe={subscribeFix}
+            top={bannerTop + bannerHeight + spacing.md + 66}
+            left={spacing.md + 4}
+          />
+        </>
       )}
 
-      {/* Colonne de droite, comme sur les cartes de navigation courantes : les commandes de la
-          conduite sont groupees a portee du pouce, en pastilles rondes, plutot que dispersees
-          entre le cadre du bas et un bouton flottant. */}
-      {/* En paysage la colonne remonte en haut a droite : a mi-hauteur, elle tomberait sur le
-          compteur de vitesse, qui occupe le coin bas droit dans cette orientation. */}
-      <View
-        style={[styles.sideColumn, landscape ? { top: bannerTop, right: rightInset + spacing.md } : null]}
-        pointerEvents="box-none"
-      >
-        {/* « Recentrer » n'apparait que quand la camera a quitte le suivi — sinon il ne
-            ferait rien, et un bouton qui ne fait rien est pire qu'un bouton absent. */}
-        {!following ? (
-          <Pressable
-            onPress={onRecenter}
-            accessibilityRole="button"
-            accessibilityLabel={t('nav.recenter')}
-            style={[styles.roundBtn, { backgroundColor: colors.accent }]}
-          >
-            <Text style={{ fontSize: 19, color: colors.accentText }}>🎯</Text>
-          </Pressable>
-        ) : null}
-
-        <Pressable
-          onPress={onSearch}
-          accessibilityRole="button"
-          accessibilityLabel={t('map.searchPlaceholder')}
-          style={[styles.roundBtn, { backgroundColor: colors.surface }]}
-        >
-          <Text style={{ fontSize: 18, color: colors.text }}>🔍</Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onOverview}
-          accessibilityRole="button"
-          accessibilityLabel={t('nav.overview')}
-          style={[styles.roundBtn, { backgroundColor: colors.surface }]}
-        >
-          <Text style={{ fontSize: 18, color: colors.text }}>⛶</Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onToggleVoice}
-          onLongPress={onChooseVoice}
-          accessibilityRole="button"
-          accessibilityLabel={t('map.voiceGuidance')}
-          accessibilityHint={t('voice.title')}
-          style={[styles.roundBtn, { backgroundColor: colors.surface }]}
-        >
-          <Text style={{ fontSize: 18 }}>{voiceEnabled ? '🔊' : '🔇'}</Text>
-        </Pressable>
-      </View>
+      {/* Il n'y a plus de colonne de boutons propre a cet ecran : la colonne des DIX boutons
+          de l'accueil reste desormais affichee pendant tout le trajet (demande du client), et
+          une seconde colonne aurait fait doublon — c'est d'ailleurs ce doublon qui tronquait
+          l'affichage. Les commandes du trajet vivent dans le cadre du bas ci-dessous. */}
 
       {/* Cadre du bas, dans la disposition des cartes de navigation courantes : arreter a
           gauche, le temps restant en gros au centre, les etapes a droite. La duree est ce
@@ -268,16 +257,15 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         ]}
         pointerEvents="box-none"
       >
+        {/* Meme contenu que le cadre du bas de la version web (`#navBottom`) : duree et
+            distance restantes a gauche, puis retour, recherche, recentrer, et « Fin ». Il n'y
+            avait ici qu'une croix et une icone d'etapes. */}
         <Pressable
-          onPress={onEnd}
+          onPress={onShowSteps}
           accessibilityRole="button"
-          accessibilityLabel={t('nav.stop')}
-          style={[styles.bottomRound, { backgroundColor: colors.surfaceAlt }]}
+          accessibilityLabel={t('nav.steps')}
+          style={styles.bottomRemain}
         >
-          <Text style={{ fontSize: 19, color: colors.danger, fontWeight: '800' }}>✕</Text>
-        </Pressable>
-
-        <View style={styles.bottomCenter}>
           {remaining ? (
             <>
               <Text style={[styles.bigDuration, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -285,19 +273,55 @@ export const NavigationOverlay = memo(function NavigationOverlay({
               </Text>
               <Text style={[styles.bottomSub, { color: colors.textMuted }]} numberOfLines={1}>
                 {formatDistance(remaining.distanceM)}
-                {eta ? ` · ${formatClock24(eta)}` : ''}
+                {eta ? ` · ${t('nav.eta')} ${formatClock24(eta)}` : ''}
               </Text>
             </>
-          ) : null}
-        </View>
+          ) : (
+            <Text style={[styles.bottomSub, { color: colors.textMuted }]}>{t('nav.recalculating')}</Text>
+          )}
+        </Pressable>
 
         <Pressable
-          onPress={onShowSteps}
+          onPress={onBack}
           accessibilityRole="button"
-          accessibilityLabel={t('nav.steps')}
+          accessibilityLabel={t('nav.back')}
           style={[styles.bottomRound, { backgroundColor: colors.surfaceAlt }]}
         >
-          <Text style={{ fontSize: 17, color: colors.accent }}>⇄</Text>
+          <Text style={{ fontSize: 17, color: colors.text }}>↩</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={onSearch}
+          accessibilityRole="button"
+          accessibilityLabel={t('map.searchPlaceholder')}
+          style={[styles.bottomRound, { backgroundColor: colors.surfaceAlt }]}
+        >
+          <Text style={{ fontSize: 17, color: colors.text }}>🔍</Text>
+        </Pressable>
+
+        {/* « Recentrer » reste TOUJOURS la, actif ou non : le client l'a trouve absent, et un
+            bouton qui apparait et disparait donne l'impression d'un defaut. Quand la camera
+            suit deja, il remet simplement le suivi — geste sans effet visible, mais sans
+            surprise non plus. Il est mis en avant des que la carte a ete deplacee a la main. */}
+        <Pressable
+          onPress={onRecenter}
+          accessibilityRole="button"
+          accessibilityLabel={t('nav.recenter')}
+          style={[
+            styles.bottomRound,
+            { backgroundColor: following ? colors.surfaceAlt : colors.accent },
+          ]}
+        >
+          <Text style={{ fontSize: 18, color: following ? colors.text : colors.accentText }}>🎯</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={onEnd}
+          accessibilityRole="button"
+          accessibilityLabel={t('nav.stop')}
+          style={[styles.stopBtn, { backgroundColor: colors.danger }]}
+        >
+          <Text style={styles.stopLabel}>⏹ {t('nav.stop')}</Text>
         </Pressable>
       </View>
     </>
@@ -365,19 +389,6 @@ const styles = StyleSheet.create({
     marginBottom: -spacing.sm,
     backgroundColor: 'rgba(255,255,255,0.32)',
   },
-  sideColumn: { position: 'absolute', right: spacing.md, top: '38%', gap: spacing.sm, alignItems: 'flex-end' },
-  roundBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-  },
   bottomBar: {
     position: 'absolute',
     left: 0,
@@ -421,14 +432,27 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
   },
+  // Cinq elements sur une ligne : les pastilles rapetissent et l'ecart est constant, pour
+  // qu'aucune ne touche sa voisine meme sur un ecran de 360 points (regle generale du client :
+  // jamais de contact entre deux elements).
   bottomRound: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: spacing.sm,
   },
-  bottomCenter: { flex: 1, alignItems: 'center', paddingHorizontal: spacing.sm, gap: 1 },
-  bigDuration: { fontSize: 25, fontWeight: '800' as const, lineHeight: 30 },
+  stopBtn: {
+    height: 40,
+    borderRadius: 20,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.sm,
+  },
+  stopLabel: { color: '#fff', fontSize: 13.5, fontWeight: '800' as const },
+  bottomRemain: { flexShrink: 1, minWidth: 92, gap: 1 },
+  bigDuration: { fontSize: 21, fontWeight: '800' as const, lineHeight: 25 },
   bottomSub: { fontSize: 13, fontWeight: '600' as const, fontVariant: ['tabular-nums'] },
 });

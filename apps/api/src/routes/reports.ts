@@ -157,6 +157,29 @@ const routes: FastifyPluginAsync = async (app) => {
         throw conflict('deja_vote', 'Vous avez deja vote pour ce signalement.');
       }
 
+      /* « Toujours la » PROLONGE un signalement temporaire.
+       *
+       * Le cahier des charges du client distingue deux familles : les permanents (dos d'ane,
+       * radar, trou), qui n'expirent jamais et ne disparaissent que sur trois votes « plus la »,
+       * et les ephemeres (bouchon, accident, police...), qui expirent seuls mais sont
+       * prolongeables par les confirmations. Sans cette prolongation, un bouchon confirme par
+       * cinq conducteurs disparaissait quand meme a l'heure dite.
+       *
+       * La prolongation est bornee : une heure de plus que la duree de vie initiale du type,
+       * jamais davantage. Un signalement ne peut donc pas devenir eternel a force de votes —
+       * c'est ce qui distingue un ephemere d'un permanent.
+       */
+      if (vote === 'confirm' && !report.permanent) {
+        await db.execute(sql`
+          UPDATE reports
+          SET expires_at = LEAST(
+                created_at + ${`${(TEMPORARY_TTL_MINUTES[report.kind as ReportKind] ?? 60) + 60} minutes`}::interval,
+                GREATEST(expires_at, now() + interval '30 minutes')
+              )
+          WHERE id = ${report.id} AND expires_at IS NOT NULL
+        `);
+      }
+
       if (vote === 'confirm') {
         await db.execute(sql`
           INSERT INTO contributors (device_id, confirms_count, score)

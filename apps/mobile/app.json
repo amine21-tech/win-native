@@ -13,7 +13,7 @@
     "icon": "./assets/icon.png",
     "android": {
       "package": "dz.win.app",
-      "versionCode": 19,
+      "versionCode": 20,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0A5840"

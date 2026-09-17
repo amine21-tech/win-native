@@ -81,3 +81,19 @@ export function normalizeText(input: string): string {
     .trim();
 }
 
+/**
+ * Pays deduit des COORDONNEES, et non du champ enregistre en base.
+ *
+ * Une adresse parisienne s'affichait « Algerie » : elle avait ete ajoutee par une version de
+ * l'application qui inscrivait « DZ » en dur a l'enregistrement. Le champ est donc faux pour ces
+ * fiches, et il le restera. La position, elle, ne ment pas : c'est elle qui decide de l'etiquette.
+ *
+ * Boites englobantes larges, suffisantes pour trois pays que la Mediterranee separe. `null` hors
+ * de ces zones : mieux vaut aucune etiquette qu'une fausse.
+ */
+export function countryFromCoords(lat: number, lon: number): 'DZ' | 'TN' | 'FR' | null {
+  if (lat > 41 && lat < 51.5 && lon > -5.5 && lon < 9.8) return 'FR';
+  if (lat > 30 && lat < 37.6 && lon > 7.5 && lon < 11.8 && !(lat < 34 && lon < 8.3)) return 'TN';
+  if (lat > 18.9 && lat < 37.5 && lon > -8.7 && lon < 12) return 'DZ';
+  return null;
+}

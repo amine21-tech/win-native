@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, ApiError, uploadPhoto } from '../api/client';
 import { clearSearchCache } from '../search/usePlaceSearch';
-import { PLACE_CATEGORIES, type PlaceCategory } from '../shared';
+import { countryFromCoords, PLACE_CATEGORIES, type PlaceCategory } from '../shared';
 import { radius, spacing, typography, type Palette } from '../theme';
 
 type Coords = { lat: number; lon: number };
@@ -49,15 +49,6 @@ const emptyForm = {
   email: '',
   promo: '',
 };
-
-/** Pays deduit de la position choisie : un lieu ajoute pendant un essai en France ne doit pas
- * etre enregistre comme algerien. Boites englobantes larges, suffisantes pour trois pays que
- * la Mediterranee separe. */
-function countryAt(lat: number, lon: number): 'DZ' | 'TN' | 'FR' {
-  if (lat > 41 && lat < 51.5 && lon > -5.5 && lon < 9.8) return 'FR';
-  if (lat > 30 && lat < 37.6 && lon > 7.5 && lon < 11.8 && !(lat < 34 && lon < 8.3)) return 'TN';
-  return 'DZ';
-}
 
 /** Formulaire « Ajouter un lieu », declenche par un appui long sur la carte (openAddPoint en v83). */
 export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
@@ -238,7 +229,7 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
           category: form.category,
           lat: saveLat,
           lon: saveLon,
-          country: countryAt(saveLat, saveLon),
+          country: countryFromCoords(saveLat, saveLon) ?? 'DZ',
           street: form.street.trim() || undefined,
           houseNumber: form.houseNumber.trim() || undefined,
           city: form.city.trim() || undefined,
