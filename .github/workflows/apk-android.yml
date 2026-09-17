@@ -74,6 +74,12 @@ jobs:
       # fichier du projet (voir scripts/ci-signing.mjs).
       - name: Compiler l'APK
         working-directory: apps/mobile/android
+        # Delai pose sur l'ETAPE et non sur le travail entier : quand c'est le travail qui est
+        # interrompu, les etapes suivantes ne s'executent pas et le cache n'est jamais
+        # enregistre — chaque tentative repartait donc de zero, ce qui a coute les deux
+        # premieres. Avec un delai d'etape, la compilation s'arrete mais le cache est conserve,
+        # et l'essai suivant reprend le travail deja fait.
+        timeout-minutes: 100
         env:
           WIN_KEYSTORE_PASSWORD: ${{ secrets.WIN_KEYSTORE_PASSWORD }}
           WIN_KEY_ALIAS: ${{ secrets.WIN_KEY_ALIAS }}
@@ -94,13 +100,16 @@ jobs:
       # `if: always()` : le cache est conserve meme apres un echec, pour que l'essai suivant
       # reparte du travail deja fait plutot que de tout recompiler.
       - uses: actions/cache/save@v4
-        if: always() && steps.gradle-cache.outputs.cache-hit != 'true'
+        # Sans condition sur le resultat de la compilation : c'est justement apres un echec que
+        # ce cache est le plus utile. La cle porte l'horodatage pour ne jamais entrer en
+        # conflit avec une entree deja ecrite ; `restore-keys` retrouve la plus recente.
+        if: always()
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
             apps/mobile/android/.cxx
-          key: gradle-${{ runner.os }}-${{ hashFiles('apps/mobile/package-lock.json') }}
+          key: gradle-${{ runner.os }}-${{ hashFiles('apps/mobile/package-lock.json') }}-${{ github.run_id }}
 
       - name: Version
         id: version
