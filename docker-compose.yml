@@ -61,6 +61,11 @@ services:
       # Second moteur, dedie a l'Europe (France) : renseigne seulement quand le conteneur
       # correspondant tourne. Sans lui, tout passe par le moteur ci-dessus.
       VALHALLA_EU_URL: ${VALHALLA_EU_URL:-}
+      # Le code du service VIP (VIP_CODE) se renseigne dans apps/api/.env, jamais ici : une
+      # variable declaree dans ce bloc ECRASE celle du fichier, et `${VIP_CODE:-}` transmettrait
+      # une valeur VIDE des que la racine ne la definit pas — l'API refuserait alors de demarrer.
+      # Sans valeur dans apps/api/.env, le code par defaut du programme s'applique, et il est
+      # public depuis que le depot l'est : a definir sur tout serveur reel.
       NODE_ENV: production
       PORT: 3002
       HOST: 0.0.0.0
