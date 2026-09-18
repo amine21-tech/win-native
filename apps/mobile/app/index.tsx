@@ -1059,7 +1059,9 @@ export default function MapScreen() {
         >
           {/* Lune sur fond clair, soleil sur fond sombre — c'est-a-dire le pictogramme de ce
               vers quoi on bascule, exactement comme `iconMoon`/`iconSun` en v83. */}
-          <Text style={[styles.fabGlyph, { color: colors.accent, fontSize: 20 }]}>{scheme === 'dark' ? '☀️' : '🌙'}</Text>
+          <Text style={[styles.fabGlyph, { color: colors.accent, fontSize: 20 }]}>{/* L'icone montre le mode ACTUEL — soleil le jour, lune la nuit — et non celui vers
+              lequel on bascule : l'inverse etait lu comme une erreur. */}
+          {scheme === 'dark' ? '🌙' : '☀️'}</Text>
         </Pressable>
 
         <Pressable
@@ -1123,8 +1125,10 @@ export default function MapScreen() {
           <Text style={[styles.fabGlyph, { fontSize: 18 }]}>👤</Text>
         </Pressable>
 
-        {/* Affiche le drapeau du pays vers lequel on bascule, jamais celui affiche a l'ecran :
-            sur la carte d'Algerie on propose 🇹🇳, et une fois en Tunisie on propose le retour 🇩🇿. */}
+        {/* Le drapeau montre le pays AFFICHE a l'ecran, comme le bouton jour/nuit montre le mode
+            actuel. Il montrait le pays suivant : sur la carte de Tunisie on voyait 🇫🇷, ce qui
+            se lisait comme une erreur. Un appui passe au pays suivant : Algerie -> Tunisie ->
+            France -> Algerie. */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={mapCountry === 'DZ' ? t('map.viewTunisia') : mapCountry === 'TN' ? t('map.viewFrance') : t('map.viewAlgeria')}
@@ -1135,7 +1139,7 @@ export default function MapScreen() {
             { backgroundColor: colors.surface, borderColor: colors.goldDeep, opacity: pressed ? 0.7 : 1 },
           ]}
         >
-          <Text style={[styles.fabGlyph, { fontSize: 20 }]}>{mapCountry === 'DZ' ? '🇹🇳' : mapCountry === 'TN' ? '🇫🇷' : '🇩🇿'}</Text>
+          <Text style={[styles.fabGlyph, { fontSize: 20 }]}>{mapCountry === 'DZ' ? '🇩🇿' : mapCountry === 'TN' ? '🇹🇳' : '🇫🇷'}</Text>
         </Pressable>
 
         <Pressable
