@@ -19,6 +19,7 @@ import placeRoutes from './routes/places.js';
 import photoRoutes from './routes/photos.js';
 import reportRoutes from './routes/reports.js';
 import routingRoutes from './routes/routing.js';
+import unlockRoutes from './routes/unlocks.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -78,6 +79,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(routingRoutes);
   await app.register(adminRoutes);
   await app.register(paymentRoutes);
+  await app.register(unlockRoutes);
 
   return app;
 }

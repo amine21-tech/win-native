@@ -346,7 +346,12 @@
     "deleteConfirmTitle": "Supprimer cette fiche ?",
     "deleteConfirmBody": "Elle disparaît de la carte, mais reste restaurable depuis le journal de modération.",
     "loadError": "Impossible de charger cette fiche.",
-    "saveError": "Échec de l'enregistrement."
+    "saveError": "Échec de l'enregistrement.",
+    "unlocksTitle": "Déblocages Tunisie en attente",
+    "unlocksHint": "Comparez chaque numéro aux virements BaridiMob reçus sur le compte ci-dessus, puis validez. L’accès s’ouvre automatiquement sur le téléphone du client.",
+    "unlocksEmpty": "Aucune demande en attente.",
+    "approve": "Valider",
+    "reject": "Refuser"
   },
   "approach": {
     "prefix": "Attention,"
@@ -372,5 +377,21 @@
     "female": "voix féminine",
     "male": "voix masculine",
     "fallbackFrench": "Aucune voix pour cette langue sur le téléphone : le guidage parlera en français. Ajoutez-la dans Réglages › Synthèse vocale."
+  },
+  "unlock": {
+    "title": "Tunisie 🇹🇳",
+    "offerBefore": "Naviguez aussi en Tunisie —",
+    "price": "{{price}} DA, accès illimité à vie",
+    "offerAfter": "(paiement unique).",
+    "step1": "Envoyez {{price}} DA via BaridiMob au compte ci-dessous, avec votre numéro de téléphone en référence.",
+    "step2": "Saisissez ce même numéro, puis appuyez sur « J’ai payé ».",
+    "paid": "J’ai payé",
+    "pending": "Paiement en cours de vérification. L’accès à la Tunisie s’ouvrira automatiquement dès sa validation.",
+    "check": "Vérifier maintenant",
+    "unlocked": "Tunisie débloquée — accès illimité à vie.",
+    "note": "Votre accès est lié à ce téléphone. Il est activé dès que notre équipe a vérifié la réception du paiement.",
+    "noAccount": "Le compte de paiement n’est pas encore disponible. Réessayez plus tard.",
+    "phoneInvalid": "Numéro de téléphone invalide.",
+    "tooMany": "Trop de demandes. Réessayez dans quelques minutes."
   }
 }

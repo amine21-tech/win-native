@@ -346,7 +346,12 @@
     "deleteConfirmTitle": "Delete this listing?",
     "deleteConfirmBody": "It disappears from the map, but can still be restored from the moderation log.",
     "loadError": "Couldn't load this listing.",
-    "saveError": "Saving failed."
+    "saveError": "Saving failed.",
+    "unlocksTitle": "Pending Tunisia unlocks",
+    "unlocksHint": "Match each number against the BaridiMob transfers received on the account above, then approve. Access opens automatically on the customer’s phone.",
+    "unlocksEmpty": "No pending request.",
+    "approve": "Approve",
+    "reject": "Reject"
   },
   "approach": {
     "prefix": "Caution,"
@@ -372,5 +377,21 @@
     "female": "female voice",
     "male": "male voice",
     "fallbackFrench": "No voice for this language on the phone: guidance will speak French. Add it in Settings › Text-to-speech."
+  },
+  "unlock": {
+    "title": "Tunisia 🇹🇳",
+    "offerBefore": "Navigate in Tunisia too —",
+    "price": "{{price}} DA, unlimited lifetime access",
+    "offerAfter": "(one-time payment).",
+    "step1": "Send {{price}} DA via BaridiMob to the account below, with your phone number as reference.",
+    "step2": "Enter that same number, then tap “I have paid”.",
+    "paid": "I have paid",
+    "pending": "Payment being checked. Tunisia access will open automatically once it is validated.",
+    "check": "Check now",
+    "unlocked": "Tunisia unlocked — unlimited lifetime access.",
+    "note": "Your access is tied to this phone. It is activated as soon as our team has confirmed the payment.",
+    "noAccount": "The payment account is not available yet. Please try again later.",
+    "phoneInvalid": "Invalid phone number.",
+    "tooMany": "Too many requests. Try again in a few minutes."
   }
 }

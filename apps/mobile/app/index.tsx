@@ -23,7 +23,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bearing as geoBearing, haversine, NEARBY_RADIUS_M, type Language, type Place, type Report, type ReportKind } from '../src/shared';
+import { bearing as geoBearing, countryFromCoords, haversine, NEARBY_RADIUS_M, type Language, type Place, type Report, type ReportKind } from '../src/shared';
 import { api, ApiError } from '../src/api/client';
 import { AddPlaceSheet } from '../src/components/AddPlaceSheet';
 import { AssistantPanel } from '../src/components/AssistantPanel';
@@ -46,6 +46,8 @@ import { VoicePanel } from '../src/components/VoicePanel';
 import { TripSummary, type Trip } from '../src/components/TripSummary';
 import { useRealtime } from '../src/hooks/useRealtime';
 import { NavArrow } from '../src/components/NavArrow';
+import { TunisiaUnlockSheet } from '../src/components/TunisiaUnlockSheet';
+import { useTunisiaUnlock } from '../src/unlock/useTunisiaUnlock';
 import { NavDestinationPicker } from '../src/components/NavDestinationPicker';
 import { MeMarker } from '../src/map/MeMarker';
 import { COUNTRY_VIEWS, INITIAL_VIEW_STATE, MAP_STYLES, REPORT_COLORS, type CountryView } from '../src/map/style';
@@ -152,6 +154,12 @@ export default function MapScreen() {
   const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(null);
   /** Fiche du lieu rouverte pendant le guidage, via « Retour » du cadre du bas. */
   const [destSheetOpen, setDestSheetOpen] = useState(false);
+  /* Acces a la Tunisie : 200 DA, acces a vie, debloque par appareil apres verification du
+   * paiement par un administrateur (voir apps/api/src/routes/unlocks.ts). */
+  const tunisia = useTunisiaUnlock();
+  const [tnSheetOpen, setTnSheetOpen] = useState(false);
+  /** Le panneau de paiement a deja ete presente pendant ce tour du drapeau. */
+  const tnPromptedRef = useRef(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [reportMenuOpen, setReportMenuOpen] = useState(false);
   const [votingReport, setVotingReport] = useState<Report | null>(null);
@@ -782,6 +790,12 @@ export default function MapScreen() {
 
   const startNavigation = useCallback(() => {
     if (!selectedPlace) return;
+    // Guidage vers la Tunisie : reserve aux appareils qui ont debloque l'acces. Le lieu reste
+    // consultable (fiche, distance, apercu) — seul le guidage est payant, comme sur le site.
+    if (countryFromCoords(selectedPlace.lat, selectedPlace.lon) === 'TN' && !tunisia.unlocked) {
+      setTnSheetOpen(true);
+      return;
+    }
     const chosen = previewRoutes[selectedRouteIndex] ?? null;
     setNavDestination({ lat: selectedPlace.lat, lon: selectedPlace.lon, emoji: emojiForPlace(selectedPlace) });
     setNavInitialRoute(chosen);
@@ -794,7 +808,7 @@ export default function MapScreen() {
     setTripSummary(null);
     setNavigating(true);
     closeSheet();
-  }, [selectedPlace, previewRoutes, selectedRouteIndex, closeSheet]);
+  }, [selectedPlace, previewRoutes, selectedRouteIndex, closeSheet, tunisia.unlocked]);
 
   const stopNavigation = useCallback(() => {
     setStepsOpen(false);
@@ -913,13 +927,25 @@ export default function MapScreen() {
 
   const toggleCountryView = useCallback(() => {
     // Algerie -> Tunisie -> France -> Algerie.
-    const next: CountryView = mapCountry === 'DZ' ? 'TN' : mapCountry === 'TN' ? 'FR' : 'DZ';
+    let next: CountryView = mapCountry === 'DZ' ? 'TN' : mapCountry === 'TN' ? 'FR' : 'DZ';
+    // Tunisie non debloquee : le premier appui presente le panneau de paiement ; le suivant
+    // passe a la France. Sans cette seconde etape, un client qui ne paie pas resterait bloque
+    // sur l'Algerie, sans jamais pouvoir atteindre la France.
+    if (next === 'TN' && !tunisia.unlocked) {
+      if (!tnPromptedRef.current) {
+        tnPromptedRef.current = true;
+        setTnSheetOpen(true);
+        return;
+      }
+      next = 'FR';
+    }
+    if (next === 'DZ') tnPromptedRef.current = false;
     const view = COUNTRY_VIEWS[next];
     setMapCountry(next);
     // Vue d'ensemble du pays vise : la Tunisie est desormais routable au meme titre que
     // l'Algerie (graphe Valhalla reconstruit avec les deux jeux de donnees).
     cameraRef.current?.flyTo({ center: view.center, zoom: view.zoom, duration: 1200 });
-  }, [mapCountry]);
+  }, [mapCountry, tunisia.unlocked]);
 
   const sharePosition = useCallback(() => {
     setSosOpen(false);
@@ -1780,6 +1806,15 @@ export default function MapScreen() {
         colors={colors}
       />
       <Toast message={toast} onHide={() => setToast(null)} />
+      <TunisiaUnlockSheet
+        visible={tnSheetOpen}
+        onClose={() => setTnSheetOpen(false)}
+        info={tunisia.info}
+        loading={tunisia.loading}
+        onRequest={tunisia.requestUnlock}
+        onRefresh={() => void tunisia.refresh()}
+        colors={colors}
+      />
 
       {!navigating || destSheetOpen ? (
         <PlaceSheet

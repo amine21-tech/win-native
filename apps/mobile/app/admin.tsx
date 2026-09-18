@@ -212,6 +212,8 @@ function Dashboard({
         {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{t('admin.save')}</Text>}
       </Pressable>
 
+      <UnlockRequests token={token} colors={colors} />
+
       <Pressable onPress={onLogout} style={styles.logout}>
         <Text style={[typography.caption, { color: colors.textMuted }]}>{t('admin.logout')}</Text>
       </Pressable>
@@ -219,8 +221,90 @@ function Dashboard({
   );
 }
 
+type UnlockRequest = { id: string; phone: string | null; amountDa: number; createdAt: string };
+
+/**
+ * Deblocages de la Tunisie en attente. L'administrateur compare chaque numero aux virements
+ * BaridiMob recus sur le compte ci-dessus, puis valide — l'acces s'ouvre sur le telephone du
+ * client dans les trente secondes — ou refuse si aucun paiement n'est arrive.
+ */
+function UnlockRequests({ token, colors }: { token: string; colors: Palette }) {
+  const { t } = useTranslation();
+  const query = useQuery({
+    queryKey: ['admin', 'unlocks'],
+    queryFn: () => api<{ items: UnlockRequest[] }>('/admin/unlocks', { adminToken: token }),
+    refetchInterval: 30_000,
+  });
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const act = async (id: string, action: 'approve' | 'reject') => {
+    setBusy(id);
+    try {
+      await api(`/admin/unlocks/${id}/${action}`, { method: 'POST', adminToken: token });
+      await query.refetch();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const items = query.data?.items ?? [];
+
+  return (
+    <View style={{ marginTop: spacing.xl }}>
+      <Text style={[typography.heading, { color: colors.text }]}>{t('admin.unlocksTitle')}</Text>
+      <Text style={[typography.caption, styles.hint, { color: colors.textMuted }]}>{t('admin.unlocksHint')}</Text>
+
+      {query.isLoading ? <ActivityIndicator color={colors.accent} /> : null}
+      {!query.isLoading && items.length === 0 ? (
+        <Text style={[typography.caption, { color: colors.textMuted }]}>{t('admin.unlocksEmpty')}</Text>
+      ) : null}
+
+      {items.map((r) => (
+        <View key={r.id} style={[styles.unlockRow, { borderColor: colors.border }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15 }} selectable>
+              {r.phone ?? '—'}
+            </Text>
+            <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+              {r.amountDa} DA · {new Date(r.createdAt).toLocaleString()}
+            </Text>
+          </View>
+          {busy === r.id ? (
+            <ActivityIndicator color={colors.accent} />
+          ) : (
+            <>
+              <Pressable
+                onPress={() => void act(r.id, 'reject')}
+                style={[styles.smallBtn, { borderColor: colors.danger }]}
+              >
+                <Text style={{ color: colors.danger, fontWeight: '800' }}>{t('admin.reject')}</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void act(r.id, 'approve')}
+                style={[styles.smallBtn, { backgroundColor: colors.accent, borderColor: colors.accent }]}
+              >
+                <Text style={{ color: colors.accentText, fontWeight: '800' }}>{t('admin.approve')}</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  unlockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  smallBtn: { borderWidth: 1.5, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.xl },
   hint: { marginTop: spacing.xs, marginBottom: spacing.md, lineHeight: 18 },
