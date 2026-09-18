@@ -176,8 +176,12 @@ export default function MapScreen() {
       prev.bannerBottom === b.bannerBottom && prev.bottomBarHeight === b.bottomBarHeight ? prev : b,
     );
   }, []);
+  // Cadre ferme : le bouton qui le rouvre occupe le coin bas droit (36 points de haut, a 12 du
+  // bord). La colonne remonte donc au-dessus de lui, sinon son dernier bouton le recouvrait.
   const navColumnBottom =
-    navBounds.bottomBarHeight > 0 ? navBounds.bottomBarHeight + spacing.md : insets.bottom + spacing.xl;
+    navBounds.bottomBarHeight > 0
+      ? navBounds.bottomBarHeight + spacing.md
+      : insets.bottom + spacing.md + 36 + spacing.md;
   const navFabGap = spacing.sm;
   const navAvailable = mapH - (navBounds.bannerBottom + spacing.md) - navColumnBottom;
   const navFabSize = Math.max(
@@ -490,6 +494,13 @@ export default function MapScreen() {
    *    prochaine mesure du suivi continu, qui peut etre a trois secondes.
    */
   const recenter = useCallback(async () => {
+    // Pendant le guidage, ce bouton est le « recentrer » de la colonne (point 6 du client) :
+    // il rend la camera au suivi du vehicule. Un simple deplacement de camera, comme a
+    // l'accueil, aurait ete aussitot contredit par le suivi — ou pire, l'aurait laisse coupe.
+    if (navigating) {
+      setFollowMode(true);
+      return;
+    }
     const known = getFix() ?? position;
     if (known) {
       cameraRef.current?.easeTo({ center: [known.lon, known.lat], zoom: 15, duration: 700 });
@@ -512,7 +523,7 @@ export default function MapScreen() {
     } catch {
       setToast(t('map.locationUnavailable'));
     }
-  }, [position, getFix, permissionDenied, t]);
+  }, [position, getFix, permissionDenied, t, navigating]);
 
   /** "Vue d'ensemble" pendant la navigation : dezoome et aplatit la camera pour montrer tout le
    * trajet restant, exactement comme overviewBtn en v83. */

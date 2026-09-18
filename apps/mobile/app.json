@@ -6,14 +6,13 @@
     "orientation": "default",
     "scheme": "win",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "assetBundlePatterns": [
       "**/*"
     ],
     "icon": "./assets/icon.png",
     "android": {
       "package": "dz.win.app",
-      "versionCode": 22,
+      "versionCode": 23,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0A5840"

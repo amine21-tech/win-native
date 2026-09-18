@@ -187,9 +187,9 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         <View style={styles.clockRow}>
           <Text style={styles.clockItem}>🕐 {formatClock24(now)}</Text>
           {remaining ? (
-            <Text style={styles.clockItem} numberOfLines={1}>
+            <Text style={[styles.clockItem, styles.clockRight]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
               {formatDistance(remaining.distanceM)}
-              {eta ? ` · ${t('nav.eta')} ${formatClock24(eta)}` : ''}
+              {eta ? ` · ${t('nav.etaLong')} ${formatClock24(eta)}` : ''}
             </Text>
           ) : null}
         </View>
@@ -285,20 +285,22 @@ export const NavigationOverlay = memo(function NavigationOverlay({
           main, il reste a l'ecran — meme cadre du bas ferme — pour revenir a tout moment au
           suivi du vehicule. Il se place au-dessus du cadre, jamais dessus. */}
       {!following ? (
-        <Pressable
-          onPress={onRecenter}
-          accessibilityRole="button"
-          accessibilityLabel={t('nav.recenter')}
-          style={[
-            styles.resumePill,
-            {
-              backgroundColor: colors.accent,
-              bottom: (bottomOpen ? bottomBarHeight : bottomInset) + spacing.md,
-            },
-          ]}
+        // Rangee pleine largeur et `pointerEvents="box-none"` : c'est la seule facon de CENTRER
+        // un element en position absolue. Un `alignSelf: 'center'` seul le laissait colle a
+        // gauche, par-dessus les pastilles de vitesse.
+        <View
+          pointerEvents="box-none"
+          style={[styles.resumeRow, { bottom: (bottomOpen ? bottomBarHeight : bottomInset) + spacing.md }]}
         >
-          <Text style={[styles.resumeText, { color: colors.accentText }]}>🎯 {t('nav.recenter')}</Text>
-        </Pressable>
+          <Pressable
+            onPress={onRecenter}
+            accessibilityRole="button"
+            accessibilityLabel={t('nav.recenter')}
+            style={[styles.resumePill, { backgroundColor: colors.accent }]}
+          >
+            <Text style={[styles.resumeText, { color: colors.accentText }]}>🎯 {t('nav.recenter')}</Text>
+          </Pressable>
+        </View>
       ) : null}
 
       {/* Cadre ferme : un petit bouton en bas a droite le rouvre, comme `#navBottomReopenBtn`. */}
@@ -470,6 +472,9 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.25)',
   },
   clockItem: { color: 'rgba(255,255,255,0.92)', fontSize: 12.5, fontWeight: '700' as const },
+  // « 491 km · Arrivee estimee 16:25 » : la ligne la plus longue du bandeau. Elle se reduit
+  // legerement plutot que d'etre coupee par des points de suspension.
+  clockRight: { flexShrink: 1, textAlign: 'right', marginLeft: spacing.md },
   grip: {
     alignSelf: 'center',
     width: 38,
@@ -568,9 +573,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     elevation: 6,
   },
+  resumeRow: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   resumePill: {
-    position: 'absolute',
-    alignSelf: 'center',
     paddingHorizontal: spacing.lg,
     height: 40,
     borderRadius: 20,
