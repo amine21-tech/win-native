@@ -63,7 +63,12 @@
     "steps": "Route steps",
     "closeSteps": "Close steps",
     "then": "then",
-    "back": "Back"
+    "back": "Back",
+    "end": "End",
+    "etaLong": "Arrival",
+    "hidePanel": "Hide panel",
+    "showPanel": "Show panel",
+    "whereTo": "Where do you want to go?"
   },
   "consent": {
     "title": "Before you start",

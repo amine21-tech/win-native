@@ -63,7 +63,12 @@
     "steps": "مراحل الطريق",
     "closeSteps": "سكّر المراحل",
     "then": "من بعد",
-    "back": "رجوع"
+    "back": "رجوع",
+    "end": "إنهاء",
+    "etaLong": "الوصول",
+    "hidePanel": "إخفاء",
+    "showPanel": "إظهار",
+    "whereTo": "وين تحب تروح؟"
   },
   "consent": {
     "title": "قبل ما نبداو",

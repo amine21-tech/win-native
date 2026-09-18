@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { localizedInstruction, maneuverArrow, roadRef } from '../navigation/instructions';
@@ -12,6 +12,8 @@ import { formatClock24, useClock } from '../utils/clock';
 
 /** Ecart entre les cartes flottantes et le bord de l'ecran, en paysage. */
 const CARD_MARGIN = spacing.sm;
+/** Ecart entre le bas du bandeau et le compteur de vitesse. */
+const BADGE_GAP = 48;
 
 type Props = {
   active: boolean;
@@ -45,6 +47,10 @@ type Props = {
   /** Limite reglementaire du troncon, affichee sous le compteur de vitesse. `null` = inconnue,
    * la pastille disparait alors (voir useSpeedLimit). */
   limitKmh: number | null;
+  /** Hauteurs reelles du bandeau (bas du bandeau, depuis le haut de l'ecran) et du cadre du bas
+   * (0 quand il est ferme). L'ecran de carte en a besoin pour caler la colonne des dix boutons
+   * ENTRE les deux : le dernier bouton chevauchait « Fin » (point 20 du client). */
+  onLayoutBounds: (bounds: { bannerBottom: number; bottomBarHeight: number }) => void;
   /* Le guidage vocal ne se regle plus depuis cet ecran : la colonne des dix boutons de
    * l'accueil — dont celui du son — reste affichee pendant tout le trajet. */
   /** Ouvre la recherche SANS quitter le guidage (le detour). Elle n'etait joignable qu'a la
@@ -83,6 +89,7 @@ export const NavigationOverlay = memo(function NavigationOverlay({
   onRecenter,
   onBack,
   limitKmh,
+  onLayoutBounds,
   onSearch,
   following,
   colors,
@@ -98,6 +105,18 @@ export const NavigationOverlay = memo(function NavigationOverlay({
   /** Hauteur reelle du bandeau, mesuree : la languette « puis » doit s'accrocher juste en
    * dessous, et cette hauteur varie avec la longueur du nom de rue (une ou deux lignes). */
   const [bannerHeight, setBannerHeight] = useState(0);
+  /** Cadre du bas ouvert ou ferme (point 21 : comme sur le site, une petite croix le ferme et
+   * un bouton en bas a droite le rouvre). Il degage la carte quand on veut regarder autour. */
+  const [bottomOpen, setBottomOpen] = useState(true);
+  const [bottomBarHeight, setBottomBarHeight] = useState(0);
+
+  // Transmis a l'ecran de carte a chaque changement : c'est lui qui place la colonne de boutons.
+  useEffect(() => {
+    onLayoutBounds({
+      bannerBottom: (landscape ? topInset + CARD_MARGIN : 0) + bannerHeight,
+      bottomBarHeight: bottomOpen ? bottomBarHeight : 0,
+    });
+  }, [bannerHeight, bottomBarHeight, bottomOpen, landscape, topInset, onLayoutBounds]);
 
   if (!active) return null;
 
@@ -223,18 +242,33 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         </>
       ) : (
         <>
+          {/* Nettement DETACHEES du bandeau vert (point 19) : la pastille le touchait. L'ecart
+              de 48 points laisse aussi passer la languette « puis », accrochee sous le bandeau
+              a gauche, qui fait environ 36 points de haut. */}
           <SpeedBadge
             subscribe={subscribeFix}
             colors={colors}
-            top={bannerTop + bannerHeight + spacing.md}
+            top={bannerTop + bannerHeight + BADGE_GAP}
             left={spacing.md}
           />
           <SpeedLimitBadge
             limitKmh={limitKmh}
             subscribe={subscribeFix}
-            top={bannerTop + bannerHeight + spacing.md + 66}
+            top={bannerTop + bannerHeight + BADGE_GAP + 66}
             left={spacing.md + 4}
           />
+          {/* Vue d'ensemble du trajet, sous les deux pastilles, comme sur le site. */}
+          <Pressable
+            onPress={onOverview}
+            accessibilityRole="button"
+            accessibilityLabel={t('nav.overview')}
+            style={[
+              styles.overviewBtn,
+              { top: bannerTop + bannerHeight + BADGE_GAP + 66 + 62, backgroundColor: colors.surface, borderColor: colors.goldDeep },
+            ]}
+          >
+            <Text style={{ fontSize: 17, color: colors.accentDark }}>⛶</Text>
+          </Pressable>
         </>
       )}
 
@@ -247,7 +281,44 @@ export const NavigationOverlay = memo(function NavigationOverlay({
           gauche, le temps restant en gros au centre, les etapes a droite. La duree est ce
           qu'on regarde le plus souvent — elle est donc au centre et en grand, et la distance
           l'accompagne sur la meme ligne que l'heure d'arrivee, plus discretement. */}
+      {/* « Recentrer » flottant (point 12) : des que la carte a ete deplacee ou zoomee a la
+          main, il reste a l'ecran — meme cadre du bas ferme — pour revenir a tout moment au
+          suivi du vehicule. Il se place au-dessus du cadre, jamais dessus. */}
+      {!following ? (
+        <Pressable
+          onPress={onRecenter}
+          accessibilityRole="button"
+          accessibilityLabel={t('nav.recenter')}
+          style={[
+            styles.resumePill,
+            {
+              backgroundColor: colors.accent,
+              bottom: (bottomOpen ? bottomBarHeight : bottomInset) + spacing.md,
+            },
+          ]}
+        >
+          <Text style={[styles.resumeText, { color: colors.accentText }]}>🎯 {t('nav.recenter')}</Text>
+        </Pressable>
+      ) : null}
+
+      {/* Cadre ferme : un petit bouton en bas a droite le rouvre, comme `#navBottomReopenBtn`. */}
+      {!bottomOpen ? (
+        <Pressable
+          onPress={() => setBottomOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={t('nav.showPanel')}
+          style={[
+            styles.reopenPill,
+            { bottom: bottomInset + spacing.md, backgroundColor: colors.surface, borderColor: colors.goldDeep },
+          ]}
+        >
+          <Text style={{ fontSize: 16, color: colors.accentDark, fontWeight: '800' }}>⌃</Text>
+        </Pressable>
+      ) : null}
+
+      {bottomOpen ? (
       <View
+        onLayout={(e) => setBottomBarHeight(Math.round(e.nativeEvent.layout.height))}
         style={[
           landscape ? styles.bottomBarLandscape : styles.bottomBar,
           { backgroundColor: colors.surface },
@@ -257,6 +328,18 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         ]}
         pointerEvents="box-none"
       >
+        {/* Petite croix a cheval sur le bord superieur, comme sur le site : placee HORS des
+            boutons, elle ne peut jamais etre touchee par erreur a la place de « Fin ». */}
+        <Pressable
+          onPress={() => setBottomOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel={t('nav.hidePanel')}
+          hitSlop={8}
+          style={[styles.closeBar, { backgroundColor: colors.text, borderColor: colors.surface }]}
+        >
+          <Text style={[styles.closeBarGlyph, { color: colors.surface }]}>✕</Text>
+        </Pressable>
+
         {/* Meme contenu que le cadre du bas de la version web (`#navBottom`) : duree et
             distance restantes a gauche, puis retour, recherche, recentrer, et « Fin ». Il n'y
             avait ici qu'une croix et une icone d'etapes. */}
@@ -266,15 +349,21 @@ export const NavigationOverlay = memo(function NavigationOverlay({
           accessibilityLabel={t('nav.steps')}
           style={styles.bottomRemain}
         >
+          {/* Trois lignes courtes plutot qu'une longue tronquee (« 491 km · arriv... ») :
+              distance en grand, duree, puis heure d'arrivee — l'ordre du site. */}
           {remaining ? (
             <>
-              <Text style={[styles.bigDuration, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                {formatDuration(remaining.durationS)}
+              <Text style={[styles.bigDuration, { color: colors.accentDark }]} numberOfLines={1} adjustsFontSizeToFit>
+                {formatDistance(remaining.distanceM)}
               </Text>
               <Text style={[styles.bottomSub, { color: colors.textMuted }]} numberOfLines={1}>
-                {formatDistance(remaining.distanceM)}
-                {eta ? ` · ${t('nav.eta')} ${formatClock24(eta)}` : ''}
+                {formatDuration(remaining.durationS)}
               </Text>
+              {eta ? (
+                <Text style={[styles.bottomEta, { color: colors.accentDark }]} numberOfLines={1}>
+                  {t('nav.etaLong')} {formatClock24(eta)}
+                </Text>
+              ) : null}
             </>
           ) : (
             <Text style={[styles.bottomSub, { color: colors.textMuted }]}>{t('nav.recalculating')}</Text>
@@ -321,9 +410,10 @@ export const NavigationOverlay = memo(function NavigationOverlay({
           accessibilityLabel={t('nav.stop')}
           style={[styles.stopBtn, { backgroundColor: colors.danger }]}
         >
-          <Text style={styles.stopLabel}>⏹ {t('nav.stop')}</Text>
+          <Text style={styles.stopLabel}>⏹ {t('nav.end')}</Text>
         </Pressable>
       </View>
+      ) : null}
     </>
   );
 });
@@ -452,6 +542,58 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   stopLabel: { color: '#fff', fontSize: 13.5, fontWeight: '800' as const },
+  bottomEta: { fontSize: 12, fontWeight: '800' as const, fontVariant: ['tabular-nums'] },
+  closeBar: {
+    position: 'absolute',
+    top: -13,
+    right: -2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 9,
+    zIndex: 5,
+  },
+  closeBarGlyph: { fontSize: 14, fontWeight: '800' as const, lineHeight: 16 },
+  reopenPill: {
+    position: 'absolute',
+    right: spacing.md,
+    width: 52,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+  },
+  resumePill: {
+    position: 'absolute',
+    alignSelf: 'center',
+    paddingHorizontal: spacing.lg,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  resumeText: { fontSize: 14, fontWeight: '800' as const },
+  overviewBtn: {
+    position: 'absolute',
+    left: spacing.md + 5,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+  },
   bottomRemain: { flexShrink: 1, minWidth: 92, gap: 1 },
   bigDuration: { fontSize: 21, fontWeight: '800' as const, lineHeight: 25 },
   bottomSub: { fontSize: 13, fontWeight: '600' as const, fontVariant: ['tabular-nums'] },

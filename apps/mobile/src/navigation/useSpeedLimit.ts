@@ -31,6 +31,10 @@ const LIMITS: Record<string, number> = {
   tertiary: 80,
   unclassified: 80,
   residential: 50,
+  // « minor » : nom des tuiles OpenMapTiles (celles d'OpenFreeMap) pour les rues de quartier et
+  // les voies non classees. C'est la classe la plus frequente en ville — sans elle, la pastille
+  // restait vide presque partout.
+  minor: 50,
   living_street: 20,
   service: 30,
 };
@@ -39,8 +43,6 @@ const LIMITS: Record<string, number> = {
  * en voiture, on est presque toujours sur la plus importante. */
 const BY_IMPORTANCE = Object.keys(LIMITS);
 
-/** Couches de tuiles qui portent les routes, selon les styles (OpenMapTiles, autres). */
-const ROAD_LAYERS = new Set(['transportation', 'road', 'roads']);
 
 /** Fenetre de lecture autour du vehicule, en points d'ecran. */
 const PROBE_RADIUS = 22;
@@ -117,10 +119,13 @@ export function useSpeedLimit({ active, mapRef, vehiclePoint, here }: Props): nu
         let bestRank = Number.MAX_SAFE_INTEGER;
         for (const feature of features ?? []) {
           const properties = (feature.properties ?? {}) as Record<string, unknown>;
-          const layer = String(
-            (feature as { sourceLayer?: string }).sourceLayer ?? properties['sourceLayer'] ?? '',
-          ).toLowerCase();
-          if (!ROAD_LAYERS.has(layer)) continue;
+          // On reconnait une route a sa GEOMETRIE, pas au nom de sa couche : la carte Android ne
+          // renvoie pas ce nom (`sourceLayer` absent), et le filtre qui s'y fiait ecartait donc
+          // TOUTES les routes — la pastille ne s'affichait jamais, alors que le site affichait
+          // « 30 » au meme endroit. Une ligne suffit a exclure les zones (« residential » est
+          // aussi une classe d'occupation du sol, mais un polygone).
+          const type = feature.geometry?.type;
+          if (type !== 'LineString' && type !== 'MultiLineString') continue;
           // Les tuiles nomment les bretelles « motorway_link », « primary_link »… : meme limite
           // que la route qu'elles rejoignent.
           const cls = String(properties['class'] ?? properties['highway'] ?? properties['subclass'] ?? '')

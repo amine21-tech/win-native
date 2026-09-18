@@ -10,7 +10,13 @@ function isSummerSeason(): boolean {
   return month >= 6 && month <= 9;
 }
 
-type Props = { top: number; colors: Palette };
+type Props = {
+  top: number;
+  /** Marge droite : elle doit DEGAGER la colonne de boutons, que le bandeau chevauchait
+   * (point 1 du client). Sur le site, le bandeau s'arrete a 64 px du bord pour la meme raison. */
+  right: number;
+  colors: Palette;
+};
 
 /**
  * Bandeau rouge "vigilance feux de forêt", affiche une fois par session pendant l'ete (juin a
@@ -19,7 +25,7 @@ type Props = { top: number; colors: Palette };
  * d'urgence, pas un simple rappel"). Ne se ferme jamais manuellement pour la meme raison :
  * disparait seul apres 10 secondes (BANNER_DURATION_MS, identique a v83).
  */
-export function SeasonalBanner({ top, colors }: Props) {
+export function SeasonalBanner({ top, right, colors }: Props) {
   const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
 
@@ -50,7 +56,7 @@ export function SeasonalBanner({ top, colors }: Props) {
   if (!visible) return null;
 
   return (
-    <View style={[styles.banner, { top, backgroundColor: colors.danger }]} pointerEvents="box-none">
+    <View style={[styles.banner, { top, right, backgroundColor: colors.danger }]} pointerEvents="box-none">
       <Animated.View
         pointerEvents="none"
         style={[
@@ -62,56 +68,66 @@ export function SeasonalBanner({ top, colors }: Props) {
           },
         ]}
       />
-      <Text style={styles.icon}>🔥</Text>
+      {/* Format COMPLET du site (`.season-fire`) : pictogramme dans sa case, titre, texte entier
+          et pastille d'appel dessous. La version precedente tronquait le texte a deux lignes et
+          serrait l'appel sur la meme ligne — le client l'a trouvee reduite. */}
+      <View style={styles.iconBox}>
+        <Text style={styles.icon}>🔥</Text>
+      </View>
       <View style={styles.textWrap}>
         <Text style={styles.title}>{t('seasonalAlert.fireTitle')}</Text>
-        <Text style={styles.message} numberOfLines={2}>
-          {t('seasonalAlert.fireMessage')}
-        </Text>
+        <Text style={styles.message}>{t('seasonalAlert.fireMessage')}</Text>
+        <Pressable onPress={() => void Linking.openURL('tel:14')} style={styles.callBtn}>
+          <Text style={styles.callText}>📞 {t('seasonalAlert.fireCall')}</Text>
+        </Pressable>
       </View>
-      <Pressable onPress={() => void Linking.openURL('tel:14')} style={styles.callBtn}>
-        <Text style={styles.callText}>📞 14</Text>
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Compact et centre : ce bandeau s'affiche par-dessus la carte a l'ouverture et disparait
-  // seul apres 10 s. Trop haut, il masquait la barre de recherche au moment precis ou
-  // l'utilisateur veut taper — d'ou une mise en page resserree (icone et textes reduits,
-  // bouton d'appel sur la meme ligne que le texte).
   // Halo derriere le bandeau : deborde de 10 points de chaque cote et pulse doucement.
-  halo: { position: 'absolute', left: -10, right: -10, top: -10, bottom: -10, borderRadius: radius.lg },
+  halo: { position: 'absolute', left: -10, right: -10, top: -10, bottom: -10, borderRadius: 24 },
+  // Reprise de `.season-banner` + `.season-fire` : rayon 18, marges 13/15, ombre rouge diffuse.
   banner: {
     position: 'absolute',
-    alignSelf: 'center',
-    maxWidth: 380,
     left: spacing.lg,
-    right: spacing.lg,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    borderRadius: 18,
+    paddingHorizontal: 15,
+    paddingVertical: 13,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    alignItems: 'flex-start',
+    gap: 12,
     elevation: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#C8102E',
+    shadowOpacity: 0.32,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 10 },
     zIndex: 50,
   },
-  icon: { fontSize: 17 },
-  textWrap: { flex: 1 },
-  title: { color: '#fff', fontWeight: '800' as const, fontSize: 12.5 },
-  message: { color: '#fff', fontSize: 11, marginTop: 1, lineHeight: 14 },
-  callBtn: {
-    alignSelf: 'center',
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+  // `.sb-ic` : case de 36 points, coins de 11, fond blanc translucide.
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  callText: { color: '#fff', fontWeight: '700' as const, fontSize: 11 },
+  icon: { fontSize: 18 },
+  textWrap: { flex: 1 },
+  title: { color: '#fff', fontWeight: '800' as const, fontSize: 12.5, marginBottom: 2 },
+  message: { color: 'rgba(255,255,255,0.9)', fontSize: 11.5, lineHeight: 16 },
+  // `.sb-call` : pastille d'appel sous le texte, fond et liseré blancs translucides.
+  callBtn: {
+    alignSelf: 'flex-start',
+    marginTop: 7,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  callText: { color: '#fff', fontWeight: '800' as const, fontSize: 10.5 },
 });

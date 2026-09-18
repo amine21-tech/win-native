@@ -63,7 +63,12 @@
     "steps": "Étapes de l'itinéraire",
     "closeSteps": "Fermer les étapes",
     "then": "puis",
-    "back": "Retour"
+    "back": "Retour",
+    "end": "Fin",
+    "etaLong": "Arrivée",
+    "hidePanel": "Masquer le cadre",
+    "showPanel": "Réafficher le cadre",
+    "whereTo": "Où voulez-vous aller ?"
   },
   "consent": {
     "title": "Avant de commencer",

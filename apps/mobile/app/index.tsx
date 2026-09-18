@@ -46,6 +46,7 @@ import { VoicePanel } from '../src/components/VoicePanel';
 import { TripSummary, type Trip } from '../src/components/TripSummary';
 import { useRealtime } from '../src/hooks/useRealtime';
 import { NavArrow } from '../src/components/NavArrow';
+import { NavDestinationPicker } from '../src/components/NavDestinationPicker';
 import { MeMarker } from '../src/map/MeMarker';
 import { COUNTRY_VIEWS, INITIAL_VIEW_STATE, MAP_STYLES, REPORT_COLORS, type CountryView } from '../src/map/style';
 import { useMapStyle } from '../src/map/useMapStyle';
@@ -164,10 +165,29 @@ export default function MapScreen() {
   // une mesure toutes les 3 s au repos), donc la source de position aussi.
   const [navigating, setNavigating] = useState(false);
 
-  /* Pendant le guidage, la colonne partage la hauteur avec le bandeau de consigne et le cadre
-   * du bas : les boutons passent a 78 % de leur taille plutot que d'etre masques, ce que fait
-   * aussi la version web. 34 points restent tactilement utilisables. */
-  const fabSize = navigating ? Math.max(34, Math.round(baseFabSize * 0.78)) : baseFabSize;
+  /* Pendant le guidage, la colonne tient ENTRE le bas du bandeau de consigne et le haut du
+   * cadre du bas, dont les hauteurs reelles sont remontees par NavigationOverlay. Elle etait
+   * calee sur le bas de l'ecran : le dernier bouton (Qibla) recouvrait « Fin » (point 20 du
+   * client). Les boutons retrecissent juste ce qu'il faut pour tenir, jamais sous 28 points,
+   * et l'ecart entre eux passe a 8 points — comme ajusterColonneFab sur le site. */
+  const [navBounds, setNavBounds] = useState({ bannerBottom: 0, bottomBarHeight: 0 });
+  const onNavLayoutBounds = useCallback((b: { bannerBottom: number; bottomBarHeight: number }) => {
+    setNavBounds((prev) =>
+      prev.bannerBottom === b.bannerBottom && prev.bottomBarHeight === b.bottomBarHeight ? prev : b,
+    );
+  }, []);
+  const navColumnBottom =
+    navBounds.bottomBarHeight > 0 ? navBounds.bottomBarHeight + spacing.md : insets.bottom + spacing.xl;
+  const navFabGap = spacing.sm;
+  const navAvailable = mapH - (navBounds.bannerBottom + spacing.md) - navColumnBottom;
+  const navFabSize = Math.max(
+    28,
+    Math.min(
+      Math.round(baseFabSize * 0.78),
+      Math.floor((navAvailable - (FAB_COUNT - 1) * navFabGap) / (FAB_COUNT - 1 + FAB_PRIMARY_RATIO)),
+    ),
+  );
+  const fabSize = navigating ? navFabSize : baseFabSize;
   const fabPrimarySize = Math.round(fabSize * FAB_PRIMARY_RATIO);
 
   /**
@@ -998,7 +1018,14 @@ export default function MapScreen() {
   // bas : assistant vocal, SOS, partager, mode nuit, signalement, voix du guidage, ma
   // position, profil, drapeau, Qibla.
   const fabColumn = (
-      <View style={[styles.column, { bottom: insets.bottom + spacing.xl }]}>
+      <View
+        style={[
+          styles.column,
+          navigating
+            ? { bottom: navColumnBottom, gap: navFabGap }
+            : { bottom: insets.bottom + spacing.xl },
+        ]}
+      >
         {isLoading ? <ActivityIndicator color={colors.accent} /> : null}
 
         {/* Assistant vocal : « pharmacie de garde », « combien de temps pour arriver »,
@@ -1422,6 +1449,8 @@ export default function MapScreen() {
           entierement auparavant, meme hauteur de depart que les deux. */}
       <SeasonalBanner
         top={insets.top + HEADER_HEIGHT + (topBlockH || HIT_SIZE) + spacing.lg}
+        // Degage la colonne de boutons : sa marge droite + son bouton le plus large + un ecart.
+        right={spacing.lg + fabPrimarySize + spacing.md}
         colors={colors}
       />
 
@@ -1507,6 +1536,7 @@ export default function MapScreen() {
           onOverview={showRouteOverview}
           onRecenter={resumeFollow}
           onBack={() => setDestSheetOpen(true)}
+          onLayoutBounds={onNavLayoutBounds}
           limitKmh={speedLimit}
           onSearch={() => {
             search.setQuery('');
@@ -1530,7 +1560,37 @@ export default function MapScreen() {
             la liste ci-dessous). Choisir un resultat ne coupe pas le guidage — il change de
             destination et recalcule depuis l'endroit exact ou l'on se trouve. La liste se pose
             SOUS le bandeau d'instruction, qui ne doit jamais etre masque. */}
-        {navSearchOpen || resultsVisible ? (
+        {/* « Ou voulez-vous aller ? » (point 16) : grille de douze rubriques et champ de
+            recherche, comme sur le site. Choisir un lieu declenche un detour sans couper le
+            guidage. */}
+        <NavDestinationPicker
+          visible={navSearchOpen}
+          onClose={() => {
+            setNavSearchOpen(false);
+            setResultsOpen(false);
+            search.setQuery('');
+            Keyboard.dismiss();
+          }}
+          query={search.query}
+          onChangeQuery={(text) => {
+            search.setQuery(text);
+            setResultsOpen(true);
+          }}
+          onCategory={(dataQ, label) => {
+            search.searchCategory(dataQ, label);
+            setResultsOpen(true);
+          }}
+          loading={search.loading}
+          partners={search.partners}
+          results={search.results}
+          onSelectResult={takeDetour}
+          colors={colors}
+        />
+
+        {/* En ligne, sous le bandeau : seulement les resultats demandes a l'ASSISTANT VOCAL en
+            cours de route. La recherche tapee passe par le panneau « Ou voulez-vous aller ? »
+            ci-dessous. */}
+        {!navSearchOpen && resultsVisible ? (
           <View
             style={[
               styles.navResults,
@@ -1539,38 +1599,6 @@ export default function MapScreen() {
                 : { top: insets.top + 150 },
             ]}
           >
-            {navSearchOpen ? (
-              <SearchBar
-                value={search.query}
-                onChangeText={(text) => {
-                  search.setQuery(text);
-                  setResultsOpen(true);
-                }}
-                onFocus={() => setResultsOpen(true)}
-                onClear={() => {
-                  search.setQuery('');
-                  setResultsOpen(true);
-                }}
-                placeholder={t('map.searchPlaceholder')}
-                colors={colors}
-                listening={false}
-                onMicPressIn={() => {}}
-                onMicPressOut={() => {}}
-              />
-            ) : null}
-            {/* Puces de categories pendant le trajet : le menu « Nouvel itineraire » ne
-                proposait plus qu'une loupe, alors qu'une version anterieure donnait acces aux
-                rubriques (station-service, administration…). C'est precisement ce qu'on cherche
-                en route — et le detour ne coupe pas le guidage. */}
-            {navSearchOpen && search.query.trim().length < 2 ? (
-              <CategoryChips
-                colors={colors}
-                onPick={(dataQ, label) => {
-                  search.searchCategory(dataQ, label);
-                  setResultsOpen(true);
-                }}
-              />
-            ) : null}
             <Pressable
               onPress={() => {
                 setResultsOpen(false);
