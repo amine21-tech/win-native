@@ -285,6 +285,7 @@ export default function MapScreen() {
     lang,
     initialRoute: navInitialRoute,
     getSpeedMps: currentSpeedMps,
+    getHeading: currentHeading,
   });
 
   /* ------------------------------------------------------------------ */

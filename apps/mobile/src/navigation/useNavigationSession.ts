@@ -17,9 +17,22 @@ import { useSession } from '../store/session';
 type Coords = { lat: number; lon: number };
 
 const MANEUVER_ARRIVAL_RADIUS_M = 30;
+/* Detection de la sortie d'itineraire.
+ *
+ * Le client demande un recalcul « quasi instantane » apres une sortie manquee. Deux leviers :
+ * declencher plus tot, et ne pas repartir en arriere.
+ *   - 50 m d'ecart au trace : deux mesures consecutives suffisent desormais (une seconde), au
+ *     lieu de trois. En dessous, le bruit du GPS en ville declencherait des recalculs inutiles ;
+ *   - au-dela de 120 m, plus de doute possible : on recalcule des la premiere mesure ;
+ *   - le delai entre deux recalculs tombe de dix a quatre secondes, le temps qu'un itineraire
+ *     revienne du serveur.
+ * Le cap du vehicule est transmis avec la demande (voir loadRoute) : le nouveau trajet part donc
+ * dans le sens ou l'on roule, au lieu de commencer par un demi-tour vers le trace abandonne.
+ */
 const OFF_ROUTE_THRESHOLD_M = 50;
-const OFF_ROUTE_STREAK_TO_RECALC = 3;
-const RECALC_COOLDOWN_MS = 10_000;
+const OFF_ROUTE_CERTAIN_M = 120;
+const OFF_ROUTE_STREAK_TO_RECALC = 2;
+const RECALC_COOLDOWN_MS = 4_000;
 
 /** Distances d'annonce, exprimees en SECONDES de trajet puis bornees : a 120 km/h une
  * consigne donnee a 200 m arrive trop tard pour changer de file, et en ville la meme
@@ -56,8 +69,11 @@ export function useNavigationSession(params: {
   /** Acces a la vitesse instantanee, en m/s, sans passer par un rendu React : elle sert
    * a decider QUAND annoncer une manoeuvre. Voir useLiveLocation. */
   getSpeedMps?: () => number;
+  /** Cap au sol courant, en degres, ou `undefined` a l'arret. Transmis au moteur d'itineraire
+   * lors d'un recalcul pour qu'il reparte dans le sens de la marche. */
+  getHeading?: () => number | undefined;
 }) {
-  const { active, position, destination, mode, lang, initialRoute, getSpeedMps } = params;
+  const { active, position, destination, mode, lang, initialRoute, getSpeedMps, getHeading } = params;
   const [route, setRoute] = useState<Route | null>(null);
   const [maneuverIndex, setManeuverIndex] = useState(0);
   const [traveledM, setTraveledM] = useState(0);
@@ -76,6 +92,8 @@ export function useNavigationSession(params: {
   const lastRecalcAtRef = useRef(0);
   const initialRouteRef = useRef<Route | null>(null);
   const getSpeedRef = useRef(getSpeedMps);
+  const getHeadingRef = useRef(getHeading);
+  getHeadingRef.current = getHeading;
   getSpeedRef.current = getSpeedMps;
   useEffect(() => {
     initialRouteRef.current = initialRoute ?? null;
@@ -109,6 +127,9 @@ export function useNavigationSession(params: {
           mode,
           narrationLanguage: lang === 'en' ? 'en-US' : 'fr-FR',
           alternates: 0,
+          // Le cap n'est transmis qu'en mouvement : a l'arret, le GPS en renvoie un aleatoire,
+          // et contraindre le depart dans une direction inventee donnerait un trajet absurde.
+          heading: getHeadingRef.current?.() ?? undefined,
         });
         setError(false);
         applyRoute(primary);
@@ -203,7 +224,8 @@ export function useNavigationSession(params: {
     if (located.distanceM > OFF_ROUTE_THRESHOLD_M) {
       offRouteStreakRef.current += 1;
       const cooledDown = Date.now() - lastRecalcAtRef.current > RECALC_COOLDOWN_MS;
-      if (offRouteStreakRef.current >= OFF_ROUTE_STREAK_TO_RECALC && cooledDown) {
+      const certain = located.distanceM > OFF_ROUTE_CERTAIN_M;
+      if ((certain || offRouteStreakRef.current >= OFF_ROUTE_STREAK_TO_RECALC) && cooledDown) {
         lastRecalcAtRef.current = Date.now();
         offRouteStreakRef.current = 0;
         void loadRoute(position);

@@ -38,13 +38,25 @@ const placeColumns = sql`
   COALESCE(ph.photos, '[]'::json) AS photos
 `;
 
+/**
+ * Photos d'un lieu, en ADRESSES COMPLETES.
+ *
+ * Elles etaient renvoyees sous forme de cles de stockage (`storageKey`), alors que
+ * l'application — et le schema partage — attendent `url` et `thumbUrl`. Elle ne trouvait donc
+ * rien a afficher : la photo ajoutee par un contributeur etait bien enregistree, bien servie
+ * par le serveur, mais jamais montree dans la fiche du lieu. C'est le meme calcul que dans
+ * routes/photos.ts, au moment de l'envoi.
+ */
 const photosJoin = sql`
   LEFT JOIN LATERAL (
     SELECT json_agg(
              json_build_object(
                'id', f.id,
-               'storageKey', f.storage_key,
-               'thumbKey', f.thumb_key,
+               'url', ${env.PUBLIC_BASE_URL} || '/uploads/' || f.storage_key,
+               'thumbUrl', CASE
+                             WHEN f.thumb_key IS NULL THEN NULL
+                             ELSE ${env.PUBLIC_BASE_URL} || '/uploads/' || f.thumb_key
+                           END,
                'credit', f.credit,
                'position', f.position
              ) ORDER BY f.position

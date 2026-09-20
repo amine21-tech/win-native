@@ -6,6 +6,7 @@ import type { Route, RouteMode } from '../navigation/routing';
 import type { GeocodedResult } from '../search/geocode';
 import { formatDistance } from '../shared';
 import { useAdminSession } from '../store/admin';
+import { lookupPlacePhoto } from '../place/placePhoto';
 import { fonts, radius, spacing, typography, type Palette } from '../theme';
 import { AdminEditPlaceSheet } from './AdminEditPlaceSheet';
 import { CorrectionSheet } from './CorrectionSheet';
@@ -30,37 +31,21 @@ type Props = {
   onStartNavigation: () => void;
 };
 
-const CITY_TYPES = new Set(['city', 'town', 'village', 'municipality']);
-
-/** Cherche une photo Wikipedia pour une VILLE connue uniquement — jamais pour un commerce ou une
- * administration : Wikipedia renverrait alors la photo d'un lieu homonyme ailleurs dans le monde.
- * Pas de photo vaut mieux qu'une fausse photo (meme regle qu'en v83, loadSheetPhoto). */
-function useCityWikiPhoto(place: SelectedPlace | null): string | null {
+/**
+ * Photo d'illustration d'un lieu deja reference (ville, village, site emblematique), quand la
+ * fiche n'a pas de photo de contributeur. Voir src/place/placePhoto.ts pour la regle exacte :
+ * liste verifiee a la main d'abord, article Wikipedia ensuite, et rien du tout pour un commerce.
+ */
+function usePlacePhoto(place: SelectedPlace | null): string | null {
   const [photo, setPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     setPhoto(null);
     if (!place || place.photoUrl || (place.photos?.length ?? 0) > 0) return;
-    const isCity =
-      place.osmKey === 'place' || CITY_TYPES.has(place.osmValue ?? '') || CITY_TYPES.has(place.type ?? '');
-    if (!isCity || !place.name) return;
-
     let cancelled = false;
-    const tryTitle = async (title: string): Promise<string | null> => {
-      try {
-        const url = `https://fr.wikipedia.org/w/api.php?action=query&prop=pageimages&format=json&piprop=thumbnail&pithumbsize=600&redirects=1&origin=*&titles=${encodeURIComponent(title)}`;
-        const res = await fetch(url);
-        const data = (await res.json()) as { query?: { pages?: Record<string, { thumbnail?: { source?: string } }> } };
-        const page = data.query?.pages ? Object.values(data.query.pages)[0] : undefined;
-        return page?.thumbnail?.source ?? null;
-      } catch {
-        return null;
-      }
-    };
-    void (async () => {
-      const src = (await tryTitle(`${place.name} (Algérie)`)) ?? (await tryTitle(place.name));
+    void lookupPlacePhoto(place).then((src) => {
       if (!cancelled && src) setPhoto(src);
-    })();
+    });
     return () => {
       cancelled = true;
     };
@@ -86,7 +71,7 @@ export function PlaceSheet({
   onStartNavigation,
 }: Props) {
   const { t } = useTranslation();
-  const wikiPhoto = useCityWikiPhoto(place);
+  const wikiPhoto = usePlacePhoto(place);
   const gallery = place?.photos?.length ? place.photos.map((p) => p.url) : place?.photoUrl ? [place.photoUrl] : [];
   const [mainPhoto, setMainPhoto] = usePhotoSelection(gallery, wikiPhoto);
   const [correctionOpen, setCorrectionOpen] = useState(false);
@@ -127,6 +112,12 @@ export function PlaceSheet({
         {mainPhoto ? (
           <View style={[styles.photoBox, { backgroundColor: colors.surfaceAlt }]}>
             <Image source={{ uri: mainPhoto }} style={styles.photo} resizeMode="cover" />
+            {/* Bandeau pose SUR l'image, comme sur le site : une photo de contributeur doit se
+                reconnaitre immediatement comme telle, sans avoir a chercher la mention plus bas.
+                Une illustration Wikimedia, elle, porte sa mention de credit. */}
+            <Text style={styles.photoTag}>
+              {gallery.includes(mainPhoto) ? t('place.photoByWin') : '© Wikimedia'}
+            </Text>
           </View>
         ) : null}
 
@@ -365,6 +356,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   photo: { width: '100%', height: '100%' },
+  photoTag: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(10,88,64,0.82)',
+    color: '#fff',
+    fontSize: 11.5,
+    fontWeight: '700' as const,
+  },
   gallery: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.md },
   thumb: { flex: 1, height: 52, borderRadius: radius.sm, overflow: 'hidden', borderWidth: 2 },
   thumbImage: { width: '100%', height: '100%' },

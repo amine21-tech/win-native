@@ -110,6 +110,8 @@ export async function fetchRoute(opts: {
   mode: RouteMode;
   narrationLanguage: 'fr-FR' | 'en-US';
   alternates?: number;
+  /** Cap du vehicule au depart : evite qu'un recalcul ne commence par un demi-tour. */
+  heading?: number;
 }): Promise<{ primary: Route; alternates: Route[] }> {
   const data = await api<RawRouteResponse>('/routing/route', {
     method: 'POST',
@@ -119,6 +121,7 @@ export async function fetchRoute(opts: {
       mode: opts.mode,
       language: opts.narrationLanguage,
       alternates: opts.alternates ?? 2,
+      heading: opts.heading,
     },
   });
   const narration = opts.narrationLanguage === 'en-US' ? 'en' : 'fr';

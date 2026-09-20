@@ -105,7 +105,8 @@
     "favoriteAdd": "Add to favourites",
     "favoriteRemove": "Remove from favourites",
     "reportIssue": "Report an issue with this listing",
-    "addedByWinVip": "VIP partner — added by a WIN user"
+    "addedByWinVip": "VIP partner — added by a WIN user",
+    "photoByWin": "📷 Photo added by a WIN user"
   },
   "categories": {
     "groups": {

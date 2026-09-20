@@ -10,6 +10,13 @@ const routeRequest = z.object({
   mode: z.enum(['auto', 'pedestrian']).default('auto'),
   alternates: z.number().int().min(0).max(2).default(2),
   language: z.string().default('fr-FR'),
+  /**
+   * Cap du vehicule au depart, en degres. Transmis a Valhalla avec une tolerance : le moteur
+   * part alors dans le sens ou l'on roule deja. Sans lui, un recalcul apres une sortie manquee
+   * propose volontiers un demi-tour immediat pour rejoindre le trace abandonne — exactement ce
+   * qu'un conducteur ne fera pas.
+   */
+  heading: z.number().min(0).max(360).optional(),
 });
 
 /**
@@ -58,7 +65,15 @@ const routes: FastifyPluginAsync = async (app) => {
 
       const payload = {
         locations: [
-          { lat: input.from.lat, lon: input.from.lon },
+          {
+            lat: input.from.lat,
+            lon: input.from.lon,
+            ...(input.heading !== undefined
+              ? // 45 deg de part et d'autre : assez large pour un GPS imprecis a l'arret, assez
+                // etroit pour exclure le sens oppose.
+                { heading: Math.round(input.heading), heading_tolerance: 45 }
+              : {}),
+          },
           { lat: input.to.lat, lon: input.to.lon },
         ],
         costing: input.mode,
