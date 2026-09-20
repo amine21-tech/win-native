@@ -82,9 +82,19 @@ const HEADER_HEIGHT = 64;
 /** Distance restante en dessous de laquelle on considere le trajet termine. */
 const ARRIVAL_RADIUS_M = 50;
 
-/** Ecart au trace sous lequel le vehicule est dessine SUR la route. 25 m absorbent la derive
- * ordinaire d'un GPS de telephone en ville, sans masquer une vraie sortie de route. */
-const SNAP_RADIUS_M = 25;
+/* Calage du vehicule sur la route.
+ *
+ * Le seuil etait fixe a 25 m. Or un recepteur de telephone annonce lui-meme sa marge d'erreur,
+ * et elle depasse souvent 30 m en ville, entre les immeubles, ou dans les premieres secondes
+ * apres le depart. Au-dela de 25 m, le point cessait donc d'etre plaque sur la route et
+ * affichait la mesure brute : le conducteur se voyait a cote de la voie qu'il suivait.
+ *
+ * Le seuil suit desormais la PRECISION ANNONCEE : tant que l'ecart au trace reste dans la marge
+ * d'erreur du recepteur, rien ne prouve qu'on a quitte la route — la route est meme l'hypothese
+ * la plus probable. Le plafond de 60 m evite d'y coller encore apres une vraie sortie ; au-dela
+ * de 50 m, le recalcul d'itineraire se declenche de toute facon (useNavigationSession). */
+const SNAP_RADIUS_MIN_M = 30;
+const SNAP_RADIUS_MAX_M = 60;
 /** Diametre du marqueur de navigation, en points. */
 const NAV_PUCK_SIZE = 46;
 
@@ -322,7 +332,8 @@ export default function MapScreen() {
     if (!route || route.geometry.length < 2) return null;
     const located = locateOnRoute([fix.lon, fix.lat], route.geometry, snapHintRef.current);
     snapHintRef.current = located.segmentIndex;
-    if (located.distanceM > SNAP_RADIUS_M) return null;
+    const tolerance = Math.min(SNAP_RADIUS_MAX_M, Math.max(SNAP_RADIUS_MIN_M, fix.accuracyM));
+    if (located.distanceM > tolerance) return null;
     const [lon, lat] = pointOnRoute(route, located);
     const i = Math.min(located.segmentIndex, route.geometry.length - 2);
     const a = route.geometry[i]!;
