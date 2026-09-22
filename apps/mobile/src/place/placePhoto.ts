@@ -1,4 +1,4 @@
-import { normalizeCity } from '../shared';
+import { countryFromCoords, normalizeCity } from '../shared';
 
 /**
  * Photo illustrant un lieu DEJA REFERENCE (ville, village, site) — jamais un commerce.
@@ -60,9 +60,27 @@ export function isCityLike(place: { osmKey?: string; osmValue?: string; type?: s
   );
 }
 
+/* Wikimedia REFUSE les requetes anonymes : sans agent declare, l'API repond 403.
+ *
+ * C'est la cause exacte du defaut signale par le client — photo affichee sur le site, absente
+ * sur Android. Un navigateur envoie son propre agent, et la version HTML passait donc ; sur
+ * Android, React Native envoie « okhttp/4.x », que Wikimedia rejette au titre de sa politique
+ * d'agent utilisateur (« Scripts should use an informative User-Agent »). Verifie a la main :
+ * okhttp -> 403, agent ci-dessous -> 200, sur fr.wikipedia.org comme sur commons.wikimedia.org.
+ *
+ * L'agent doit nommer l'application et un moyen de la joindre ; c'est ce que la politique
+ * demande, et c'est ce qui evite de se faire bloquer de nouveau.
+ */
+const WIKI_HEADERS = {
+  'User-Agent': 'WIN-Navigation/1.0 (https://win-dz.netlify.app; contact@win-dz.app)',
+  'Api-User-Agent': 'WIN-Navigation/1.0 (https://win-dz.netlify.app; contact@win-dz.app)',
+  Accept: 'application/json',
+};
+
 async function json<T>(url: string): Promise<T | null> {
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: WIKI_HEADERS });
+    if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
     return null;
@@ -72,7 +90,7 @@ async function json<T>(url: string): Promise<T | null> {
 /** Adresse reelle d'un fichier Wikimedia Commons, a partir de son nom. */
 async function commonsUrl(title: string): Promise<string | null> {
   const data = await json<{ query?: { pages?: Record<string, { imageinfo?: { url?: string }[] }> } }>(
-    `https://commons.wikimedia.org/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&origin=*&titles=${encodeURIComponent(title)}`,
+    `https://commons.wikimedia.org/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=${encodeURIComponent(title)}`,
   );
   const page = data?.query?.pages ? Object.values(data.query.pages)[0] : undefined;
   return page?.imageinfo?.[0]?.url ?? null;
@@ -81,7 +99,7 @@ async function commonsUrl(title: string): Promise<string | null> {
 /** Image de tete d'un article Wikipedia francais. */
 async function wikipediaThumb(title: string): Promise<string | null> {
   const data = await json<{ query?: { pages?: Record<string, { thumbnail?: { source?: string } }> } }>(
-    `https://fr.wikipedia.org/w/api.php?action=query&prop=pageimages&format=json&piprop=thumbnail&pithumbsize=600&redirects=1&origin=*&titles=${encodeURIComponent(title)}`,
+    `https://fr.wikipedia.org/w/api.php?action=query&prop=pageimages&format=json&piprop=thumbnail&pithumbsize=600&redirects=1&titles=${encodeURIComponent(title)}`,
   );
   const page = data?.query?.pages ? Object.values(data.query.pages)[0] : undefined;
   return page?.thumbnail?.source ?? null;
@@ -96,6 +114,8 @@ export async function lookupPlacePhoto(place: {
   osmKey?: string;
   osmValue?: string;
   type?: string;
+  lat?: number;
+  lon?: number;
 }): Promise<string | null> {
   const name = place.name?.trim();
   if (!name) return null;
@@ -107,5 +127,20 @@ export async function lookupPlacePhoto(place: {
   }
 
   if (!isCityLike(place)) return null;
-  return (await wikipediaThumb(`${name} (Algérie)`)) ?? (await wikipediaThumb(name));
+
+  /* Desambiguisation par le PAYS du lieu, et non « (Algérie) » pour tout le monde.
+   *
+   * Wikipedia compte plusieurs localites du meme nom d'un pays a l'autre. Chercher « Nom
+   * (Algérie) » pour une ville francaise ne renvoyait rien d'utile, et laissait le second essai
+   * — le nom seul — ramener la premiere homonymie venue. En reprenant le pays deduit des
+   * coordonnees, l'article vise est le bon pour l'Algerie, la Tunisie et la France, les trois
+   * pays couverts par la carte. Le nom seul reste le dernier recours.
+   */
+  const country = place.lat != null && place.lon != null ? countryFromCoords(place.lat, place.lon) : null;
+  const qualifier = country === 'TN' ? 'Tunisie' : country === 'FR' ? 'France' : country === 'DZ' ? 'Algérie' : null;
+  if (qualifier) {
+    const disambiguated = await wikipediaThumb(`${name} (${qualifier})`);
+    if (disambiguated) return disambiguated;
+  }
+  return await wikipediaThumb(name);
 }

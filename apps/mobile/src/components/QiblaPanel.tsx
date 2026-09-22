@@ -66,6 +66,13 @@ const CARDINALS = ['N', 'E', 'S', 'O'] as const;
 const BOX_MAX_WIDTH = 320;
 const BOX_PAD_H = 13;
 const BOX_PAD_V = 11;
+/** Part de la mesure brute dans le cap lisse — `_qiblaSmoothAngle(..., 0.18)` en v83. */
+const HEADING_SMOOTHING = 0.18;
+/** Intervalle minimal entre deux rafraichissements de l'aiguille, en ms (v83 : 80). */
+const HEADING_FRAME_MS = 80;
+/** En dessous de ce deplacement, on ne re-rend pas : l'aiguille n'a pas bouge pour l'oeil. */
+const HEADING_DEADBAND_DEG = 0.25;
+
 /** `.qibla-compass{width:92%;max-width:290px}` */
 const COMPASS_MAX = 290;
 
@@ -90,28 +97,42 @@ export function QiblaPanel({ visible, onClose, position }: Props) {
     if (!visible) return;
     let sub: Location.LocationSubscription | null = null;
     let cancelled = false;
-    // Le magnetometre Android emet une vingtaine de mesures par seconde, et elles oscillent
-    // de plusieurs degres meme telephone immobile. Prises telles quelles, elles re-rendaient
-    // tout le panneau vingt fois par seconde et faisaient vibrer l'aiguille. On lisse donc la
-    // valeur (equivalent de _qiblaSmoothAngle en v83) et on ne re-rend que lorsque le
-    // deplacement depasse le degre — soit un rendu seulement quand l'aiguille bouge vraiment.
+    /* Le magnetometre Android emet une vingtaine de mesures par seconde, et elles oscillent de
+     * plusieurs degres telephone immobile. Trois precautions, reprises une a une de
+     * `_qiblaApplyHeading` en v83 — le client compare justement avec cette version :
+     *
+     *   1. filtre passe-bas de poids 0,18 (et non 0,25 : plus la part de la mesure brute est
+     *      faible, plus l'aiguille est calme) ;
+     *   2. au plus un rafraichissement toutes les 80 ms, meme si le capteur parle plus vite —
+     *      l'oeil ne distingue pas mieux, et vingt rendus par seconde faisaient trembler tout
+     *      le panneau ;
+     *   3. cap CUMULE, jamais ramene dans 0-360. Un cap remis dans l'intervalle fait passer
+     *      l'aiguille de 359 a 1 degre, soit un tour complet a l'ecran a chaque passage par le
+     *      nord. En cumulant les ecarts les plus courts, la rotation reste continue et
+     *      l'animation de QiblaCompass peut la suivre sans jamais repartir en arriere.
+     */
     let smoothed: number | null = null;
-    let shown = 0;
+    let continuous = 0;
+    let shownAt = 0;
 
     void Location.watchHeadingAsync((h) => {
       if (cancelled) return;
       const raw = h.trueHeading >= 0 ? h.trueHeading : h.magHeading;
       if (smoothed == null) {
         smoothed = raw;
+        continuous = raw;
       } else {
-        // Interpolation par le plus court chemin : de 359 deg vers 1 deg on traverse le
-        // nord, sinon l'aiguille ferait un tour complet a chaque passage.
         const delta = ((raw - smoothed + 540) % 360) - 180;
-        smoothed = (smoothed + delta * 0.25 + 360) % 360;
+        smoothed = (smoothed + delta * HEADING_SMOOTHING + 360) % 360;
       }
-      if (Math.abs(((smoothed - shown + 540) % 360) - 180) < 1) return;
-      shown = smoothed;
-      setHeading(smoothed);
+      const now = Date.now();
+      if (shownAt && now - shownAt < HEADING_FRAME_MS) return;
+      shownAt = now;
+      // Ecart le plus court entre le cap cumule et le cap lisse : c'est lui qu'on ajoute.
+      const step = ((smoothed - continuous + 540) % 360) - 180;
+      if (Math.abs(step) < HEADING_DEADBAND_DEG) return;
+      continuous += step;
+      setHeading(continuous);
       setHeadingKnown(true);
     }).then((s) => {
       if (cancelled) s.remove();
@@ -143,7 +164,17 @@ export function QiblaPanel({ visible, onClose, position }: Props) {
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable onPress={(e) => e.stopPropagation()} style={[styles.boxWrap, { maxWidth: BOX_MAX_WIDTH }]}>
           <LinearGradient colors={[BOX_TOP, BOX_BOTTOM]} start={{ x: 0.15, y: 0 }} end={{ x: 0.85, y: 1 }} style={styles.box}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Le defilement ne marchait pas : l'encadre ne pouvait pas rapetisser (flexShrink
+                valant zero par defaut), il gardait donc la hauteur de son contenu, la liste
+                recevait une hauteur illimitee — rien a faire defiler — et le bas du panneau
+                (rappel et « Choisir ma ville ») etait simplement coupe par le cadre parent.
+                `flexShrink` sur l'encadre ET sur la liste les ramene dans les 84 % de hauteur
+                d'ecran, et la liste retrouve de quoi defiler. */}
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+            >
               <Pressable onPress={onClose} hitSlop={12} style={styles.close}>
                 <Text style={styles.closeGlyph}>✕</Text>
               </Pressable>
@@ -261,7 +292,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   boxWrap: { width: '100%', maxHeight: '84%' },
+  scroll: { flexShrink: 1 },
+  scrollContent: { paddingBottom: 4 },
   box: {
+    flexShrink: 1,
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: GOLD_LINE,

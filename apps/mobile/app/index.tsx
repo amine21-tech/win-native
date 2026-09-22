@@ -23,7 +23,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bearing as geoBearing, countryFromCoords, formatDuration, haversine, NEARBY_RADIUS_M, type Language, type Place, type Report, type ReportKind } from '../src/shared';
+import { bearing as geoBearing, countryFromCoords, formatDistance, formatDuration, haversine, NEARBY_RADIUS_M, type Language, type Place, type Report, type ReportKind } from '../src/shared';
 import { api, ApiError } from '../src/api/client';
 import { AddPlaceSheet } from '../src/components/AddPlaceSheet';
 import { AssistantPanel } from '../src/components/AssistantPanel';
@@ -455,6 +455,16 @@ export default function MapScreen() {
     if (navigating) {
       if (!nav.route) return { type: 'FeatureCollection', features: [] };
       const geometry = nav.route.geometry;
+      /* Ce qui RESTE a parcourir, porte par le trace lui-meme.
+       *
+       * Le client dezoome en cours de route pour embrasser le trajet entier, et le trace ne
+       * disait alors plus rien : il fallait revenir au cadre du bas pour savoir ou l'on en
+       * etait. L'etiquette reprend les deux valeurs qui comptent a cet instant — le temps et
+       * la distance qui restent, jamais ceux du depart — et suit la progression, puisque
+       * `nav.remaining` est recalcule a chaque point GPS (7 h au depart, 3 h 30 a mi-chemin). */
+      const remainingLabel = nav.remaining
+        ? `${formatDuration(nav.remaining.durationS)} · ${formatDistance(nav.remaining.distanceM)}`
+        : undefined;
 
       // Le trace est coupe en deux au point ou l'on se trouve : la portion deja parcourue
       // passe en gris, celle qui reste garde la couleur vive. C'est le repere le plus
@@ -478,7 +488,7 @@ export default function MapScreen() {
         if (ahead.length >= 2) {
           features.push({
             type: 'Feature',
-            properties: { kind: 'primary' },
+            properties: { kind: 'primary', durationLabel: remainingLabel },
             geometry: { type: 'LineString', coordinates: ahead },
           });
         }
@@ -490,7 +500,7 @@ export default function MapScreen() {
         features: [
           {
             type: 'Feature',
-            properties: { kind: 'primary' },
+            properties: { kind: 'primary', durationLabel: remainingLabel },
             geometry: { type: 'LineString', coordinates: geometry },
           },
         ],
@@ -509,7 +519,11 @@ export default function MapScreen() {
         // Le trace CHOISI porte sa duree (« 5 h 40 »), les bis portent la leur suivie de
         // l'ecart (« 5 h 48 · +8 min ») : c'est la lecture de Google Maps et de Waze, et le
         // client la demande sur chaque trace. Le principal n'affichait rien du tout.
-        const own = formatDuration(r.durationS);
+        // Duree ET distance sur chaque trace, choisi comme alternatif : ce sont les deux
+        // chiffres qui font choisir un itineraire plutot qu'un autre, et le client les veut
+        // lisibles sans ouvrir la fiche. L'ecart de duree reste en queue d'etiquette sur les
+        // bis (« +8 min », « Meme duree »), comme le fait Waze.
+        const own = `${formatDuration(r.durationS)} · ${formatDistance(r.distanceM)}`;
         const durationLabel = isPrimary
           ? own
           : deltaMin === 0
@@ -522,7 +536,7 @@ export default function MapScreen() {
         };
       }),
     };
-  }, [navigating, nav.route, nav.progress, previewRoutes, selectedRouteIndex, t]);
+  }, [navigating, nav.route, nav.progress, nav.remaining, previewRoutes, selectedRouteIndex, t]);
 
   /**
    * « Ma position ».

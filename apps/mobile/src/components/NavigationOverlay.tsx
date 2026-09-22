@@ -345,6 +345,7 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         {/* Meme contenu que le cadre du bas de la version web (`#navBottom`) : duree et
             distance restantes a gauche, puis retour, recherche, recentrer, et « Fin ». Il n'y
             avait ici qu'une croix et une icone d'etapes. */}
+        <View style={styles.bottomRow} pointerEvents="box-none">
         <Pressable
           onPress={onShowSteps}
           accessibilityRole="button"
@@ -361,11 +362,6 @@ export const NavigationOverlay = memo(function NavigationOverlay({
               <Text style={[styles.bottomSub, { color: colors.textMuted }]} numberOfLines={1}>
                 {formatDuration(remaining.durationS)}
               </Text>
-              {eta ? (
-                <Text style={[styles.bottomEta, { color: colors.accentDark }]} numberOfLines={1}>
-                  {t('nav.etaLong')} {formatClock24(eta)}
-                </Text>
-              ) : null}
             </>
           ) : (
             <Text style={[styles.bottomSub, { color: colors.textMuted }]}>{t('nav.recalculating')}</Text>
@@ -414,6 +410,24 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         >
           <Text style={styles.stopLabel}>⏹ {t('nav.end')}</Text>
         </Pressable>
+        </View>
+
+        {/* L'heure d'arrivee prend une LIGNE ENTIERE sous les boutons.
+            Elle etait jusqu'ici la troisieme ligne de la colonne de gauche, large d'une
+            centaine de points une fois les quatre boutons places : « Arrivee estimee 17… »,
+            tronquee, comme le client l'a photographiee. Aucune reduction de police ne reglait
+            cela pour toutes les langues — l'arabe est plus long encore. Sur sa propre ligne,
+            elle tient en entier quelle que soit la langue, et le cadre grandit de quinze
+            points, ce que sa hauteur mesuree repercute au reste de l'ecran. */}
+        {remaining && eta ? (
+          <Text
+            style={[styles.bottomEta, { color: colors.accentDark }]}
+            numberOfLines={1}
+            accessibilityLabel={`${t('nav.etaLong')} ${formatClock24(eta)}`}
+          >
+            🏁 {t('nav.etaLong')} {formatClock24(eta)}
+          </Text>
+        ) : null}
       </View>
       ) : null}
     </>
@@ -489,8 +503,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     borderTopLeftRadius: radius.lg,
@@ -516,8 +528,6 @@ const styles = StyleSheet.create({
   },
   bottomBarLandscape: {
     position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.lg,
@@ -547,7 +557,13 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   stopLabel: { color: '#fff', fontSize: 13.5, fontWeight: '800' as const },
-  bottomEta: { fontSize: 12, fontWeight: '800' as const, fontVariant: ['tabular-nums'] },
+  bottomEta: {
+    fontSize: 12.5,
+    fontWeight: '800' as const,
+    fontVariant: ['tabular-nums'],
+    textAlign: 'center',
+    marginTop: 6,
+  },
   closeBar: {
     position: 'absolute',
     top: -13,
@@ -598,6 +614,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     elevation: 4,
   },
+  bottomRow: { flexDirection: 'row', alignItems: 'center' },
   bottomRemain: { flexShrink: 1, minWidth: 92, gap: 1 },
   bigDuration: { fontSize: 21, fontWeight: '800' as const, lineHeight: 25 },
   bottomSub: { fontSize: 13, fontWeight: '600' as const, fontVariant: ['tabular-nums'] },

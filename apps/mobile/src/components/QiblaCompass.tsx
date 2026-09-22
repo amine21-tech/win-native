@@ -1,4 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, {
   Circle,
   Defs,
@@ -51,8 +52,34 @@ type Props = {
   cardinals: readonly [string, string, string, string];
 };
 
+/**
+ * Rotation animee, equivalent du `transition: transform .15s linear` que le site applique a
+ * `#qiblaArrow` et au cadran. Sans elle, chaque nouvelle mesure du magnetometre deplace
+ * l'aiguille d'un coup : meme lissee, la succession de sauts se lit comme un tremblement. Les
+ * 150 ms lineaires du site relient ces mesures et donnent une aiguille qui glisse.
+ *
+ * L'angle recu doit etre CONTINU (voir QiblaPanel) : une valeur ramenee dans 0-360 ferait
+ * tourner l'aiguille dans le mauvais sens sur presque un tour a chaque passage par le nord.
+ */
+function useSmoothRotation(degrees: number) {
+  const value = useRef(new Animated.Value(degrees)).current;
+  useEffect(() => {
+    Animated.timing(value, {
+      toValue: degrees,
+      duration: 150,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }).start();
+  }, [degrees, value]);
+  // `extrapolate: 'extend'` (par defaut) prolonge la droite au-dela du tour complet : un cap
+  // cumule de 400 degres donne bien 400deg, et non une valeur bornee a 360.
+  return value.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] });
+}
+
 export function QiblaCompass({ size, arrowRotation, dialRotation, gold, cardinals }: Props) {
   const [north, east, south, west] = cardinals;
+  const dialSpin = useSmoothRotation(dialRotation);
+  const arrowSpin = useSmoothRotation(arrowRotation);
 
   return (
     <View style={[styles.frame, { width: size, height: size, borderColor: gold }]}>
@@ -78,7 +105,7 @@ export function QiblaCompass({ size, arrowRotation, dialRotation, gold, cardinal
 
       {/* Rose des vents : elle tourne avec le telephone, l'aiguille non — c'est ce qui permet
           de lire la direction de la Kaaba par rapport au Nord reel. */}
-      <View style={[StyleSheet.absoluteFill, { transform: [{ rotate: `${dialRotation}deg` }] }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ rotate: dialSpin }] }]}>
         <Svg width="100%" height="100%" viewBox="0 0 100 100">
           {/* Les lettres sont posees a 4,5 unites du bord, ce qui reproduit le `top:8px` du
               site sur une boussole de 290 px — sa taille de reference. */}
@@ -95,11 +122,11 @@ export function QiblaCompass({ size, arrowRotation, dialRotation, gold, cardinal
             {west}
           </SvgText>
         </Svg>
-      </View>
+      </Animated.View>
 
       {/* Aiguille : filet clair du moyeu au triangle, triangle grave « Mecca », embleme
           ottoman a son sommet, moyeu dore au centre. */}
-      <View style={[StyleSheet.absoluteFill, { transform: [{ rotate: `${arrowRotation}deg` }] }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ rotate: arrowSpin }] }]}>
         <Svg width="100%" height="100%" viewBox="0 0 100 100">
           <Defs>
             <LinearGradient id="goldBlade" x1="39" y1="3" x2="61" y2="23" gradientUnits="userSpaceOnUse">
@@ -155,7 +182,7 @@ export function QiblaCompass({ size, arrowRotation, dialRotation, gold, cardinal
             Mecca
           </SvgText>
         </Svg>
-      </View>
+      </Animated.View>
 
       {/* Moyeu central, hors de l'aiguille : il est au centre de rotation, donc l'y laisser ne
           changerait rien a l'image et le ferait redessiner a chaque degre. */}
