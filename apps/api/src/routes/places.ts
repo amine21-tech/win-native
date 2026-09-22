@@ -12,6 +12,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { db } from '../db/client.js';
 import { env } from '../env.js';
 import { conflict, HttpError, notFound, parse } from '../lib/http.js';
+import { fetchLegacyAddresses, mergeLegacyAddresses, type SearchedPlace } from '../lib/legacyAddresses.js';
 
 /** Colonnes renvoyees a l'application, photos comprises. */
 const placeColumns = sql`
@@ -157,6 +158,12 @@ const routes: FastifyPluginAsync = async (app) => {
     const categoryMatch = wantedCategories.length
       ? sql`OR p.category IN (${sql.join(wantedCategories.map((c) => sql`${c}`), sql`, `)})`
       : sql``;
+    /* Les adresses ajoutees DEPUIS LE SITE vivent encore dans l'ancien backend, qui n'a
+     * jamais ete debranche : sans cette passerelle, une fiche creee sur le site — et la photo
+     * qui va avec — reste introuvable dans l'application. L'appel part MAINTENANT, en meme
+     * temps que la requete SQL ci-dessous, et n'echoue jamais. */
+    const legacyPending = fetchLegacyAddresses(q, lat !== undefined && lon !== undefined ? { lat, lon } : null);
+
     const hasPosition = lat !== undefined && lon !== undefined;
     const reference = hasPosition
       ? sql`ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)::geography`
@@ -191,7 +198,8 @@ const routes: FastifyPluginAsync = async (app) => {
       LIMIT ${limit}
     `);
 
-    return { items: rows };
+    const items = mergeLegacyAddresses(rows as unknown as SearchedPlace[], await legacyPending);
+    return { items: items.slice(0, limit) };
   });
 
   /**

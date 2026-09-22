@@ -53,6 +53,13 @@ const schema = z.object({
    */
   VIP_CODE: z.string().min(4).default('0000'),
 
+  /**
+   * Ancien backend du site (« …/api »), interroge en plus de cette base par la recherche de
+   * lieux : voir lib/legacyAddresses.ts. Facultatif — sans lui, la recherche ne rend que les
+   * lieux de cette base, comme avant.
+   */
+  LEGACY_API_URL: z.string().url().optional(),
+
   /** Origines autorisees, separees par des virgules. `*` en developpement. */
   CORS_ORIGINS: z.string().default('*'),
 
