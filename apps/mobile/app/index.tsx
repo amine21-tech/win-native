@@ -23,7 +23,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bearing as geoBearing, countryFromCoords, haversine, NEARBY_RADIUS_M, type Language, type Place, type Report, type ReportKind } from '../src/shared';
+import { bearing as geoBearing, countryFromCoords, formatDuration, haversine, NEARBY_RADIUS_M, type Language, type Place, type Report, type ReportKind } from '../src/shared';
 import { api, ApiError } from '../src/api/client';
 import { AddPlaceSheet } from '../src/components/AddPlaceSheet';
 import { AssistantPanel } from '../src/components/AssistantPanel';
@@ -48,7 +48,9 @@ import { useRealtime } from '../src/hooks/useRealtime';
 import { NavArrow } from '../src/components/NavArrow';
 import { TunisiaUnlockSheet } from '../src/components/TunisiaUnlockSheet';
 import { useTunisiaUnlock } from '../src/unlock/useTunisiaUnlock';
+import { LocateIcon } from '../src/components/LocateIcon';
 import { NavDestinationPicker } from '../src/components/NavDestinationPicker';
+import { NavSearchMenu } from '../src/components/NavSearchMenu';
 import { MeMarker } from '../src/map/MeMarker';
 import { COUNTRY_VIEWS, INITIAL_VIEW_STATE, MAP_STYLES, REPORT_COLORS, type CountryView } from '../src/map/style';
 import { useMapStyle } from '../src/map/useMapStyle';
@@ -78,6 +80,24 @@ type Position = { lat: number; lon: number };
 
 /** Hauteur visuelle du bandeau de marque (Header), sous l'encoche/la barre de statut. */
 const HEADER_HEIGHT = 64;
+
+/* Epaisseur des traces, selon le zoom.
+ *
+ * Une largeur fixe ne peut pas convenir aux deux usages : 13 points conviennent en navigation,
+ * au zoom 17, mais donnent un gros boudin illisible quand on prend du recul pour comparer les
+ * itineraires — c'est ce que le client a releve, capture de Waze a l'appui. Les cartes de
+ * navigation courantes font donc varier l'epaisseur avec le zoom ; ces quatre paliers
+ * reproduisent leur progression.
+ */
+type LineWidth = NonNullable<React.ComponentProps<typeof Layer>['paint']> extends infer P
+  ? P extends { 'line-width'?: infer W }
+    ? W
+    : never
+  : never;
+
+function ROUTE_WIDTH(widths: [number, number, number, number]): LineWidth {
+  return ['interpolate', ['linear'], ['zoom'], 7, widths[0], 11, widths[1], 14, widths[2], 17, widths[3]];
+}
 
 /** Distance restante en dessous de laquelle on considere le trajet termine. */
 const ARRIVAL_RADIUS_M = 50;
@@ -163,7 +183,6 @@ export default function MapScreen() {
   const [liveReports, setLiveReports] = useState<Report[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(null);
   /** Fiche du lieu rouverte pendant le guidage, via « Retour » du cadre du bas. */
-  const [destSheetOpen, setDestSheetOpen] = useState(false);
   /* Acces a la Tunisie : 200 DA, acces a vie, debloque par appareil apres verification du
    * paiement par un administrateur (voir apps/api/src/routes/unlocks.ts). */
   const tunisia = useTunisiaUnlock();
@@ -271,6 +290,8 @@ export default function MapScreen() {
   const [voicePanelOpen, setVoicePanelOpen] = useState(false);
   /** Champ de recherche ouvert PENDANT le guidage (bouton loupe de la colonne). */
   const [navSearchOpen, setNavSearchOpen] = useState(false);
+  // Le petit menu « Nouvel itineraire / Continuer » que la loupe ouvre d'abord.
+  const [navSearchMenuOpen, setNavSearchMenuOpen] = useState(false);
   /** Heure de depart et duree annoncee, retenues pour ce bilan. Une reference plutot qu'un
    * etat : ces valeurs ne changent rien a l'affichage tant que le trajet dure. */
   const tripStartRef = useRef<{ at: number; estimateS: number; distanceM: number } | null>(null);
@@ -485,11 +506,15 @@ export default function MapScreen() {
         // "+8 min" se lit d'un coup d'oeil, la meme information que "Meme duree" demandee par
         // le client quand l'ecart est nul (doc 110 #2).
         const deltaMin = Math.round((r.durationS - primaryDurationS) / 60);
+        // Le trace CHOISI porte sa duree (« 5 h 40 »), les bis portent la leur suivie de
+        // l'ecart (« 5 h 48 · +8 min ») : c'est la lecture de Google Maps et de Waze, et le
+        // client la demande sur chaque trace. Le principal n'affichait rien du tout.
+        const own = formatDuration(r.durationS);
         const durationLabel = isPrimary
-          ? ''
+          ? own
           : deltaMin === 0
-            ? t('trip.sameDuration')
-            : `${deltaMin > 0 ? '+' : ''}${deltaMin} min`;
+            ? `${own} · ${t('trip.sameDuration')}`
+            : `${own} · ${deltaMin > 0 ? '+' : ''}${deltaMin} min`;
         return {
           type: 'Feature',
           properties: { kind: isPrimary ? 'primary' : 'alt', durationLabel },
@@ -825,6 +850,7 @@ export default function MapScreen() {
   const stopNavigation = useCallback(() => {
     setStepsOpen(false);
     setNavSearchOpen(false);
+    setNavSearchMenuOpen(false);
     setNavigating(false);
     setNavDestination(null);
     setNavInitialRoute(null);
@@ -833,6 +859,16 @@ export default function MapScreen() {
     cameraRef.current?.setStop({ bearing: 0, pitch: 0, duration: 400 });
     setMapBearing(0);
   }, []);
+
+  /**
+   * Quitter le guidage par la fleche du cadre du bas : meme effet que le bouton rouge « Fin »,
+   * plus la fiche du lieu refermee et la recherche videe, pour retrouver reellement l'ecran de
+   * depart et non la carte encore chargee de la derniere destination.
+   */
+  const exitNavigationToHome = useCallback(() => {
+    stopNavigation();
+    closeSheet();
+  }, [stopNavigation, closeSheet]);
 
   /**
    * Arrivee : plus aucune manoeuvre devant, et moins de cinquante metres a parcourir. Les
@@ -1185,7 +1221,7 @@ export default function MapScreen() {
             },
           ]}
         >
-          <Text style={[styles.fabGlyph, { color: colors.accent }]}>◎</Text>
+          <LocateIcon size={22} color={colors.accent} />
         </Pressable>
 
         <Pressable
@@ -1280,7 +1316,11 @@ export default function MapScreen() {
             source="route"
             filter={['==', ['get', 'kind'], 'alt']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{ 'line-color': colors.textMuted, 'line-width': 8, 'line-opacity': 0.55 }}
+            paint={{
+              'line-color': colors.textMuted,
+              'line-width': ROUTE_WIDTH([2.5, 3.5, 5, 8]),
+              'line-opacity': 0.55,
+            }}
           />
           {/* Liseré clair sous TOUT l'itineraire (parcouru comme restant). Sans lui, le trace
               vert se confond avec les routes du fond des qu'elles sont orange ou beiges — ce
@@ -1293,7 +1333,11 @@ export default function MapScreen() {
             source="route"
             filter={['!=', ['get', 'kind'], 'alt']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{ 'line-color': colors.surface, 'line-width': 19, 'line-opacity': 0.95 }}
+            paint={{
+              'line-color': colors.surface,
+              'line-width': ROUTE_WIDTH([5, 7, 10, 19]),
+              'line-opacity': 0.95,
+            }}
           />
           {/* Portion deja parcourue, en gris — meme teinte que le `#b9c4bf` de v83. Bout coupe
               net (`line-cap: butt`) et non arrondi : arrondi, elle depasserait du point de
@@ -1304,7 +1348,11 @@ export default function MapScreen() {
             source="route"
             filter={['==', ['get', 'kind'], 'traveled']}
             layout={{ 'line-cap': 'butt', 'line-join': 'round' }}
-            paint={{ 'line-color': '#B9C4BF', 'line-width': 10, 'line-opacity': 0.9 }}
+            paint={{
+              'line-color': '#B9C4BF',
+              'line-width': ROUTE_WIDTH([2.5, 3.5, 5.5, 10]),
+              'line-opacity': 0.9,
+            }}
           />
           <Layer
             id="route-primary"
@@ -1312,9 +1360,7 @@ export default function MapScreen() {
             source="route"
             filter={['==', ['get', 'kind'], 'primary']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            // Epaisseur relevee de 9 a 13 points : le client trouvait le trace trop fin par
-            // rapport a la version web, ou il domine nettement les rues du fond.
-            paint={{ 'line-color': colors.accent, 'line-width': 13 }}
+            paint={{ 'line-color': colors.accent, 'line-width': ROUTE_WIDTH([3, 4.5, 7, 13]) }}
           />
           {/* Ecart de duree affiche sur chaque alternatif ("+8 min" / "Meme duree"), pour rester
               identifiable une fois les traces epaissis et rapproches (doc 110 #2). */}
@@ -1322,7 +1368,7 @@ export default function MapScreen() {
             id="route-alt-label"
             type="symbol"
             source="route"
-            filter={['==', ['get', 'kind'], 'alt']}
+            filter={['has', 'durationLabel']}
             layout={{
               'symbol-placement': 'line-center',
               'text-field': ['get', 'durationLabel'],
@@ -1584,14 +1630,13 @@ export default function MapScreen() {
           onShowSteps={() => setStepsOpen(true)}
           onOverview={showRouteOverview}
           onRecenter={resumeFollow}
-          onBack={() => setDestSheetOpen(true)}
+          // La fleche quitte le guidage et ramene a l'ecran de depart, comme « Fin » : elle
+          // ouvrait jusqu'ici la fiche du lieu, qui est fermee pendant le guidage — donc rien
+          // ne se passait a l'ecran, ce que le client a signale.
+          onBack={exitNavigationToHome}
           onLayoutBounds={onNavLayoutBounds}
           limitKmh={speedLimit}
-          onSearch={() => {
-            search.setQuery('');
-            setResultsOpen(true);
-            setNavSearchOpen(true);
-          }}
+          onSearch={() => setNavSearchMenuOpen(true)}
           following={followMode}
           colors={colors}
           topInset={insets.top}
@@ -1612,6 +1657,20 @@ export default function MapScreen() {
         {/* « Ou voulez-vous aller ? » (point 16) : grille de douze rubriques et champ de
             recherche, comme sur le site. Choisir un lieu declenche un detour sans couper le
             guidage. */}
+        {/* La loupe ouvre ce menu, et non plus la recherche directement : au volant, un appui
+            malheureux masquait l'instruction en cours derriere un panneau plein ecran. */}
+        <NavSearchMenu
+          visible={navSearchMenuOpen}
+          onContinue={() => setNavSearchMenuOpen(false)}
+          onNewRoute={() => {
+            setNavSearchMenuOpen(false);
+            search.setQuery('');
+            setResultsOpen(true);
+            setNavSearchOpen(true);
+          }}
+          colors={colors}
+        />
+
         <NavDestinationPicker
           visible={navSearchOpen}
           onClose={() => {
@@ -1828,15 +1887,12 @@ export default function MapScreen() {
         colors={colors}
       />
 
-      {!navigating || destSheetOpen ? (
+      {!navigating ? (
         <PlaceSheet
           place={selectedPlace}
           isFavorite={selectedPlace ? places.isFavorite(toBookmark(selectedPlace)) : false}
           onToggleFavorite={() => selectedPlace && places.toggleFavorite(toBookmark(selectedPlace))}
-          onClose={() => {
-            setDestSheetOpen(false);
-            if (!navigating) closeSheet();
-          }}
+          onClose={closeSheet}
           colors={colors}
           hasUserPosition={!!position}
           routes={previewRoutes}

@@ -68,7 +68,9 @@
     "etaLong": "Arrivée estimée",
     "hidePanel": "Masquer le cadre",
     "showPanel": "Réafficher le cadre",
-    "whereTo": "Où voulez-vous aller ?"
+    "whereTo": "Où voulez-vous aller ?",
+    "newRoute": "Nouvel itinéraire",
+    "continueNav": "Continuer la navigation"
   },
   "consent": {
     "title": "Avant de commencer",

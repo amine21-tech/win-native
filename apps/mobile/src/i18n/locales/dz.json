@@ -68,7 +68,9 @@
     "etaLong": "الوصول المتوقع",
     "hidePanel": "إخفاء",
     "showPanel": "إظهار",
-    "whereTo": "وين تحب تروح؟"
+    "whereTo": "وين تحب تروح؟",
+    "newRoute": "طريق جديد",
+    "continueNav": "كمّل الطريق"
   },
   "consent": {
     "title": "قبل ما نبداو",

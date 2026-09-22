@@ -68,7 +68,9 @@
     "etaLong": "Estimated arrival",
     "hidePanel": "Hide panel",
     "showPanel": "Show panel",
-    "whereTo": "Where do you want to go?"
+    "whereTo": "Where do you want to go?",
+    "newRoute": "New itinerary",
+    "continueNav": "Continue navigation"
   },
   "consent": {
     "title": "Before you start",
