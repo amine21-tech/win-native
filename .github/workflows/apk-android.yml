@@ -5,7 +5,8 @@
 # GitHub plutot que sur les serveurs d'Expo.
 #
 # Lancement : onglet « Actions » du depot -> « APK Android » -> « Run workflow ».
-# L'APK se recupere en bas de la page de l'execution, dans « Artifacts ».
+# L'APK se recupere dans « Releases » (lien direct, sans compte) ou, a defaut, en bas de la
+# page de l'execution dans « Artifacts ».
 name: APK Android
 
 on:
@@ -18,6 +19,11 @@ jobs:
     # MapLibre partent de zero, sans aucun cache. Les suivantes reutilisent le cache ci-dessous
     # et durent beaucoup moins. Deux heures laissent de la marge meme sur une machine lente.
     timeout-minutes: 120
+
+    # Droit d'ecriture sur le depot : la derniere etape publie l'APK en Release. C'est le seul
+    # droit ajoute — le jeton reste en lecture seule sur tout le reste.
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -121,3 +127,30 @@ jobs:
           name: win-v${{ steps.version.outputs.code }}-apk
           path: apps/mobile/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+
+      # Publication en Release, en plus de l'artefact.
+      #
+      # Un artefact exige un compte GitHub connecte et arrive dans un .zip qu'il faut ouvrir sur
+      # un ordinateur : impossible a donner tel quel a un client, qui installe depuis son
+      # telephone. Une Release donne une adresse directe vers le .apk, ouvrable sans compte.
+      #
+      # Elle calme aussi les filtres des navigateurs (Firefox, Chrome) : le fichier vient alors
+      # de github.com et non d'un stockage anonyme, domaine que ces filtres traitent tout
+      # autrement. Un APK signe d'une cle personnelle restera toutefois « editeur inconnu ».
+      #
+      # Relancer le workflow sans changer versionCode reutilise la meme Release et remplace le
+      # fichier (--clobber), au lieu d'echouer sur une etiquette deja prise.
+      - name: Publier la Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          apk=$(ls apps/mobile/android/app/build/outputs/apk/release/*.apk | head -n 1)
+          nom="win-v${{ steps.version.outputs.code }}.apk"
+          tag="v${{ steps.version.outputs.code }}"
+          cp "$apk" "$nom"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --title "WIN v${{ steps.version.outputs.code }}" --notes "APK Android (arm64). A ouvrir directement depuis le telephone pour installer."
+          fi
+          gh release upload "$tag" "$nom" --clobber
+          echo "APK publie : https://github.com/${{ github.repository }}/releases/download/$tag/$nom"
