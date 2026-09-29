@@ -23,6 +23,8 @@ export const StorageKeys = {
   /** Identifiant de la voix de synthese choisie a la main, absent = meilleure disponible. */
   voiceId: 'voiceId',
   unlockedCountries: 'unlockedCountries',
+  /** Preferences d'itineraire : peages, pistes, grands axes. */
+  routePrefs: 'routePrefs',
 } as const;
 
 export function readJson<T>(key: string, fallback: T): T {

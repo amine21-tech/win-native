@@ -311,7 +311,10 @@
     "onTime": "وصلت في الوقت المتوقع.",
     "late": "{{minutes}} دقيقة أكثر من المتوقع.",
     "early": "{{minutes}} دقيقة أقل من المتوقع.",
-    "close": "إنهاء"
+    "close": "إنهاء",
+    "avoidTolls": "بدون رسوم",
+    "avoidUnpaved": "بدون مسالك",
+    "preferHighways": "الطرق الكبرى"
   },
   "correction": {
     "title": "الإبلاغ عن خطأ",

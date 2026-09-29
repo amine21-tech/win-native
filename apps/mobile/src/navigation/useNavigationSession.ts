@@ -119,6 +119,10 @@ export function useNavigationSession(params: {
   const getSpeedRef = useRef(getSpeedMps);
   const getHeadingRef = useRef(getHeading);
   getHeadingRef.current = getHeading;
+  /* Preferences du conducteur, lues par une reference : `loadRoute` ne doit pas etre
+   * recree — donc le guidage relance — parce qu'une case a ete cochee. */
+  const prefsRef = useRef(useSession.getState().routePrefs);
+  prefsRef.current = useSession((s) => s.routePrefs);
   getSpeedRef.current = getSpeedMps;
   useEffect(() => {
     initialRouteRef.current = initialRoute ?? null;
@@ -156,6 +160,9 @@ export function useNavigationSession(params: {
           // Le cap n'est transmis qu'en mouvement : a l'arret, le GPS en renvoie un aleatoire,
           // et contraindre le depart dans une direction inventee donnerait un trajet absurde.
           heading: getHeadingRef.current?.() ?? undefined,
+          // Un recalcul en route doit respecter les memes preferences que le trajet d'origine,
+          // sinon un detour ramenerait le conducteur sur une piste qu'il a demande d'eviter.
+          prefs: prefsRef.current,
         });
         setError(false);
         applyRoute(primary);

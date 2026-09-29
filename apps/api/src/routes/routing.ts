@@ -17,7 +17,41 @@ const routeRequest = z.object({
    * qu'un conducteur ne fera pas.
    */
   heading: z.number().min(0).max(360).optional(),
+
+  /* Preferences du conducteur (document 143, point 2). Elles comptent particulierement en
+   * Algerie, ou la qualite des routes varie beaucoup d'un axe a l'autre. */
+  avoidTolls: z.boolean().default(false),
+  avoidUnpaved: z.boolean().default(false),
+  preferHighways: z.boolean().default(false),
 });
+
+/**
+ * Reglages de cout transmis a Valhalla.
+ *
+ * Les valeurs par defaut sont celles de la version web (`costing_options` en v83) et non celles
+ * de Valhalla : le site evite deja legerement les peages (0,3 au lieu de 0,5) et marche a
+ * 4,5 km/h. Sans les envoyer, l'application proposait des itineraires legerement differents de
+ * ceux du site pour la meme demande — un ecart que le client aurait fini par relever.
+ *
+ * Les preferences ne font que deplacer ces curseurs : zero pour refuser, un pour privilegier.
+ * `exclude_unpaved` accompagne `use_tracks` car les deux ne visent pas la meme chose — l'un
+ * ecarte les chemins de terre, l'autre les pistes forestieres et agricoles.
+ */
+function costingOptions(input: {
+  mode: 'auto' | 'pedestrian';
+  avoidTolls: boolean;
+  avoidUnpaved: boolean;
+  preferHighways: boolean;
+}) {
+  if (input.mode === 'pedestrian') return { pedestrian: { walking_speed: 4.5 } };
+  return {
+    auto: {
+      use_highways: input.preferHighways ? 1 : 0.5,
+      use_tolls: input.avoidTolls ? 0 : 0.3,
+      ...(input.avoidUnpaved ? { use_tracks: 0, exclude_unpaved: true } : {}),
+    },
+  };
+}
 
 /**
  * Zone couverte par le moteur europeen, quand il existe (VALHALLA_EU_URL).
@@ -77,6 +111,7 @@ const routes: FastifyPluginAsync = async (app) => {
           { lat: input.to.lat, lon: input.to.lon },
         ],
         costing: input.mode,
+        costing_options: costingOptions(input),
         alternates: input.alternates,
         directions_options: { units: 'kilometers', language: input.language },
       };

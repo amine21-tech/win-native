@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Language } from '../shared';
 import { api, ensureDeviceToken } from '../api/client';
-import { storage, StorageKeys } from './storage';
+import { readJson, storage, StorageKeys, writeJson } from './storage';
 import { isNightTime } from '../utils/clock';
 
 /**
@@ -19,6 +19,29 @@ import { isNightTime } from '../utils/clock';
  */
 export type ThemeOverride = 'auto' | 'light' | 'dark';
 
+/**
+ * Preferences d'itineraire, transmises a Valhalla (document 143, point 2).
+ *
+ * Elles comptent particulierement en Algerie, ou la qualite des routes varie beaucoup d'un
+ * axe a l'autre : une piste praticable en 4x4 ne l'est pas pour une berline, et le moteur ne
+ * peut pas le deviner. Conservees d'une session a l'autre, contrairement au mode nuit : c'est
+ * un choix lie au vehicule, pas a l'heure.
+ */
+export type RoutePrefs = {
+  /** Evite les routes a peage (`use_tolls: 0`). */
+  avoidTolls: boolean;
+  /** Evite les pistes et les chemins non goudronnes (`exclude_unpaved`, `use_tracks: 0`). */
+  avoidUnpaved: boolean;
+  /** Privilegie les grands axes (`use_highways: 1`). */
+  preferHighways: boolean;
+};
+
+const DEFAULT_ROUTE_PREFS: RoutePrefs = {
+  avoidTolls: false,
+  avoidUnpaved: false,
+  preferHighways: false,
+};
+
 type Session = {
   deviceId: string | null;
   language: Language;
@@ -27,6 +50,7 @@ type Session = {
   /** Annonces vocales (guidage + reponses de l'assistant) — bouton "voice" de v83, coupe le son
    * sans rien changer au reste (avancement des manoeuvres, texte affiche...). */
   voiceGuidanceEnabled: boolean;
+  routePrefs: RoutePrefs;
   ready: boolean;
 
   /** Inscrit l'appareil au premier lancement, puis reutilise le jeton garde. */
@@ -36,6 +60,7 @@ type Session = {
   /** Interrupteur jour/nuit, comme `applyNight(!nightMode)` en v83. */
   toggleNightMode: () => void;
   toggleVoiceGuidance: () => void;
+  toggleRoutePref: (key: keyof RoutePrefs) => void;
 };
 
 export const useSession = create<Session>((set, get) => ({
@@ -47,6 +72,7 @@ export const useSession = create<Session>((set, get) => ({
   // consulte — le site ne le consulte pas non plus, et les deux doivent coincider.
   themeOverride: 'auto',
   voiceGuidanceEnabled: storage.getString(StorageKeys.voiceEnabled) !== '0',
+  routePrefs: readJson<RoutePrefs>(StorageKeys.routePrefs, DEFAULT_ROUTE_PREFS),
   ready: false,
 
   bootstrap: async () => {
@@ -88,5 +114,11 @@ export const useSession = create<Session>((set, get) => ({
     const next = !get().voiceGuidanceEnabled;
     storage.set(StorageKeys.voiceEnabled, next ? '1' : '0');
     set({ voiceGuidanceEnabled: next });
+  },
+
+  toggleRoutePref: (key) => {
+    const next = { ...get().routePrefs, [key]: !get().routePrefs[key] };
+    writeJson(StorageKeys.routePrefs, next);
+    set({ routePrefs: next });
   },
 }));

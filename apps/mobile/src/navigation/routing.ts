@@ -112,6 +112,8 @@ export async function fetchRoute(opts: {
   alternates?: number;
   /** Cap du vehicule au depart : evite qu'un recalcul ne commence par un demi-tour. */
   heading?: number;
+  /** Preferences du conducteur — peages, pistes, grands axes (voir store/session). */
+  prefs?: { avoidTolls: boolean; avoidUnpaved: boolean; preferHighways: boolean };
 }): Promise<{ primary: Route; alternates: Route[] }> {
   const data = await api<RawRouteResponse>('/routing/route', {
     method: 'POST',
@@ -122,6 +124,9 @@ export async function fetchRoute(opts: {
       language: opts.narrationLanguage,
       alternates: opts.alternates ?? 2,
       heading: opts.heading,
+      avoidTolls: opts.prefs?.avoidTolls ?? false,
+      avoidUnpaved: opts.prefs?.avoidUnpaved ?? false,
+      preferHighways: opts.prefs?.preferHighways ?? false,
     },
   });
   const narration = opts.narrationLanguage === 'en-US' ? 'en' : 'fr';

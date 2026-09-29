@@ -311,7 +311,10 @@
     "onTime": "وصلت في الوقت لي قالك.",
     "late": "{{minutes}} دقيقة زيادة على لي كان متوقع.",
     "early": "{{minutes}} دقيقة أقل من لي كان متوقع.",
-    "close": "سالي"
+    "close": "سالي",
+    "avoidTolls": "بلا بيّاج",
+    "avoidUnpaved": "بلا بيست",
+    "preferHighways": "الطرقات الكبار"
   },
   "correction": {
     "title": "بلّغ على غلطة",

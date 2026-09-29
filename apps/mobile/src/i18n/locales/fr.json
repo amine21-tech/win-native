@@ -311,7 +311,10 @@
     "onTime": "Arrivée à l'heure annoncée.",
     "late": "{{minutes}} min de plus que prévu.",
     "early": "{{minutes}} min de moins que prévu.",
-    "close": "Terminer"
+    "close": "Terminer",
+    "avoidTolls": "Sans péage",
+    "avoidUnpaved": "Sans piste",
+    "preferHighways": "Grands axes"
   },
   "correction": {
     "title": "Signaler une erreur",

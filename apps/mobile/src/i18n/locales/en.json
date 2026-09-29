@@ -311,7 +311,10 @@
     "onTime": "Arrived on the announced time.",
     "late": "{{minutes}} min longer than expected.",
     "early": "{{minutes}} min shorter than expected.",
-    "close": "Done"
+    "close": "Done",
+    "avoidTolls": "No tolls",
+    "avoidUnpaved": "No dirt roads",
+    "preferHighways": "Main roads"
   },
   "correction": {
     "title": "Report an issue",

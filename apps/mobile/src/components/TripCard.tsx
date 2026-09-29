@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { useSession, type RoutePrefs } from '../store/session';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Route, RouteMode } from '../navigation/routing';
 import { formatDistance, formatDuration } from '../shared';
@@ -18,7 +19,16 @@ type Props = {
 
 /** Carte "resume de trajet" : reprise de `.tripcard` en v83 — distance/duree, bascule voiture/pied,
  * itineraires alternatifs, bouton demarrer. */
+/** Les trois preferences, dans l'ordre ou elles comptent au volant en Algerie. */
+const ROUTE_PREFS: { key: keyof RoutePrefs; emoji: string }[] = [
+  { key: 'avoidUnpaved', emoji: '🚧' },
+  { key: 'avoidTolls', emoji: '💰' },
+  { key: 'preferHighways', emoji: '🛣️' },
+];
+
 export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode, onModeChange, onStart, colors }: Props) {
+  const prefs = useSession((s) => s.routePrefs);
+  const toggleRoutePref = useSession((s) => s.toggleRoutePref);
   const { t } = useTranslation();
   const selected = routes[selectedIndex];
 
@@ -65,6 +75,41 @@ export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode
             </Pressable>
           </View>
 
+          {/* Preferences d'itineraire (document 143, point 2), a pied exclu : ni peage ni
+              piste n'ont de sens pour un pieton. Trois pastilles plutot qu'un panneau de
+              reglages : le choix depend du trajet du jour, pas d'un reglage qu'on va chercher
+              une fois pour toutes dans un menu. Il est malgre tout conserve d'une session a
+              l'autre, parce qu'il tient surtout au vehicule. */}
+          {mode === 'auto' ? (
+            <View style={styles.prefRow}>
+              {ROUTE_PREFS.map(({ key, emoji }) => {
+                const on = prefs[key];
+                return (
+                  <Pressable
+                    key={key}
+                    onPress={() => toggleRoutePref(key)}
+                    accessibilityRole="switch"
+                    accessibilityState={{ checked: on }}
+                    style={[
+                      styles.prefChip,
+                      {
+                        borderColor: on ? colors.accent : colors.border,
+                        backgroundColor: on ? colors.accent : colors.surface,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.prefLabel, { color: on ? colors.accentText : colors.textMuted }]}
+                      numberOfLines={1}
+                    >
+                      {emoji} {t(`trip.${key}`)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+
           {routes.length > 1 ? (
             <View style={styles.altRow}>
               {routes.map((r, i) => (
@@ -104,6 +149,9 @@ const styles = StyleSheet.create({
   modes: { flexDirection: 'row', borderRadius: radius.md, padding: 4, marginTop: spacing.md, gap: 4 },
   modeBtn: { flex: 1, borderRadius: radius.sm, paddingVertical: spacing.sm, alignItems: 'center' },
   modeLabel: { fontSize: 12.5, fontWeight: '700' as const },
+  prefRow: { flexDirection: 'row', gap: 6, marginTop: spacing.sm },
+  prefChip: { flex: 1, borderWidth: 1.5, borderRadius: radius.pill, paddingVertical: 7, paddingHorizontal: 4, alignItems: 'center' },
+  prefLabel: { fontSize: 11, fontWeight: '700' as const },
   altRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   altChip: { flex: 1, borderWidth: 1.5, borderRadius: radius.sm, padding: spacing.sm, alignItems: 'center' },
   altChipTitle: { fontSize: 12, fontWeight: '800' as const },
