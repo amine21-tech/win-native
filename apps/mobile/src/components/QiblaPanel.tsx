@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
+import { DeviceMotion } from 'expo-sensors';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -68,8 +69,15 @@ const BOX_PAD_H = 13;
 const BOX_PAD_V = 11;
 /** Part de la mesure brute dans le cap lisse — `_qiblaSmoothAngle(..., 0.18)` en v83. */
 const HEADING_SMOOTHING = 0.18;
-/** Intervalle minimal entre deux rafraichissements de l'aiguille, en ms (v83 : 80). */
+/** Intervalle minimal entre deux rafraichissements de l'AFFICHAGE, en ms (v83 : 80). */
 const HEADING_FRAME_MS = 80;
+/* Cadence de LECTURE du capteur, bien plus rapide que l'affichage — et c'est voulu.
+ *
+ * Le filtre ne retient que 18 % de chaque mesure : lu a la cadence de l'affichage, il mettrait
+ * pres d'une seconde a rattraper un quart de tour, et l'aiguille trainerait derriere le
+ * telephone. Le navigateur recoit l'orientation a la cadence de l'ecran et lisse a chaque fois,
+ * en n'affichant qu'un point sur cinq ; on fait pareil. */
+const HEADING_SENSOR_MS = 16;
 /** En dessous de ce deplacement, on ne re-rend pas : l'aiguille n'a pas bouge pour l'oeil. */
 const HEADING_DEADBAND_DEG = 0.25;
 
@@ -80,7 +88,7 @@ const COMPASS_MAX = 290;
 export function QiblaPanel({ visible, onClose, position }: Props) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language as Language;
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [manual, setManual] = useState<(Coords & { name: string }) | null>(null);
   const [showCities, setShowCities] = useState(false);
   const [heading, setHeading] = useState(0);
@@ -95,29 +103,19 @@ export function QiblaPanel({ visible, onClose, position }: Props) {
 
   useEffect(() => {
     if (!visible) return;
-    let sub: Location.LocationSubscription | null = null;
     let cancelled = false;
-    /* Le magnetometre Android emet une vingtaine de mesures par seconde, et elles oscillent de
-     * plusieurs degres telephone immobile. Trois precautions, reprises une a une de
-     * `_qiblaApplyHeading` en v83 — le client compare justement avec cette version :
-     *
-     *   1. filtre passe-bas de poids 0,18 (et non 0,25 : plus la part de la mesure brute est
-     *      faible, plus l'aiguille est calme) ;
-     *   2. au plus un rafraichissement toutes les 80 ms, meme si le capteur parle plus vite —
-     *      l'oeil ne distingue pas mieux, et vingt rendus par seconde faisaient trembler tout
-     *      le panneau ;
-     *   3. cap CUMULE, jamais ramene dans 0-360. Un cap remis dans l'intervalle fait passer
-     *      l'aiguille de 359 a 1 degre, soit un tour complet a l'ecran a chaque passage par le
-     *      nord. En cumulant les ecarts les plus courts, la rotation reste continue et
-     *      l'animation de QiblaCompass peut la suivre sans jamais repartir en arriere.
-     */
+    let locationSub: Location.LocationSubscription | null = null;
+    let motionSub: { remove: () => void } | null = null;
+
+    /* Lissage et cadence, repris de `_qiblaApplyHeading` en v83 : filtre passe-bas de poids
+     * 0,18, un rafraichissement toutes les 80 ms au plus, et un cap CUMULE — un cap ramene
+     * dans 0-360 ferait traverser tout le cadran a l'aiguille a chaque passage par le nord. */
     let smoothed: number | null = null;
     let continuous = 0;
     let shownAt = 0;
 
-    void Location.watchHeadingAsync((h) => {
+    const apply = (raw: number) => {
       if (cancelled) return;
-      const raw = h.trueHeading >= 0 ? h.trueHeading : h.magHeading;
       if (smoothed == null) {
         smoothed = raw;
         continuous = raw;
@@ -128,19 +126,55 @@ export function QiblaPanel({ visible, onClose, position }: Props) {
       const now = Date.now();
       if (shownAt && now - shownAt < HEADING_FRAME_MS) return;
       shownAt = now;
-      // Ecart le plus court entre le cap cumule et le cap lisse : c'est lui qu'on ajoute.
       const step = ((smoothed - continuous + 540) % 360) - 180;
       if (Math.abs(step) < HEADING_DEADBAND_DEG) return;
       continuous += step;
       setHeading(continuous);
       setHeadingKnown(true);
-    }).then((s) => {
-      if (cancelled) s.remove();
-      else sub = s;
-    });
+    };
+
+    /* D'ou vient le cap — c'est LA difference avec le site, et la raison pour laquelle
+     * l'aiguille tremblait encore apres avoir ete lissee.
+     *
+     * `Location.watchHeadingAsync` calcule le cap a partir du MAGNETOMETRE ET DE
+     * L'ACCELEROMETRE BRUTS (expo-location, LocationModule.kt : getRotationMatrix puis
+     * getOrientation). Ces deux capteurs bruts oscillent de plusieurs degres telephone pose
+     * sur une table ; aucun lissage ne rattrape cela sans rendre l'aiguille poussive.
+     *
+     * Le navigateur, lui, ne les utilise pas : `deviceorientationabsolute`, dont le site tire
+     * son cap, s'appuie sur TYPE_ROTATION_VECTOR, une orientation fusionnee et stabilisee par
+     * le gyroscope. C'est exactement ce que `DeviceMotion` expose ici. Son `rotation.alpha`
+     * suit la meme convention que le `e.alpha` du navigateur (l'oppose de l'azimut d'Android),
+     * a ceci pres qu'il est en radians — d'ou la meme formule que le site, `360 - alpha`.
+     *
+     * Le capteur boussole d'expo-location reste en secours pour un telephone depourvu de
+     * gyroscope, ou le vecteur de rotation n'existe pas.
+     */
+    void (async () => {
+      const fused = await DeviceMotion.isAvailableAsync().catch(() => false);
+      if (cancelled) return;
+
+      if (fused) {
+        DeviceMotion.setUpdateInterval(HEADING_SENSOR_MS);
+        motionSub = DeviceMotion.addListener(({ rotation }) => {
+          if (!rotation) return;
+          const alpha = (((rotation.alpha * 180) / Math.PI) % 360 + 360) % 360;
+          apply((360 - alpha) % 360);
+        });
+        return;
+      }
+
+      const fallback = await Location.watchHeadingAsync((h) =>
+        apply(h.trueHeading >= 0 ? h.trueHeading : h.magHeading),
+      );
+      if (cancelled) fallback.remove();
+      else locationSub = fallback;
+    })();
+
     return () => {
       cancelled = true;
-      sub?.remove();
+      locationSub?.remove();
+      motionSub?.remove();
     };
   }, [visible]);
 
@@ -156,6 +190,15 @@ export function QiblaPanel({ visible, onClose, position }: Props) {
   /* Diametre reel de la boussole : `.qibla-compass{width:92%;max-width:290px}`, mesure sur
    * la largeur interieure de l'encadre. Le dessin, lui, reste exprime dans le repere 0-100 du
    * site (voir QiblaCompass) : les proportions sont donc les memes sur n'importe quel ecran. */
+  /* Hauteur maximale de la liste, en points et non en pourcentage.
+   *
+   * Le `maxHeight: '84%'` de l'encadre ne suffisait pas : il fallait que CHAQUE vue de la
+   * chaine accepte de rapetisser pour que la liste herite d'une hauteur bornee, condition
+   * pour qu'elle defile. Une hauteur calculee ici ne depend plus de personne — la liste sait
+   * toujours ou elle s'arrete, et le rappel comme « Choisir ma ville » redeviennent
+   * atteignables. Les 48 points retranchés sont les marges du fond et de l'encadre. */
+  const scrollMaxHeight = Math.round(windowHeight * 0.84) - BOX_PAD_V * 2 - 48;
+
   const boxWidth = Math.min(BOX_MAX_WIDTH, windowWidth - 40);
   const compassSize = Math.min(Math.round((boxWidth - BOX_PAD_H * 2) * 0.92), COMPASS_MAX);
 
@@ -171,7 +214,7 @@ export function QiblaPanel({ visible, onClose, position }: Props) {
                 `flexShrink` sur l'encadre ET sur la liste les ramene dans les 84 % de hauteur
                 d'ecran, et la liste retrouve de quoi defiler. */}
             <ScrollView
-              style={styles.scroll}
+              style={[styles.scroll, { maxHeight: scrollMaxHeight }]}
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
             >

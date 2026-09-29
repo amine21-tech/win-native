@@ -5,6 +5,7 @@ import type { GeocodedResult } from '../search/geocode';
 import type { Bookmark } from '../store/places';
 import { formatDistance } from '../shared';
 import { radius, spacing, typography, type Palette } from '../theme';
+import { photoSource } from '../place/placePhoto';
 
 type Props = {
   visible: boolean;
@@ -47,7 +48,7 @@ function thumbnailOf(place: GeocodedResult): string | null {
 function ResultThumb({ uri, colors }: { uri: string; colors: Palette }) {
   return (
     <Image
-      source={{ uri }}
+      source={photoSource(uri)}
       style={[styles.thumb, { backgroundColor: colors.surfaceAlt }]}
       resizeMode="cover"
       resizeMethod="resize"

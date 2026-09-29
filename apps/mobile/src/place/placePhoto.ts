@@ -71,7 +71,7 @@ export function isCityLike(place: { osmKey?: string; osmValue?: string; type?: s
  * L'agent doit nommer l'application et un moyen de la joindre ; c'est ce que la politique
  * demande, et c'est ce qui evite de se faire bloquer de nouveau.
  */
-const WIKI_HEADERS = {
+export const WIKI_HEADERS = {
   'User-Agent': 'WIN-Navigation/1.0 (https://win-dz.netlify.app; contact@win-dz.app)',
   'Api-User-Agent': 'WIN-Navigation/1.0 (https://win-dz.netlify.app; contact@win-dz.app)',
   Accept: 'application/json',
@@ -143,4 +143,21 @@ export async function lookupPlacePhoto(place: {
     if (disambiguated) return disambiguated;
   }
   return await wikipediaThumb(name);
+}
+
+/**
+ * Source d'image a donner a `<Image>` pour une photo Wikimedia.
+ *
+ * Le refus d'agent ne vise pas que l'API : le SERVEUR D'IMAGES l'applique aussi. L'adresse de
+ * la photo etait donc bien trouvee, mais le telechargement de l'image repondait 403 — d'ou le
+ * cadre gris vide, avec sa mention « © Wikimedia », que le client a photographie. Verifie a la
+ * main sur thumb.wikimedia.org : agent d'Android -> 403, agent declare -> 200.
+ *
+ * React Native accepte des en-tetes dans la source d'une image distante ; on ne les envoie qu'a
+ * Wikimedia, les photos de nos propres serveurs n'en ayant que faire.
+ */
+export function photoSource(uri: string): { uri: string; headers?: Record<string, string> } {
+  return /(^https?:\/\/)([a-z0-9-]+\.)*(wikimedia|wikipedia)\.org\//i.test(uri)
+    ? { uri, headers: WIKI_HEADERS }
+    : { uri };
 }

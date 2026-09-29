@@ -81,6 +81,21 @@ type Position = { lat: number; lon: number };
 /** Hauteur visuelle du bandeau de marque (Header), sous l'encoche/la barre de statut. */
 const HEADER_HEIGHT = 64;
 
+/* Couleurs du trace, reprises de `routeColors()` en v83.
+ *
+ * Le vert WIN ne convient QUE de jour. La nuit, le site bascule sur un turquoise lumineux :
+ * sur le fond sombre, un vert fonce disparait purement et simplement — c'est ce que le client
+ * decrit en disant qu'il ne voit pas le trace vert pendant un trajet. La palette de
+ * l'application, elle, garde le meme accent jour et nuit (c'est le choix de la v83 pour les
+ * boutons), d'ou l'oubli : le trace ne suit pas cette regle, il a la sienne.
+ *
+ * Le liseré suit le meme sort : blanc de jour, vert tres sombre la nuit.
+ */
+const ROUTE_COLORS = {
+  day: { main: '#0D6E4F', halo: '#FFFFFF', alt: '#9AA89F' },
+  night: { main: '#2EE6A6', halo: '#06251C', alt: '#5B6B63' },
+} as const;
+
 /* Epaisseur des traces, selon le zoom.
  *
  * Une largeur fixe ne peut pas convenir aux deux usages : 13 points conviennent en navigation,
@@ -145,6 +160,7 @@ export default function MapScreen() {
   const autoScheme = useAutoScheme(themeOverride === 'auto');
   const scheme = themeOverride === 'auto' ? autoScheme : themeOverride;
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
+  const routeColors = ROUTE_COLORS[scheme === 'dark' ? 'night' : 'day'];
   const insets = useSafeAreaInsets();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   /** Taille REELLE de la zone de carte, mesuree a l'affichage. La marge de la camera et la
@@ -1322,6 +1338,7 @@ export default function MapScreen() {
         <Camera ref={cameraRef} initialViewState={INITIAL_VIEW_STATE} />
 
         <GeoJSONSource id="route" data={routeLinesGeoJson}>
+          {/* Couleurs choisies ici une fois pour les quatre couches ci-dessous. */}
           {/* Alternative(s) estompee(s) sous le trace choisi — memes codes que l'apercu Google Maps.
               Traits epaissis (doc 110 #2) : trop fins auparavant, surtout dezoome sur un long trajet. */}
           <Layer
@@ -1331,7 +1348,7 @@ export default function MapScreen() {
             filter={['==', ['get', 'kind'], 'alt']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{
-              'line-color': colors.textMuted,
+              'line-color': routeColors.alt,
               'line-width': ROUTE_WIDTH([2.5, 3.5, 5, 8]),
               'line-opacity': 0.55,
             }}
@@ -1348,7 +1365,7 @@ export default function MapScreen() {
             filter={['!=', ['get', 'kind'], 'alt']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{
-              'line-color': colors.surface,
+              'line-color': routeColors.halo,
               'line-width': ROUTE_WIDTH([5, 7, 10, 19]),
               'line-opacity': 0.95,
             }}
@@ -1374,7 +1391,7 @@ export default function MapScreen() {
             source="route"
             filter={['==', ['get', 'kind'], 'primary']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{ 'line-color': colors.accent, 'line-width': ROUTE_WIDTH([3, 4.5, 7, 13]) }}
+            paint={{ 'line-color': routeColors.main, 'line-width': ROUTE_WIDTH([3, 4.5, 7, 13]) }}
           />
           {/* Ecart de duree affiche sur chaque alternatif ("+8 min" / "Meme duree"), pour rester
               identifiable une fois les traces epaissis et rapproches (doc 110 #2). */}
@@ -1386,6 +1403,11 @@ export default function MapScreen() {
             layout={{
               'symbol-placement': 'line-center',
               'text-field': ['get', 'durationLabel'],
+              // SANS CETTE LIGNE, AUCUNE ETIQUETTE N'APPARAIT. Faute de police precisee,
+              // MapLibre demande « Open Sans Regular » au serveur de tuiles, qui ne la sert
+              // pas (404 verifie sur tiles.openfreemap.org) : la couche entiere reste vide,
+              // en silence. Le style de fond n'utilise que les trois variantes de Noto Sans.
+              'text-font': ['Noto Sans Bold'],
               'text-size': 12.5,
               'text-allow-overlap': true,
             }}
@@ -1454,6 +1476,10 @@ export default function MapScreen() {
             minzoom={15.5}
             layout={{
               'text-field': ['get', 'name'],
+              // Meme raison que pour l'etiquette de duree : sans police declaree, le nom du
+              // lieu n'est jamais dessine, la police par defaut de MapLibre etant absente du
+              // serveur de tuiles.
+              'text-font': ['Noto Sans Regular'],
               'text-size': 10.5,
               'text-offset': [0, 1.1],
               'text-anchor': 'top',

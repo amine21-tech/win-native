@@ -6,7 +6,7 @@ import type { Route, RouteMode } from '../navigation/routing';
 import type { GeocodedResult } from '../search/geocode';
 import { formatDistance } from '../shared';
 import { useAdminSession } from '../store/admin';
-import { lookupPlacePhoto } from '../place/placePhoto';
+import { lookupPlacePhoto, photoSource } from '../place/placePhoto';
 import { fonts, radius, spacing, typography, type Palette } from '../theme';
 import { AdminEditPlaceSheet } from './AdminEditPlaceSheet';
 import { CorrectionSheet } from './CorrectionSheet';
@@ -111,7 +111,7 @@ export function PlaceSheet({
 
         {mainPhoto ? (
           <View style={[styles.photoBox, { backgroundColor: colors.surfaceAlt }]}>
-            <Image source={{ uri: mainPhoto }} style={styles.photo} resizeMode="cover" />
+            <Image source={photoSource(mainPhoto)} style={styles.photo} resizeMode="cover" />
             {/* Bandeau pose SUR l'image, comme sur le site : une photo de contributeur doit se
                 reconnaitre immediatement comme telle, sans avoir a chercher la mention plus bas.
                 Une illustration Wikimedia, elle, porte sa mention de credit. */}
@@ -129,7 +129,7 @@ export function PlaceSheet({
                 onPress={() => setMainPhoto(url)}
                 style={[styles.thumb, { borderColor: url === mainPhoto ? colors.goldDeep : 'transparent' }]}
               >
-                <Image source={{ uri: url }} style={styles.thumbImage} resizeMode="cover" />
+                <Image source={photoSource(url)} style={styles.thumbImage} resizeMode="cover" />
               </Pressable>
             ))}
           </View>
