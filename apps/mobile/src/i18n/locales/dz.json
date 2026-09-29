@@ -70,7 +70,9 @@
     "showPanel": "إظهار",
     "whereTo": "وين تحب تروح؟",
     "newRoute": "طريق جديد",
-    "continueNav": "كمّل الطريق"
+    "continueNav": "كمّل الطريق",
+    "serviceTitle": "وين — راك في الطريق",
+    "serviceBody": "أضغط باش ترجع للمسار"
   },
   "consent": {
     "title": "قبل ما نبداو",

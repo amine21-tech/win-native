@@ -126,10 +126,16 @@ const ARRIVAL_RADIUS_M = 50;
  *
  * Le seuil suit desormais la PRECISION ANNONCEE : tant que l'ecart au trace reste dans la marge
  * d'erreur du recepteur, rien ne prouve qu'on a quitte la route — la route est meme l'hypothese
- * la plus probable. Le plafond de 60 m evite d'y coller encore apres une vraie sortie ; au-dela
- * de 50 m, le recalcul d'itineraire se declenche de toute facon (useNavigationSession). */
-const SNAP_RADIUS_MIN_M = 30;
-const SNAP_RADIUS_MAX_M = 60;
+ * la plus probable.
+ *
+ * Les deux bornes viennent d'Organic Maps : `Route::MoveIterator` projette la position dans un
+ * rectangle de `max(matchingThreshold, horizontalAccuracy)`, ou le seuil vaut 50 m pour une
+ * voiture (routing_settings.cpp). Notre plancher passe donc de 30 a 50 m — c'est la valeur que
+ * six millions d'utilisateurs eprouvent chaque jour. Le plafond de 120 m, lui, nous est propre :
+ * Organic Maps n'en a pas, mais sans lui une mesure annoncee a 300 m pres collerait le vehicule
+ * sur une route qu'il n'emprunte peut-etre pas. */
+const SNAP_RADIUS_MIN_M = 50;
+const SNAP_RADIUS_MAX_M = 120;
 /** Diametre du marqueur de navigation, en points. */
 const NAV_PUCK_SIZE = 46;
 
@@ -272,12 +278,24 @@ export default function MapScreen() {
   // `position` est cadence a 1 Hz en navigation : il alimente les traitements (manoeuvres,
   // requetes, alertes de proximite). Le mouvement fluide de la carte, lui, passe par
   // `subscribe`, qui ne provoque aucun rendu. Voir useLiveLocation.
-  const { position, permissionDenied, subscribe: subscribeFix, getFix } = useLiveLocation(navigating);
+  /* Textes de la notification permanente affichee pendant le guidage. Android l'impose pour
+   * continuer a fournir des positions ecran eteint : elle sert aussi de raccourci de retour.
+   * Memorises, sinon leur identite changerait a chaque rendu et relancerait le service. */
+  const serviceLabels = useMemo(
+    () => ({ title: t('nav.serviceTitle'), body: t('nav.serviceBody') }),
+    [t],
+  );
+  const { position, permissionDenied, subscribe: subscribeFix, getFix } = useLiveLocation(
+    navigating,
+    serviceLabels,
+  );
 
   /** Cap au sol : utile pour un radar/barrage (sens de circulation), pas critique — on ne
    * bloque jamais l'envoi d'un signalement en son absence (GPS interieur, telephone pose). */
   const currentHeading = useCallback(() => getFix()?.heading ?? undefined, [getFix]);
   const currentSpeedMps = useCallback(() => getFix()?.speedMps ?? 0, [getFix]);
+  /** Precision annoncee par le GPS : elle ouvre la tolerance de suivi d'itineraire. */
+  const currentAccuracyM = useCallback(() => getFix()?.accuracyM ?? 0, [getFix]);
 
   const lang = (i18n.language as Language) ?? 'fr';
   const places = usePlaces();
@@ -333,6 +351,7 @@ export default function MapScreen() {
     initialRoute: navInitialRoute,
     getSpeedMps: currentSpeedMps,
     getHeading: currentHeading,
+    getAccuracyM: currentAccuracyM,
   });
 
   /* ------------------------------------------------------------------ */

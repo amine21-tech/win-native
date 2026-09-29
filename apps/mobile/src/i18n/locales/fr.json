@@ -70,7 +70,9 @@
     "showPanel": "Réafficher le cadre",
     "whereTo": "Où voulez-vous aller ?",
     "newRoute": "Nouvel itinéraire",
-    "continueNav": "Continuer la navigation"
+    "continueNav": "Continuer la navigation",
+    "serviceTitle": "WIN — Navigation en cours",
+    "serviceBody": "Appuyez pour revenir à l'itinéraire"
   },
   "consent": {
     "title": "Avant de commencer",

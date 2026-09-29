@@ -17,21 +17,40 @@ import { useSession } from '../store/session';
 type Coords = { lat: number; lon: number };
 
 const MANEUVER_ARRIVAL_RADIUS_M = 30;
-/* Detection de la sortie d'itineraire.
+/* Detection de la sortie d'itineraire — portage de `RoutingSession::OnLocationPositionChanged`
+ * d'Organic Maps (libs/routing/routing_session.cpp, licence Apache 2.0), demande par le client.
  *
- * Le client demande un recalcul « quasi instantane » apres une sortie manquee. Deux leviers :
- * declencher plus tot, et ne pas repartir en arriere.
- *   - 50 m d'ecart au trace : deux mesures consecutives suffisent desormais (une seconde), au
- *     lieu de trois. En dessous, le bruit du GPS en ville declencherait des recalculs inutiles ;
- *   - au-dela de 120 m, plus de doute possible : on recalcule des la premiere mesure ;
- *   - le delai entre deux recalculs tombe de dix a quatre secondes, le temps qu'un itineraire
- *     revienne du serveur.
- * Le cap du vehicule est transmis avec la demande (voir loadRoute) : le nouveau trajet part donc
- * dans le sens ou l'on roule, au lieu de commencer par un demi-tour vers le trace abandonne.
+ * Leur methode ne ressemble pas a un simple seuil de distance, et c'est tout l'interet :
+ *
+ *   1. LA TOLERANCE SUIT LA PRECISION ANNONCEE PAR LE GPS. Ils projettent la position dans un
+ *      rectangle de `max(matchingThreshold, horizontalAccuracy)` — 50 m pour une voiture. Un
+ *      seuil fixe declare « sorti de l'itineraire » un conducteur parfaitement sur sa route des
+ *      que le GPS annonce 80 m de precision, ce qui arrive entre deux immeubles.
+ *
+ *   2. ON COMPTE DES POINTS, PAS DES MESURES. Une mesure hors trace vaut DEUX points si le
+ *      vehicule roule (au-dela de 3 km/h), UN seul s'il est a l'arret. Un conducteur arrete a un
+ *      feu, dont le GPS derive, met donc deux fois plus longtemps a declencher un recalcul qu'un
+ *      conducteur qui s'eloigne vraiment.
+ *
+ *   3. UNE MESURE QUI NE S'ELOIGNE PAS DAVANTAGE NE COMPTE PAS. Si la distance au trace n'a pas
+ *      bouge depuis la mesure precedente, c'est du bruit et non un ecart : on ne compte rien.
+ *      Sans cela, un telephone pose pres d'une route comptait indefiniment.
+ *
+ * Seul le total exige differe : six points au lieu de dix, soit trois mesures (environ trois
+ * secondes) pour un vehicule qui roule, six pour un vehicule lent. Le client demande un recalcul
+ * rapide ; Organic Maps vise plutot l'economie de batterie. Un ecart franc — plus de 120 m —
+ * vaut trois points, ce qui le ramene a deux mesures.
+ *
+ * Le cap du vehicule est transmis avec la demande (voir loadRoute) : le nouveau trajet part dans
+ * le sens ou l'on roule, au lieu de commencer par un demi-tour vers le trace abandonne.
  */
-const OFF_ROUTE_THRESHOLD_M = 50;
+const MATCHING_THRESHOLD_M = 50;
 const OFF_ROUTE_CERTAIN_M = 120;
-const OFF_ROUTE_STREAK_TO_RECALC = 2;
+/** Au-dessus de cette vitesse, une mesure hors trace compte double (Organic Maps : 3 km/h). */
+const MIN_SPEED_FOR_REBUILD_MPS = 3 / 3.6;
+/** Ecart minimal, en metres, pour qu'une mesure compte comme un vrai eloignement. */
+const RUNAWAY_SENSITIVITY_M = 1;
+const OFF_ROUTE_SCORE_TO_RECALC = 6;
 const RECALC_COOLDOWN_MS = 4_000;
 
 /** Distances d'annonce, exprimees en SECONDES de trajet puis bornees : a 120 km/h une
@@ -72,8 +91,12 @@ export function useNavigationSession(params: {
   /** Cap au sol courant, en degres, ou `undefined` a l'arret. Transmis au moteur d'itineraire
    * lors d'un recalcul pour qu'il reparte dans le sens de la marche. */
   getHeading?: () => number | undefined;
+  /** Precision annoncee par le GPS, en metres. Elle ouvre la tolerance de suivi : voir
+   * MATCHING_THRESHOLD_M. Sans elle, on retombe sur la tolerance fixe. */
+  getAccuracyM?: () => number;
 }) {
-  const { active, position, destination, mode, lang, initialRoute, getSpeedMps, getHeading } = params;
+  const { active, position, destination, mode, lang, initialRoute, getSpeedMps, getHeading, getAccuracyM } =
+    params;
   const [route, setRoute] = useState<Route | null>(null);
   const [maneuverIndex, setManeuverIndex] = useState(0);
   const [traveledM, setTraveledM] = useState(0);
@@ -88,7 +111,9 @@ export function useNavigationSession(params: {
   /** Index du segment ou l'on se trouvait a la mesure precedente : point de depart de la
    * recherche suivante (voir locateOnRoute). */
   const segmentHintRef = useRef<number | undefined>(undefined);
-  const offRouteStreakRef = useRef(0);
+  const offRouteScoreRef = useRef(0);
+  /** Distance au trace lors de la derniere mesure comptee, pour ne pas compter du bruit. */
+  const offRouteDistanceRef = useRef(0);
   const lastRecalcAtRef = useRef(0);
   const initialRouteRef = useRef<Route | null>(null);
   const getSpeedRef = useRef(getSpeedMps);
@@ -111,7 +136,8 @@ export function useNavigationSession(params: {
     setTraveledM(0);
     setProgress(null);
     segmentHintRef.current = undefined;
-    offRouteStreakRef.current = 0;
+    offRouteScoreRef.current = 0;
+    offRouteDistanceRef.current = 0;
     announcedForRef.current = { index: -1, stage: 0 };
     departureSaidRef.current = false;
   }, []);
@@ -221,17 +247,29 @@ export function useNavigationSession(params: {
     }
     if (idx !== maneuverIndexRef.current) setManeuverIndex(idx);
 
-    if (located.distanceM > OFF_ROUTE_THRESHOLD_M) {
-      offRouteStreakRef.current += 1;
-      const cooledDown = Date.now() - lastRecalcAtRef.current > RECALC_COOLDOWN_MS;
-      const certain = located.distanceM > OFF_ROUTE_CERTAIN_M;
-      if ((certain || offRouteStreakRef.current >= OFF_ROUTE_STREAK_TO_RECALC) && cooledDown) {
-        lastRecalcAtRef.current = Date.now();
-        offRouteStreakRef.current = 0;
-        void loadRoute(position);
-      }
-    } else {
-      offRouteStreakRef.current = 0;
+    // La tolerance s'ouvre avec la precision annoncee : un GPS qui s'avoue a 80 m pres ne
+    // permet pas d'affirmer qu'un vehicule a quitte sa route.
+    const tolerance = Math.max(MATCHING_THRESHOLD_M, getAccuracyM?.() ?? 0);
+
+    if (located.distanceM <= tolerance) {
+      offRouteScoreRef.current = 0;
+      offRouteDistanceRef.current = 0;
+      return;
+    }
+
+    // Toujours a la meme distance du trace qu'a la mesure precedente : c'est du bruit.
+    if (Math.abs(located.distanceM - offRouteDistanceRef.current) < RUNAWAY_SENSITIVITY_M) return;
+    offRouteDistanceRef.current = located.distanceM;
+
+    offRouteScoreRef.current +=
+      located.distanceM > OFF_ROUTE_CERTAIN_M ? 3 : (getSpeedMps?.() ?? 0) >= MIN_SPEED_FOR_REBUILD_MPS ? 2 : 1;
+
+    const cooledDown = Date.now() - lastRecalcAtRef.current > RECALC_COOLDOWN_MS;
+    if (offRouteScoreRef.current >= OFF_ROUTE_SCORE_TO_RECALC && cooledDown) {
+      lastRecalcAtRef.current = Date.now();
+      offRouteScoreRef.current = 0;
+      offRouteDistanceRef.current = 0;
+      void loadRoute(position);
     }
   }, [position, active, loadRoute]);
 

@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { setServiceFixHandler, startNavigationService, stopNavigationService } from './navigationService';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { haversine } from '../shared';
 
@@ -173,7 +174,12 @@ function blendFix(prev: LiveFix | null, raw: LiveFix): LiveFix {
  * C'est cette separation qui rend la carte fluide : le mouvement est continu a l'ecran,
  * alors que l'application ne se re-rend qu'une fois par seconde.
  */
-export function useLiveLocation(navigating: boolean) {
+export function useLiveLocation(
+  navigating: boolean,
+  /** Textes de la notification permanente du guidage, traduits par l'appelant. Absents, le
+   * service de premier plan n'est pas demarre et le suivi reste celui d'avant. */
+  serviceLabels?: { title: string; body: string },
+) {
   const [position, setPosition] = useState<{ lat: number; lon: number } | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
 
@@ -209,6 +215,73 @@ export function useLiveLocation(navigating: boolean) {
     }
   }, []);
 
+  /**
+   * Traitement d'une mesure brute — lissage, extrapolation, republication.
+   *
+   * Extrait du callback de `watchPositionAsync` pour servir AUSSI au service de premier plan :
+   * les deux sources doivent aboutir au meme lissage, sinon le guidage se comporterait
+   * differemment selon que l'ecran est allume ou non.
+   */
+  const handleCoords = useCallback(
+    (c: Location.LocationObjectCoords) => {
+      const raw: LiveFix = {
+        lat: c.latitude,
+        lon: c.longitude,
+        heading: c.heading != null && c.heading >= 0 ? c.heading : null,
+        speedMps: c.speed != null && c.speed > 0 ? c.speed : 0,
+        accuracyM: c.accuracy != null && c.accuracy > 0 ? c.accuracy : 25,
+        // Heure de RECEPTION, pas `location.timestamp` : ce dernier vient de l'horloge du
+        // recepteur GPS, qui n'est pas toujours alignee sur celle du telephone. L'ecart, meme
+        // d'une seconde, fausserait l'extrapolation — on projetterait la voiture 25 m trop loin
+        // en permanence.
+        at: Date.now(),
+      };
+
+      const smoothed = blendFix(fixRef.current, raw);
+      fixRef.current = smoothed;
+
+      // Saut franc : la position affichee se replace immediatement, sans glisser.
+      const display = displayRef.current;
+      if (!display || haversine(display.lat, display.lon, smoothed.lat, smoothed.lon) > TELEPORT_M) {
+        displayRef.current = { ...smoothed };
+      }
+
+      // Republication cadencee vers React.
+      const key = navigatingRef.current ? 'nav' : 'idle';
+      const last = lastPublishRef.current;
+      const moved = last.at === 0 ? Infinity : haversine(last.lat, last.lon, smoothed.lat, smoothed.lon);
+      const elapsed = smoothed.at - last.at;
+      if (moved >= REACT_MIN_MOVE_M[key] || elapsed >= REACT_MIN_INTERVAL_MS[key]) {
+        lastPublishRef.current = { at: smoothed.at, lat: smoothed.lat, lon: smoothed.lon };
+        setPosition({ lat: smoothed.lat, lon: smoothed.lon });
+      }
+
+      // Hors navigation aucune boucle d'animation ne tourne : on previent quand meme les
+      // abonnes, a la cadence des mesures.
+      if (!navigatingRef.current) emit(smoothed);
+    },
+    [emit],
+  );
+
+  /* --------------------- service de premier plan --------------------- */
+
+  /* Pendant le guidage, les mesures passent par le service : c'est la seule facon pour Android
+   * de continuer a en fournir ecran eteint ou application quittee. L'abonnement ordinaire
+   * ci-dessous reste actif — il ne coute rien de plus quand l'application est a l'ecran, et il
+   * prend le relais si Android refuse le service. */
+  useEffect(() => {
+    if (!navigating || !serviceLabels) return;
+    let stopped = false;
+    setServiceFixHandler(handleCoords);
+    void startNavigationService(serviceLabels);
+    return () => {
+      stopped = true;
+      setServiceFixHandler(null);
+      void stopNavigationService();
+      void stopped;
+    };
+  }, [navigating, serviceLabels, handleCoords]);
+
   /* --------------------- abonnement GPS --------------------- */
 
   useEffect(() => {
@@ -224,50 +297,8 @@ export function useLiveLocation(navigating: boolean) {
       setPermissionDenied(false);
       if (cancelled) return;
 
-      const sub = await Location.watchPositionAsync(
-        navigating ? NAV_OPTIONS : IDLE_OPTIONS,
-        (location) => {
-          const c = location.coords;
-          const raw: LiveFix = {
-            lat: c.latitude,
-            lon: c.longitude,
-            heading: c.heading != null && c.heading >= 0 ? c.heading : null,
-            speedMps: c.speed != null && c.speed > 0 ? c.speed : 0,
-            accuracyM: c.accuracy != null && c.accuracy > 0 ? c.accuracy : 25,
-            // Heure de RECEPTION, pas `location.timestamp` : ce dernier vient de l'horloge du
-            // recepteur GPS, qui n'est pas toujours alignee sur celle du telephone. L'ecart,
-            // meme d'une seconde, fausserait directement l'extrapolation ci-dessous — on
-            // projetterait la voiture 25 m trop loin en permanence.
-            at: Date.now(),
-          };
-
-          const smoothed = blendFix(fixRef.current, raw);
-          fixRef.current = smoothed;
-
-          // Saut franc : la position affichee se replace immediatement, sans glisser.
-          const display = displayRef.current;
-          if (
-            !display ||
-            haversine(display.lat, display.lon, smoothed.lat, smoothed.lon) > TELEPORT_M
-          ) {
-            displayRef.current = { ...smoothed };
-          }
-
-          // Republication cadencee vers React.
-          const key = navigatingRef.current ? 'nav' : 'idle';
-          const last = lastPublishRef.current;
-          const moved =
-            last.at === 0 ? Infinity : haversine(last.lat, last.lon, smoothed.lat, smoothed.lon);
-          const elapsed = smoothed.at - last.at;
-          if (moved >= REACT_MIN_MOVE_M[key] || elapsed >= REACT_MIN_INTERVAL_MS[key]) {
-            lastPublishRef.current = { at: smoothed.at, lat: smoothed.lat, lon: smoothed.lon };
-            setPosition({ lat: smoothed.lat, lon: smoothed.lon });
-          }
-
-          // Hors navigation aucune boucle d'animation ne tourne : on previent quand meme
-          // les abonnes, a la cadence des mesures.
-          if (!navigatingRef.current) emit(smoothed);
-        },
+      const sub = await Location.watchPositionAsync(navigating ? NAV_OPTIONS : IDLE_OPTIONS, (location) =>
+        handleCoords(location.coords),
       );
       if (cancelled) {
         sub.remove();

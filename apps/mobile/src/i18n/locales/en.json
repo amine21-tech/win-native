@@ -70,7 +70,9 @@
     "showPanel": "Show panel",
     "whereTo": "Where do you want to go?",
     "newRoute": "New itinerary",
-    "continueNav": "Continue navigation"
+    "continueNav": "Continue navigation",
+    "serviceTitle": "WIN — Navigation in progress",
+    "serviceBody": "Tap to return to your route"
   },
   "consent": {
     "title": "Before you start",

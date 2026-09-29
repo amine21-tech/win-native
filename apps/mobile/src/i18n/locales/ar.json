@@ -70,7 +70,9 @@
     "showPanel": "إظهار",
     "whereTo": "إلى أين تريد الذهاب؟",
     "newRoute": "بدء مسار جديد",
-    "continueNav": "متابعة التوجيه"
+    "continueNav": "متابعة التوجيه",
+    "serviceTitle": "وين — الملاحة جارية",
+    "serviceBody": "اضغط للعودة إلى المسار"
   },
   "consent": {
     "title": "قبل أن نبدأ",
