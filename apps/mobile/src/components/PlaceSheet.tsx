@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { egsaForAirport, isAirport, isTrainStation, SNTF_URL } from '../reports/transport';
 import type { Route, RouteMode } from '../navigation/routing';
 import type { GeocodedResult } from '../search/geocode';
@@ -74,6 +74,15 @@ export function PlaceSheet({
   const wikiPhoto = usePlacePhoto(place);
   const gallery = place?.photos?.length ? place.photos.map((p) => p.url) : place?.photoUrl ? [place.photoUrl] : [];
   const [mainPhoto, setMainPhoto] = usePhotoSelection(gallery, wikiPhoto);
+  /* Trois etats explicites pour la photo, et non « ca marche ou rien ».
+   *
+   * Le client a decrit le symptome exactement : un cadre gris vide a la premiere recherche,
+   * plus de cadre du tout a la seconde. Un cadre vide et silencieux ne dit rien a personne —
+   * ni a l'utilisateur, ni au developpeur. Desormais : pendant le chargement, le cadre porte
+   * un indicateur ; en cas d'echec, il disparait entierement plutot que de rester vide ; le
+   * bandeau de credit n'apparait qu'une fois l'image reellement affichee. */
+  const [photoState, setPhotoState] = useState<'loading' | 'ok' | 'failed'>('loading');
+  useEffect(() => setPhotoState('loading'), [mainPhoto]);
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [adminEditOpen, setAdminEditOpen] = useState(false);
   const adminToken = useAdminSession((s) => s.token);
@@ -109,15 +118,33 @@ export function PlaceSheet({
           </Text>
         ) : null}
 
-        {mainPhoto ? (
+        {mainPhoto && photoState !== 'failed' ? (
           <View style={[styles.photoBox, { backgroundColor: colors.surfaceAlt }]}>
-            <Image source={photoSource(mainPhoto)} style={styles.photo} resizeMode="cover" />
+            {/* `key` lie l'image a son adresse : changer de lieu detruit et recree la vue au
+                lieu de la reutiliser avec l'etat de la recherche precedente. */}
+            <Image
+              key={mainPhoto}
+              source={photoSource(mainPhoto)}
+              style={styles.photo}
+              resizeMode="cover"
+              onLoad={() => setPhotoState('ok')}
+              onError={() => setPhotoState('failed')}
+            />
+            {photoState === 'loading' ? (
+              <View style={[StyleSheet.absoluteFill, styles.photoLoading]}>
+                <ActivityIndicator color={colors.accent} />
+              </View>
+            ) : null}
             {/* Bandeau pose SUR l'image, comme sur le site : une photo de contributeur doit se
                 reconnaitre immediatement comme telle, sans avoir a chercher la mention plus bas.
-                Une illustration Wikimedia, elle, porte sa mention de credit. */}
-            <Text style={styles.photoTag}>
-              {gallery.includes(mainPhoto) ? t('place.photoByWin') : '© Wikimedia'}
-            </Text>
+                Une illustration Wikimedia, elle, porte sa mention de credit. Il n'apparait
+                qu'une fois l'image affichee — annoncer « © Wikimedia » sur un cadre vide etait
+                precisement ce qui rendait le defaut incomprehensible. */}
+            {photoState === 'ok' ? (
+              <Text style={styles.photoTag}>
+                {gallery.includes(mainPhoto) ? t('place.photoByWin') : '© Wikimedia'}
+              </Text>
+            ) : null}
           </View>
         ) : null}
 
@@ -370,6 +397,7 @@ const styles = StyleSheet.create({
   },
   gallery: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.md },
   thumb: { flex: 1, height: 52, borderRadius: radius.sm, overflow: 'hidden', borderWidth: 2 },
+  photoLoading: { alignItems: 'center', justifyContent: 'center' },
   thumbImage: { width: '100%', height: '100%' },
   nameRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   name: { ...typography.destinationName, flex: 1, fontFamily: fonts.destinationName },

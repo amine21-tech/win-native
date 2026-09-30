@@ -105,6 +105,22 @@ async function wikipediaThumb(title: string): Promise<string | null> {
   return page?.thumbnail?.source ?? null;
 }
 
+/* Photos deja trouvees, gardees pour la duree de la session.
+ *
+ * Une recherche repetee — le cas le plus courant : on cherche Alger, on ferme, on recherche
+ * Alger — ne redemande plus rien au reseau et affiche la photo instantanement. Les absences
+ * sont memorisees AUSSI (`null`), sinon un lieu sans photo relancerait deux requetes a chaque
+ * ouverture de sa fiche. La cle est celle du lieu, normalisee.
+ */
+const cache = new Map<string, string | null>();
+
+/** Une seule nouvelle tentative, apres une demi-seconde : de quoi absorber une coupure de
+ * reseau passagere — frequente en voiture — sans faire attendre pour rien quand le lieu n'a
+ * reellement pas de photo. */
+const RETRY_DELAY_MS = 500;
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 /**
  * Photo a afficher pour ce lieu, ou `null` s'il n'y en a pas de sure.
  * `name` sert aussi de cle de la liste choisie a la main.
@@ -120,6 +136,23 @@ export async function lookupPlacePhoto(place: {
   const name = place.name?.trim();
   if (!name) return null;
 
+  const key = `${normalizeCity(name)}|${place.lat?.toFixed(2) ?? ''},${place.lon?.toFixed(2) ?? ''}`;
+  const known = cache.get(key);
+  if (known !== undefined) return known;
+
+  const found = await lookupOnce(place, name);
+  // Un echec reseau et une absence de photo se ressemblent ici : on retente une fois avant de
+  // conclure, et on ne retient un « pas de photo » qu'apres cette seconde tentative.
+  const result = found ?? (await wait(RETRY_DELAY_MS), await lookupOnce(place, name));
+  cache.set(key, result);
+  return result;
+}
+
+/** Une passe de recherche, sans cache ni nouvelle tentative. */
+async function lookupOnce(
+  place: { osmKey?: string; osmValue?: string; type?: string; lat?: number; lon?: number },
+  name: string,
+): Promise<string | null> {
   const curated = CURATED[normalizeCity(name)];
   if (curated?.[0]) {
     const url = await commonsUrl(curated[0]);

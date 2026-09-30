@@ -1,6 +1,7 @@
 import {
   Camera,
   GeoJSONSource,
+  Images,
   Layer,
   Map,
   type CameraRef,
@@ -112,6 +113,45 @@ type LineWidth = NonNullable<React.ComponentProps<typeof Layer>['paint']> extend
 
 function ROUTE_WIDTH(widths: [number, number, number, number]): LineWidth {
   return ['interpolate', ['linear'], ['zoom'], 7, widths[0], 11, widths[1], 14, widths[2], 17, widths[3]];
+}
+
+/* L'epingle de destination, dessinee par le moteur de la carte.
+ *
+ * Elle etait jusqu'ici un emoji pose dans un `text-field`. Or le serveur de tuiles ne sert que
+ * Noto Sans, qui ne contient aucun emoji : le pictogramme n'etait donc JAMAIS dessine, et il ne
+ * restait qu'une pastille verte. Le client demande « une epingle, comme Google Maps / Waze » :
+ * une image de style ne depend d'aucune police et s'affiche a coup sur.
+ * Voir scripts/make-destination-pin.py. */
+const MAP_IMAGES = { 'destination-pin': require('../assets/map/destination-pin.png') };
+
+/**
+ * Point situe a mi-chemin d'une polyligne, mesure en distance reelle et non en nombre de
+ * points : les geometries de Valhalla sont bien plus denses dans les virages, si bien que le
+ * point « du milieu du tableau » tombe systematiquement du cote le plus sinueux du trajet.
+ */
+function midpointOf(geometry: [number, number][]): [number, number] | null {
+  if (geometry.length < 2) return null;
+  const steps: number[] = [];
+  let total = 0;
+  for (let i = 0; i < geometry.length - 1; i += 1) {
+    const a = geometry[i]!;
+    const b = geometry[i + 1]!;
+    const d = haversine(a[1], a[0], b[1], b[0]);
+    steps.push(d);
+    total += d;
+  }
+  let walked = 0;
+  for (let i = 0; i < steps.length; i += 1) {
+    const d = steps[i]!;
+    if (walked + d >= total / 2) {
+      const t = d === 0 ? 0 : (total / 2 - walked) / d;
+      const a = geometry[i]!;
+      const b = geometry[i + 1]!;
+      return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    }
+    walked += d;
+  }
+  return geometry[geometry.length - 1] ?? null;
 }
 
 /** Distance restante en dessous de laquelle on considere le trajet termine. */
@@ -572,6 +612,27 @@ export default function MapScreen() {
       }),
     };
   }, [navigating, nav.route, nav.progress, nav.remaining, previewRoutes, selectedRouteIndex, t]);
+
+  /**
+   * Pastilles de duree, posees a mi-parcours de chaque trace.
+   *
+   * Elles etaient jusqu'ici ecrites LE LONG de la ligne (`symbol-placement: line-center`) :
+   * le texte epousait la courbe de la route, se retrouvait a l'envers dans un lacet et
+   * illisible des que le trace tournait — c'est ce que le client a releve. Une source de
+   * POINTS distincte permet un texte toujours horizontal, comme la pastille « 12 min » de
+   * Google Maps, sans rien changer au calcul des libelles eux-memes.
+   */
+  const routeLabelsGeoJson = useMemo<GeoJSON.FeatureCollection>(() => {
+    const features: GeoJSON.Feature[] = [];
+    for (const f of routeLinesGeoJson.features) {
+      const label = (f.properties as { durationLabel?: string } | null)?.durationLabel;
+      if (!label || f.geometry.type !== 'LineString') continue;
+      const at = midpointOf(f.geometry.coordinates as [number, number][]);
+      if (!at) continue;
+      features.push({ type: 'Feature', properties: { label }, geometry: { type: 'Point', coordinates: at } });
+    }
+    return { type: 'FeatureCollection', features };
+  }, [routeLinesGeoJson]);
 
   /**
    * « Ma position ».
@@ -1356,6 +1417,8 @@ export default function MapScreen() {
             camera a chaque image. */}
         <Camera ref={cameraRef} initialViewState={INITIAL_VIEW_STATE} />
 
+        <Images images={MAP_IMAGES} />
+
         <GeoJSONSource id="route" data={routeLinesGeoJson}>
           {/* Couleurs choisies ici une fois pour les quatre couches ci-dessous. */}
           {/* Alternative(s) estompee(s) sous le trace choisi — memes codes que l'apercu Google Maps.
@@ -1412,28 +1475,37 @@ export default function MapScreen() {
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{ 'line-color': routeColors.main, 'line-width': ROUTE_WIDTH([3, 4.5, 7, 13]) }}
           />
-          {/* Ecart de duree affiche sur chaque alternatif ("+8 min" / "Meme duree"), pour rester
-              identifiable une fois les traces epaissis et rapproches (doc 110 #2). */}
+        </GeoJSONSource>
+
+        {/* Duree et distance de chaque trace, en pastilles horizontales a mi-parcours.
+            Deux reglages portent la lisibilite : un texte toujours droit, et un halo clair
+            large qui detache les chiffres du fond de carte comme le ferait une etiquette.
+            `maxzoom` les reserve a la vue d'ensemble : en navigation, au zoom 17, elles
+            n'apporteraient rien et masqueraient la route — le client les demande justement
+            pour le moment ou l'on prend du recul. */}
+        <GeoJSONSource id="route-labels" data={routeLabelsGeoJson}>
           <Layer
-            id="route-alt-label"
+            id="route-label"
             type="symbol"
-            source="route"
-            filter={['has', 'durationLabel']}
+            source="route-labels"
+            maxzoom={14.5}
             layout={{
-              'symbol-placement': 'line-center',
-              'text-field': ['get', 'durationLabel'],
+              'text-field': ['get', 'label'],
               // SANS CETTE LIGNE, AUCUNE ETIQUETTE N'APPARAIT. Faute de police precisee,
               // MapLibre demande « Open Sans Regular » au serveur de tuiles, qui ne la sert
               // pas (404 verifie sur tiles.openfreemap.org) : la couche entiere reste vide,
               // en silence. Le style de fond n'utilise que les trois variantes de Noto Sans.
               'text-font': ['Noto Sans Bold'],
-              'text-size': 12.5,
+              'text-size': 13,
               'text-allow-overlap': true,
+              'text-ignore-placement': true,
+              'text-padding': 4,
             }}
             paint={{
-              'text-color': colors.text,
+              'text-color': colors.accentDark,
               'text-halo-color': colors.surface,
-              'text-halo-width': 2,
+              'text-halo-width': 2.6,
+              'text-halo-blur': 0.2,
             }}
           />
         </GeoJSONSource>
@@ -1565,26 +1637,20 @@ export default function MapScreen() {
           />
           {/* Badge colore : le pictogramme de categorie (voir map/placeIcons.ts) remplace le
               point plein, pour reconnaitre le type de lieu d'un coup d'oeil sur la carte. */}
+          {/* L'epingle, posee par sa POINTE sur la destination (`icon-anchor: bottom`) : c'est
+              le point qui compte, pas le centre du dessin. Elle remplace la pastille et son
+              emoji — ce dernier n'etait jamais dessine, faute d'emoji dans la police du
+              serveur de tuiles, et il ne restait qu'un rond vert sans signification. */}
           <Layer
-            id="destination-badge"
-            type="circle"
-            source="destination"
-            paint={{
-              'circle-radius': 15,
-              'circle-color': colors.accent,
-              'circle-stroke-width': 3,
-              'circle-stroke-color': colors.surface,
-            }}
-          />
-          <Layer
-            id="destination-icon"
+            id="destination-pin"
             type="symbol"
             source="destination"
             layout={{
-              'text-field': ['get', 'emoji'],
-              'text-size': 16,
-              'text-allow-overlap': true,
-              'text-ignore-placement': true,
+              'icon-image': 'destination-pin',
+              'icon-anchor': 'bottom',
+              'icon-size': 1,
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
             }}
           />
         </GeoJSONSource>
