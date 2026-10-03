@@ -127,10 +127,10 @@ async function commonsUrl(title: string): Promise<string | null> {
   return page?.imageinfo?.[0]?.url ?? null;
 }
 
-/** Image de tete d'un article Wikipedia francais. */
-async function wikipediaThumb(title: string): Promise<string | null> {
+/** Image de tete d'un article Wikipedia, dans la langue demandee. */
+async function wikipediaThumb(lang: 'fr' | 'en', title: string): Promise<string | null> {
   const data = await json<{ query?: { pages?: Record<string, { thumbnail?: { source?: string } }> } }>(
-    `https://fr.wikipedia.org/w/api.php?action=query&prop=pageimages&format=json&piprop=thumbnail&pithumbsize=600&redirects=1&titles=${encodeURIComponent(title)}`,
+    `https://${lang}.wikipedia.org/w/api.php?action=query&prop=pageimages&format=json&piprop=thumbnail&pithumbsize=600&redirects=1&titles=${encodeURIComponent(title)}`,
   );
   const page = data?.query?.pages ? Object.values(data.query.pages)[0] : undefined;
   return page?.thumbnail?.source ?? null;
@@ -203,10 +203,20 @@ async function lookupOnce(
   const country = place.lat != null && place.lon != null ? countryFromCoords(place.lat, place.lon) : null;
   const qualifier = country === 'TN' ? 'Tunisie' : country === 'FR' ? 'France' : country === 'DZ' ? 'Algérie' : null;
   if (qualifier) {
-    const disambiguated = await wikipediaThumb(`${name} (${qualifier})`);
+    const disambiguated = await wikipediaThumb('fr', `${name} (${qualifier})`);
     if (disambiguated) return disambiguated;
   }
-  return await wikipediaThumb(name);
+  const french = await wikipediaThumb('fr', name);
+  if (french) return french;
+
+  /* Dernier recours : le Wikipedia ANGLAIS.
+   *
+   * Le francais couvre tres bien l'Algerie — les noms y sont ecrits comme sur les panneaux —
+   * mais il laisse des trous ailleurs : Msaken, en Tunisie, n'a pas d'illustration en francais
+   * et en a une en anglais. Comme le client demande une photo pour n'importe quelle ville, un
+   * second essai vaut mieux qu'une fiche nue. Il ne coute une requete de plus que lorsque le
+   * francais n'a rien trouve, et le resultat est ensuite garde en cache. */
+  return await wikipediaThumb('en', name);
 }
 
 /**
