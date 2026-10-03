@@ -7,6 +7,7 @@ import type { GeocodedResult } from '../search/geocode';
 import { formatDistance } from '../shared';
 import { useAdminSession } from '../store/admin';
 import { lookupPlacePhoto, photoSource } from '../place/placePhoto';
+import { localPhotoUri } from '../place/photoCache';
 import { fonts, radius, spacing, typography, type Palette } from '../theme';
 import { AdminEditPlaceSheet } from './AdminEditPlaceSheet';
 import { CorrectionSheet } from './CorrectionSheet';
@@ -43,9 +44,15 @@ function usePlacePhoto(place: SelectedPlace | null): string | null {
     setPhoto(null);
     if (!place || place.photoUrl || (place.photos?.length ?? 0) > 0) return;
     let cancelled = false;
-    void lookupPlacePhoto(place).then((src) => {
-      if (!cancelled && src) setPhoto(src);
-    });
+    void (async () => {
+      const found = await lookupPlacePhoto(place);
+      if (cancelled || !found) return;
+      // On telecharge l'image NOUS-MEMES avant de l'afficher : Wikimedia refuse les requetes
+      // sans agent declare, et rien ne garantit que le composant natif transmette les en-tetes
+      // de la source. Voir photoCache.ts.
+      const local = await localPhotoUri(found);
+      if (!cancelled && local) setPhoto(local);
+    })();
     return () => {
       cancelled = true;
     };
