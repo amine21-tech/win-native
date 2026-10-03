@@ -49,15 +49,46 @@ const CURATED: Record<string, string[]> = {
   bone: ['File:Église Saint Augustin Annaba.jpg'],
 };
 
-const CITY_TYPES = new Set(['city', 'town', 'village', 'municipality']);
+/* Ce qui compte comme « lieu habite » et merite donc une illustration.
+ *
+ * La liste etait limitee a quatre valeurs, et c'est ce qui privait Tizi Ouzou de sa photo : le
+ * premier resultat rendu par le geocodeur pour une wilaya n'est pas la ville mais sa LIMITE
+ * ADMINISTRATIVE (`boundary/administrative`, type `state`). Paris, lui, remonte en
+ * `place/city` — d'ou une ville illustree et l'autre non, sans raison visible pour
+ * l'utilisateur, qui a tape le meme genre de nom.
+ *
+ * Les echelons administratifs sont desormais acceptes : wilaya, daira, commune, departement,
+ * region ont tous un article Wikipedia illustre, et c'est bien la photo de l'endroit.
+ */
+const PLACE_VALUES = new Set([
+  'city',
+  'town',
+  'village',
+  'hamlet',
+  'municipality',
+  'locality',
+  'suburb',
+  'borough',
+  'quarter',
+  'district',
+  'county',
+  'province',
+  'state',
+  'region',
+  'island',
+]);
 
-/** Un lieu « ville / commune » au sens d'OpenStreetMap, et non un commerce nomme. */
+/**
+ * Un lieu habite — ville, village, commune ou echelon administratif — et non un commerce.
+ *
+ * On ne teste plus `osmKey === 'place'` en bloc : cette cle couvre aussi `place=house`,
+ * c'est-a-dire une simple adresse. Demander a Wikipedia un article portant le nom d'une maison
+ * ramene, au mieux, rien ; au pire la photo d'un homonyme a l'autre bout du monde — exactement
+ * l'erreur d'association que le client nous demande d'eviter.
+ */
 export function isCityLike(place: { osmKey?: string; osmValue?: string; type?: string }): boolean {
-  return (
-    place.osmKey === 'place' ||
-    CITY_TYPES.has(place.osmValue ?? '') ||
-    CITY_TYPES.has(place.type ?? '')
-  );
+  if (place.osmKey === 'boundary' && place.osmValue === 'administrative') return true;
+  return PLACE_VALUES.has(place.osmValue ?? '') || PLACE_VALUES.has(place.type ?? '');
 }
 
 /* Wikimedia REFUSE les requetes anonymes : sans agent declare, l'API repond 403.
