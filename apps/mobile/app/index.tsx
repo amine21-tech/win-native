@@ -1671,6 +1671,9 @@ export default function MapScreen() {
         top={insets.top + HEADER_HEIGHT + (topBlockH || HIT_SIZE) + spacing.lg}
         // Degage la colonne de boutons : sa marge droite + son bouton le plus large + un ecart.
         right={spacing.lg + fabPrimarySize + spacing.md}
+        // Le bandeau ne concerne que les regions forestieres (Kabylie, Jijel, Chlef...) :
+        // l'afficher a Ouargla ou a Tamanrasset apprend seulement a l'ignorer.
+        position={position}
         colors={colors}
       />
 

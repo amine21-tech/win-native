@@ -7,11 +7,36 @@ const BANNER_DURATION_MS = 10_000;
 
 function isSummerSeason(): boolean {
   const month = new Date().getMonth() + 1;
-  return month >= 6 && month <= 9;
+  return month >= 6 && month <= 9; // juin a septembre, comme le site
+}
+
+/**
+ * Regions forestieres ou les feux de foret menacent reellement, reprises de
+ * `WILDFIRE_RISK_ZONES` (win-v83).
+ *
+ * Cette condition MANQUAIT dans la version Android : le bandeau s'affichait a tout le monde
+ * pendant l'ete, y compris a Ouargla ou a Tamanrasset, ou il n'y a pas une foret a brule. Une
+ * consigne d'urgence qui s'affiche la ou elle ne s'applique pas apprend a l'ignorer — et c'est
+ * exactement ce qu'on ne veut pas d'un bandeau rouge.
+ */
+const WILDFIRE_RISK_ZONES = [
+  { name: 'Tizi-Ouzou / Bejaia (Kabylie)', latMin: 36.35, latMax: 36.85, lonMin: 3.7, lonMax: 5.3 },
+  { name: 'Bouira / Boumerdes', latMin: 36.3, latMax: 36.85, lonMin: 3.3, lonMax: 4.2 },
+  { name: "Chlef / Tissemsilt / Ain Defla", latMin: 35.6, latMax: 36.4, lonMin: 0.9, lonMax: 2.2 },
+  { name: 'Jijel / Skikda', latMin: 36.5, latMax: 37.0, lonMin: 5.3, lonMax: 7.0 },
+];
+
+function isInWildfireRiskZone(lat: number, lon: number): boolean {
+  return WILDFIRE_RISK_ZONES.some(
+    (z) => lat >= z.latMin && lat <= z.latMax && lon >= z.lonMin && lon <= z.lonMax,
+  );
 }
 
 type Props = {
   top: number;
+  /** Position de l'utilisateur : le bandeau ne concerne que les regions forestieres. Tant
+   * qu'elle est inconnue, rien ne s'affiche — mieux vaut se taire que prevenir a tort. */
+  position: { lat: number; lon: number } | null;
   /** Marge droite : elle doit DEGAGER la colonne de boutons, que le bandeau chevauchait
    * (point 1 du client). Sur le site, le bandeau s'arrete a 64 px du bord pour la meme raison. */
   right: number;
@@ -25,16 +50,20 @@ type Props = {
  * d'urgence, pas un simple rappel"). Ne se ferme jamais manuellement pour la meme raison :
  * disparait seul apres 10 secondes (BANNER_DURATION_MS, identique a v83).
  */
-export function SeasonalBanner({ top, right, colors }: Props) {
+export function SeasonalBanner({ top, right, position, colors }: Props) {
   const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (!isSummerSeason()) return;
+    if (!position || !isInWildfireRiskZone(position.lat, position.lon)) return;
     setVisible(true);
     const id = setTimeout(() => setVisible(false), BANNER_DURATION_MS);
     return () => clearTimeout(id);
-  }, []);
+    // La position n'est volontairement PAS dans les dependances : le bandeau s'affiche une
+    // fois par session, et le relancer a chaque mesure GPS le ferait reapparaitre sans fin.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!position]);
 
   /* Halo pulsant, comme `@keyframes fireHalo` sur le site : le bandeau « respire » au lieu de
    * clignoter en tout-ou-rien, ce qui serait agressif pour les yeux au volant. L'animation joue
