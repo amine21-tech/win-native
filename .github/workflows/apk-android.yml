@@ -11,6 +11,13 @@ name: APK Android
 
 on:
   workflow_dispatch:
+    inputs:
+      cible:
+        description: "apk = essai client (Tunisie payante) | aab = Google Play (Tunisie libre)"
+        type: choice
+        required: true
+        default: apk
+        options: [apk, aab]
 
 jobs:
   apk:
@@ -101,7 +108,26 @@ jobs:
         # `--no-daemon` : inutile de garder un processus Gradle vivant sur une machine jetable.
         # `-x lint` : l'analyse statique ajoute plusieurs minutes sans rien apporter ici — le
         # projet est deja verifie par TypeScript en amont.
-        run: ./gradlew assembleRelease --no-daemon -x lint -PreactNativeArchitectures=arm64-v8a
+        #
+        # DEUX CIBLES, et elles ne se compilent pas ensemble.
+        #
+        # Le code JavaScript est fige DANS la compilation : le drapeau qui ouvre ou non la
+        # Tunisie ne peut donc pas differer entre deux fichiers issus du meme passage. Une
+        # execution produit une cible, choisie au lancement.
+        #
+        # - apk : l'essai remis au client. Deblocage a 200 DA actif, une seule architecture,
+        #   compilation courte.
+        # - aab : Google Play, qui n'accepte plus l'APK pour une nouvelle application. La
+        #   Tunisie y est libre (EXPO_PUBLIC_PAID_UNLOCKS=0), faute de quoi la vente par
+        #   virement violerait la politique de facturation de Google. On y ajoute armeabi-v7a :
+        #   la compilation est plus longue, mais une publication ne doit exclure aucun
+        #   telephone encore en service.
+        run: |
+          if [ "${{ inputs.cible }}" = "aab" ]; then
+            EXPO_PUBLIC_PAID_UNLOCKS=0 ./gradlew bundleRelease --no-daemon -x lint               -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+          else
+            ./gradlew assembleRelease --no-daemon -x lint -PreactNativeArchitectures=arm64-v8a
+          fi
 
       # `if: always()` : le cache est conserve meme apres un echec, pour que l'essai suivant
       # reparte du travail deja fait plutot que de tout recompiler.
@@ -124,8 +150,10 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: win-v${{ steps.version.outputs.code }}-apk
-          path: apps/mobile/android/app/build/outputs/apk/release/*.apk
+          name: win-v${{ steps.version.outputs.code }}-${{ inputs.cible }}
+          path: |
+            apps/mobile/android/app/build/outputs/apk/release/*.apk
+            apps/mobile/android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
 
       # Publication en Release, en plus de l'artefact.
@@ -145,10 +173,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          apk=$(ls apps/mobile/android/app/build/outputs/apk/release/*.apk | head -n 1)
-          nom="win-v${{ steps.version.outputs.code }}.apk"
+          if [ "${{ inputs.cible }}" = "aab" ]; then
+            src=$(ls apps/mobile/android/app/build/outputs/bundle/release/*.aab | head -n 1)
+            nom="win-v${{ steps.version.outputs.code }}.aab"
+          else
+            src=$(ls apps/mobile/android/app/build/outputs/apk/release/*.apk | head -n 1)
+            nom="win-v${{ steps.version.outputs.code }}.apk"
+          fi
           tag="v${{ steps.version.outputs.code }}"
-          cp "$apk" "$nom"
+          cp "$src" "$nom"
           if ! gh release view "$tag" >/dev/null 2>&1; then
             gh release create "$tag" --title "WIN v${{ steps.version.outputs.code }}" --notes "APK Android (arm64). A ouvrir directement depuis le telephone pour installer."
           fi
