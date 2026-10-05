@@ -1975,9 +1975,29 @@ export default function MapScreen() {
         position={position}
         colors={colors}
       />
-      <ProfilePanel visible={profileOpen} onClose={() => setProfileOpen(false)} colors={colors} />
+      <ProfilePanel
+        visible={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        colors={colors}
+        position={position}
+        // Choisir un lieu dans « Mes enregistrements » ouvre sa fiche, d'ou l'on peut le
+        // corriger ou le retirer — c'est le chemin que le client demandait.
+        onOpenPlace={(p) =>
+          // `placeId` est indispensable : c'est lui qui fait reconnaitre la fiche comme
+          // etant la notre, et qui ouvre « Modifier » et « Supprimer ».
+          openPlace({ name: p.name, displayName: p.name, lat: p.lat, lon: p.lon, source: 'win', placeId: p.id })
+        }
+      />
       <QiblaPanel visible={qiblaOpen} onClose={() => setQiblaOpen(false)} position={position} colors={colors} />
-      <AddPlaceSheet coords={addPlaceCoords} onClose={() => setAddPlaceCoords(null)} onSaved={onPlaceSaved} colors={colors} />
+      <AddPlaceSheet
+        coords={addPlaceCoords}
+        onClose={() => setAddPlaceCoords(null)}
+        onSaved={onPlaceSaved}
+        colors={colors}
+        // La precision annoncee par le GPS sert a refuser un releve « ici » pris sur une
+        // position du reseau mobile — l'origine du bureau de poste enregistre a 1 364 km.
+        userFix={position ? { lat: position.lat, lon: position.lon, accuracyM: currentAccuracyM() } : null}
+      />
       <AssistantPanel
         visible={assistant.open}
         listening={assistant.listening}

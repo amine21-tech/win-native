@@ -110,7 +110,14 @@
     "favoriteRemove": "Remove from favourites",
     "reportIssue": "Report an issue with this listing",
     "addedByWinVip": "VIP partner — added by a WIN user",
-    "photoByWin": "📷 Photo added by a WIN user"
+    "photoByWin": "📷 Photo added by a WIN user",
+    "myPlaces": "My saved places",
+    "myPlacesEmpty": "You have not saved any place yet.",
+    "editPlace": "Edit",
+    "deletePlace": "Delete",
+    "deleteConfirmTitle": "Delete this place?",
+    "deleteConfirm": "This cannot be undone: the photo, the coordinates and all related data will be removed.",
+    "deleted": "Place deleted."
   },
   "categories": {
     "groups": {
@@ -255,7 +262,12 @@
     "promoPlaceholder": "E.g. -20% this week",
     "latitude": "Latitude",
     "longitude": "Longitude",
-    "coordsInvalid": "Invalid GPS coordinates."
+    "coordsInvalid": "Invalid GPS coordinates.",
+    "gpsCheck": "Check that the point on the map is at your exact position before saving. An unstable GPS can distort the coordinates.",
+    "gpsAccuracy": "Current GPS accuracy: {{m}} m",
+    "gpsUnstable": "GPS still stabilising — wait a few seconds.",
+    "savedCheckTitle": "Recommended check",
+    "savedCheck": "Type this place name in the search again. If the distance shown matches your real position (say 50 m), the record is correct. If it is abnormally large (10 km or more), delete it and start again with a better GPS fix."
   },
   "placeCategories": {
     "pharmacie": "Pharmacy",

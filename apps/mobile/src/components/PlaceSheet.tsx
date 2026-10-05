@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { egsaForAirport, isAirport, isTrainStation, SNTF_URL } from '../reports/transport';
 import type { Route, RouteMode } from '../navigation/routing';
 import type { GeocodedResult } from '../search/geocode';
@@ -8,6 +8,10 @@ import { formatDistance } from '../shared';
 import { useAdminSession } from '../store/admin';
 import { lookupPlacePhoto, photoSource } from '../place/placePhoto';
 import { localPhotoUri } from '../place/photoCache';
+import { useMyPlaceIds, useRefreshMyPlaces } from '../place/useMyPlaces';
+import { MyPlaceSheet } from './MyPlaceSheet';
+import { api } from '../api/client';
+import { clearSearchCache } from '../search/usePlaceSearch';
 import { fonts, radius, spacing, typography, type Palette } from '../theme';
 import { AdminEditPlaceSheet } from './AdminEditPlaceSheet';
 import { CorrectionSheet } from './CorrectionSheet';
@@ -93,9 +97,39 @@ export function PlaceSheet({
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [adminEditOpen, setAdminEditOpen] = useState(false);
   const adminToken = useAdminSession((s) => s.token);
+  /* Ce lieu a-t-il ete enregistre depuis CET appareil ? Le serveur en est seul juge — il garde
+   * l'appareil createur — et c'est ce qui ouvre « Modifier » et « Supprimer ». */
+  const myPlaceIds = useMyPlaceIds();
+  const refreshMyPlaces = useRefreshMyPlaces();
+  const [myEditOpen, setMyEditOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   if (!place) return null;
 
   const isContributed = place.source === 'win';
+  const isMine = !!place.placeId && myPlaceIds.has(place.placeId);
+
+  /* La confirmation est obligatoire et le dit clairement : la suppression efface la photo, les
+   * coordonnees et tout ce qui est rattache au lieu, sans retour possible cote utilisateur. */
+  const askDelete = () => {
+    Alert.alert(t('place.deleteConfirmTitle'), t('place.deleteConfirm'), [
+      { text: t('addPlace.cancel'), style: 'cancel' },
+      {
+        text: t('place.deletePlace'),
+        style: 'destructive',
+        onPress: () => {
+          setDeleting(true);
+          void api(`/places/${place.placeId}/mine`, { method: 'DELETE' })
+            .then(() => {
+              clearSearchCache();
+              refreshMyPlaces();
+              onClose();
+            })
+            .catch(() => Alert.alert(t('errors.generic')))
+            .finally(() => setDeleting(false));
+        },
+      },
+    ]);
+  };
   const canOrder = !!place.whatsapp && place.isPartner;
 
   const call = (n: string) => void Linking.openURL(`tel:${n.replace(/\s+/g, '')}`);
@@ -258,6 +292,31 @@ export function PlaceSheet({
           </View>
         ) : null}
 
+        {/* Gestion par l'auteur de la fiche. Reservee aux lieux WIN enregistres depuis cet
+            appareil : rien de tout cela n'apparait sur un resultat OpenStreetMap, qu'on ne
+            peut ni corriger ni retirer ici. */}
+        {isMine ? (
+          <View style={styles.ownerRow}>
+            <Pressable
+              onPress={() => setMyEditOpen(true)}
+              style={[styles.ownerBtn, { borderColor: colors.border, backgroundColor: colors.surfaceAlt }]}
+            >
+              <Text style={[typography.caption, { color: colors.text, fontWeight: '700' }]}>
+                ✏️ {t('place.editPlace')}
+              </Text>
+            </Pressable>
+            <Pressable
+              disabled={deleting}
+              onPress={askDelete}
+              style={[styles.ownerBtn, { borderColor: colors.danger, backgroundColor: colors.danger + '12' }]}
+            >
+              <Text style={[typography.caption, { color: colors.danger, fontWeight: '700' }]}>
+                {deleting ? '…' : `🗑 ${t('place.deletePlace')}`}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         <Pressable onPress={() => setCorrectionOpen(true)} style={styles.reportIssue}>
           <Text style={[typography.caption, { color: colors.textMuted }]}>{t('place.reportIssue')}</Text>
         </Pressable>
@@ -278,6 +337,22 @@ export function PlaceSheet({
         placeId={place.placeId}
         lat={place.lat}
         lon={place.lon}
+        colors={colors}
+      />
+
+      <MyPlaceSheet
+        visible={myEditOpen}
+        place={
+          isMine && place.placeId
+            ? { id: place.placeId, name: place.name, category: place.category, lat: place.lat, lon: place.lon }
+            : null
+        }
+        onClose={() => setMyEditOpen(false)}
+        onSaved={() => {
+          setMyEditOpen(false);
+          refreshMyPlaces();
+          onClose();
+        }}
         colors={colors}
       />
 
@@ -405,6 +480,8 @@ const styles = StyleSheet.create({
   gallery: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.md },
   thumb: { flex: 1, height: 52, borderRadius: radius.sm, overflow: 'hidden', borderWidth: 2 },
   photoLoading: { alignItems: 'center', justifyContent: 'center' },
+  ownerRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  ownerBtn: { flex: 1, borderWidth: 1.5, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },
   thumbImage: { width: '100%', height: '100%' },
   nameRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   name: { ...typography.destinationName, flex: 1, fontFamily: fonts.destinationName },

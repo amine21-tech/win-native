@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, ApiError, uploadPhoto } from '../api/client';
 import { clearSearchCache } from '../search/usePlaceSearch';
-import { countryFromCoords, PLACE_CATEGORIES, type PlaceCategory } from '../shared';
+import { countryFromCoords, haversine, PLACE_CATEGORIES, type PlaceCategory } from '../shared';
 import { radius, spacing, typography, type Palette } from '../theme';
 
 type Coords = { lat: number; lon: number };
@@ -26,7 +26,22 @@ type Props = {
   onClose: () => void;
   onSaved: () => void;
   colors: Palette;
+  /** Position de l'utilisateur et precision annoncee par le GPS, pour l'avertissement
+   * ci-dessous. Absente tant qu'aucune mesure n'est arrivee. */
+  userFix?: { lat: number; lon: number; accuracyM: number } | null;
 };
+
+/* Au-dela de cette precision annoncee, un releve « ici » n'a plus de sens.
+ *
+ * Le client a enregistre un bureau de poste qui s'est retrouve a 1 364 km : la position
+ * capturee venait du reseau mobile, pas du satellite. Un recepteur qui s'avoue a plus de cent
+ * metres pres peut se tromper de quartier — et, quand il retombe sur une antenne, de wilaya. */
+const GPS_UNSTABLE_ACCURACY_M = 100;
+
+/** En deca de cette distance, on considere que l'utilisateur enregistre SA position, et c'est
+ * la seule situation ou la precision du GPS entre en jeu : viser volontairement un point a
+ * l'autre bout de la carte reste libre. */
+const REGISTERING_HERE_M = 150;
 
 /** Jusqu'a 3 photos par fiche (v81 #14) — la fiche du lieu (PlaceSheet) affiche deja une galerie
  * de plusieurs photos, mais ce formulaire n'en proposait qu'une seule a l'envoi. */
@@ -51,7 +66,7 @@ const emptyForm = {
 };
 
 /** Formulaire « Ajouter un lieu », declenche par un appui long sur la carte (openAddPoint en v83). */
-export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
+export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Props) {
   const { t } = useTranslation();
   const [form, setForm] = useState(emptyForm);
   const [photoUris, setPhotoUris] = useState<string[]>([]);
@@ -60,6 +75,8 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
   const [error, setError] = useState<string | null>(null);
   /** Lieu enregistre, mais photo(s) non envoyee(s) : porte la raison technique. */
   const [savedWithoutPhoto, setSavedWithoutPhoto] = useState<string | null>(null);
+  /** Conseil de verification affiche APRES un enregistrement reussi (demande du client). */
+  const [savedOk, setSavedOk] = useState(false);
   /** Service VIP : null = ferme, 'code' = saisie du code, sinon le code valide par le serveur. */
   const [vip, setVip] = useState<null | 'code' | { code: string }>(null);
   const [vipInput, setVipInput] = useState('');
@@ -186,9 +203,21 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
   const saveLat = coordsValid ? typedLat : coords.lat;
   const saveLon = coordsValid ? typedLon : coords.lon;
 
+  /* L'utilisateur enregistre-t-il SA position, ou vise-t-il un point ailleurs sur la carte ?
+   * La precision du GPS ne concerne que le premier cas. */
+  const registeringHere =
+    !!userFix && haversine(userFix.lat, userFix.lon, saveLat, saveLon) < REGISTERING_HERE_M;
+  const gpsUnstable = registeringHere && userFix!.accuracyM > GPS_UNSTABLE_ACCURACY_M;
+
   const submit = async () => {
     if (!form.name.trim()) {
       setError(t('addPlace.nameRequired'));
+      return;
+    }
+    // Mieux vaut faire patienter quelques secondes qu'enregistrer un lieu a plusieurs
+    // centaines de metres — ou plusieurs centaines de kilometres — de l'endroit reel.
+    if (gpsUnstable) {
+      setError(t('addPlace.gpsUnstable'));
       return;
     }
     if (!coordsValid) {
@@ -252,7 +281,7 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
         setSavedWithoutPhoto(photoProblem);
         return;
       }
-      onSaved();
+      setSavedOk(true);
     } catch (e) {
       if (e instanceof ApiError && e.status === 403) {
         setVip('code');
@@ -284,7 +313,20 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
             </Pressable>
           </View>
 
-          {savedWithoutPhoto ? (
+          {savedOk ? (
+            /* Conseil de verification, demande par le client : un enregistrement peut avoir
+               l'air reussi et pointer a dix kilometres. Une verification immediate coute
+               quelques secondes et evite une fiche fausse qui restera des mois sur la carte. */
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text style={[typography.heading, { color: colors.accentDark, marginBottom: spacing.sm }]}>
+                ✅ {t('addPlace.savedCheckTitle')}
+              </Text>
+              <Text style={[typography.body, { color: colors.text }]}>{t('addPlace.savedCheck')}</Text>
+              <Pressable onPress={onSaved} style={[styles.save, { backgroundColor: colors.accent }]}>
+                <Text style={styles.saveText}>{t('search.confirm')}</Text>
+              </Pressable>
+            </ScrollView>
+          ) : savedWithoutPhoto ? (
             <ScrollView keyboardShouldPersistTaps="handled">
               <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>
                 {t('addPlace.savedWithoutPhoto')}
@@ -299,6 +341,28 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors }: Props) {
             <Text style={[typography.caption, styles.coords, { color: colors.accent, backgroundColor: colors.surfaceAlt }]}>
               📍 {saveLat.toFixed(5)}, {saveLon.toFixed(5)}
             </Text>
+
+            {/* Avertissement GPS. Il s'affiche toujours — la mise en garde vaut meme avec un bon
+                signal — et passe en rouge quand la precision annoncee rend le releve douteux,
+                auquel cas l'enregistrement est refuse tant qu'elle ne s'ameliore pas. */}
+            <View
+              style={[
+                styles.gpsNotice,
+                {
+                  backgroundColor: gpsUnstable ? colors.danger + '1a' : colors.surfaceAlt,
+                  borderColor: gpsUnstable ? colors.danger : colors.border,
+                },
+              ]}
+            >
+              <Text style={[typography.caption, { color: gpsUnstable ? colors.danger : colors.textMuted }]}>
+                {gpsUnstable ? `⛔ ${t('addPlace.gpsUnstable')}` : `⚠️ ${t('addPlace.gpsCheck')}`}
+              </Text>
+              {userFix ? (
+                <Text style={[typography.caption, { color: colors.textMuted, marginTop: 3 }]}>
+                  {t('addPlace.gpsAccuracy', { m: Math.round(userFix.accuracyM) })}
+                </Text>
+              ) : null}
+            </View>
 
             {/* Coordonnees modifiables : indispensables pour enregistrer un partenaire VIP dont
                 on a releve la position ailleurs, sans avoir a viser le point sur la carte. */}
@@ -561,6 +625,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
+  gpsNotice: { borderWidth: 1, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.sm },
   coords: {
     alignSelf: 'flex-start',
     fontWeight: '700' as const,

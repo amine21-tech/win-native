@@ -110,7 +110,14 @@
     "favoriteRemove": "Retirer des favoris",
     "reportIssue": "Signaler une erreur sur cette fiche",
     "addedByWinVip": "Partenaire VIP — ajouté par un utilisateur WIN",
-    "photoByWin": "📷 Photo ajoutée par un utilisateur WIN"
+    "photoByWin": "📷 Photo ajoutée par un utilisateur WIN",
+    "myPlaces": "Mes enregistrements",
+    "myPlacesEmpty": "Vous n'avez encore enregistré aucun lieu.",
+    "editPlace": "Modifier",
+    "deletePlace": "Supprimer",
+    "deleteConfirmTitle": "Supprimer ce lieu ?",
+    "deleteConfirm": "Cette action est irréversible : la photo, les coordonnées et toutes les données associées seront supprimées.",
+    "deleted": "Lieu supprimé."
   },
   "categories": {
     "groups": {
@@ -255,7 +262,12 @@
     "promoPlaceholder": "Ex : -20 % cette semaine",
     "latitude": "Latitude",
     "longitude": "Longitude",
-    "coordsInvalid": "Coordonnées GPS invalides."
+    "coordsInvalid": "Coordonnées GPS invalides.",
+    "gpsCheck": "Vérifiez que le point sur la carte est bien à votre position exacte avant d'enregistrer. Un GPS mal stabilisé peut fausser les coordonnées.",
+    "gpsAccuracy": "Précision GPS actuelle : {{m}} m",
+    "gpsUnstable": "GPS en cours de stabilisation — attendez quelques secondes.",
+    "savedCheckTitle": "Vérification recommandée",
+    "savedCheck": "Retapez le nom de ce lieu dans la recherche. Si la distance affichée correspond à votre position réelle (par exemple 50 m), l'enregistrement est correct. Si elle est anormalement grande (10 km ou plus), supprimez-le et recommencez avec un GPS mieux stabilisé."
   },
   "placeCategories": {
     "pharmacie": "Pharmacie",

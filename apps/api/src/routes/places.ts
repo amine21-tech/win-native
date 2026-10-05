@@ -351,6 +351,103 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.code(201).send({ id: placeId });
   });
 
+  /* ------------------------------------------------------------------ */
+  /* Gestion par l'AUTEUR de la fiche                                     */
+  /*                                                                      */
+  /* Jusqu'ici, seuls les moderateurs pouvaient corriger ou retirer un    */
+  /* lieu : un contributeur qui s'etait trompe d'adresse ou de nom devait */
+  /* nous ecrire et attendre. Or la colonne `created_by` porte deja       */
+  /* l'appareil qui a cree la fiche — l'auteur peut donc etre reconnu     */
+  /* sans rien ajouter au modele. Il ne touche QUE ses propres fiches :   */
+  /* la condition est dans la requete SQL, pas seulement dans un test en  */
+  /* amont, de sorte qu'aucune course entre deux appels ne puisse         */
+  /* l'ouvrir sur la fiche d'un autre.                                    */
+  /* ------------------------------------------------------------------ */
+
+  /** Les lieux crees par cet appareil — la section « Mes enregistrements ». */
+  app.get('/places/mine', { preHandler: [app.requireDevice] }, async (req) => {
+    const rows = await db.execute(sql`
+      SELECT ${placeColumns}
+      FROM places p
+      ${photosJoin}
+      WHERE p.created_by = ${req.deviceId!}
+        AND p.deleted_at IS NULL
+      ORDER BY p.created_at DESC
+      LIMIT 200
+    `);
+    return { items: rows };
+  });
+
+  /**
+   * Correction par l'auteur : nom, categorie, position, adresse, contacts.
+   *
+   * Le statut partenaire et la promotion restent hors de portee — ce sont des engagements
+   * commerciaux, pas des informations que le contributeur a saisies.
+   */
+  app.patch<{ Params: { id: string } }>(
+    '/places/:id/mine',
+    { preHandler: [app.requireDevice] },
+    async (req) => {
+      const input = parse(updatePlaceInput, req.body);
+      const rows = (await db.execute(sql`
+        UPDATE places SET
+          name         = COALESCE(${input.name ?? null}, name),
+          category     = COALESCE(${input.category ?? null}, category),
+          house_number = COALESCE(${input.houseNumber ?? null}, house_number),
+          street       = COALESCE(${input.street ?? null}, street),
+          city         = COALESCE(${input.city ?? null}, city),
+          postal_code  = COALESCE(${input.postalCode ?? null}, postal_code),
+          wilaya       = COALESCE(${input.wilaya ?? null}, wilaya),
+          phone_fixe   = COALESCE(${input.phoneFixe ?? null}, phone_fixe),
+          phone_mobile = COALESCE(${input.phoneMobile ?? null}, phone_mobile),
+          whatsapp     = COALESCE(${input.whatsapp ?? null}, whatsapp),
+          email        = COALESCE(${input.email ?? null}, email),
+          enseigne     = COALESCE(${input.enseigne ?? null}, enseigne),
+          geom         = CASE WHEN ${input.lat ?? null}::double precision IS NOT NULL
+                              THEN ST_SetSRID(ST_MakePoint(${input.lon ?? null}, ${input.lat ?? null}), 4326)::geography
+                              ELSE geom END,
+          updated_at   = now()
+        WHERE id = ${req.params.id}
+          AND created_by = ${req.deviceId!}
+          AND deleted_at IS NULL
+        RETURNING id
+      `)) as unknown as unknown[];
+      if (rows.length === 0) throw notFound();
+
+      await db.execute(sql`
+        INSERT INTO moderation_log (entity_type, entity_id, action, after, device_id)
+        VALUES ('place', ${req.params.id}, 'author_update', ${JSON.stringify(input)}::jsonb, ${req.deviceId!})
+      `);
+      return { ok: true };
+    },
+  );
+
+  /**
+   * Retrait par l'auteur. Suppression LOGIQUE, comme celle des moderateurs : une fiche
+   * effacee par erreur doit pouvoir etre retrouvee, et le journal garde la trace de qui a
+   * fait quoi.
+   */
+  app.delete<{ Params: { id: string } }>(
+    '/places/:id/mine',
+    { preHandler: [app.requireDevice] },
+    async (req) => {
+      const rows = (await db.execute(sql`
+        UPDATE places SET deleted_at = now()
+        WHERE id = ${req.params.id}
+          AND created_by = ${req.deviceId!}
+          AND deleted_at IS NULL
+        RETURNING id
+      `)) as unknown as unknown[];
+      if (rows.length === 0) throw notFound();
+
+      await db.execute(sql`
+        INSERT INTO moderation_log (entity_type, entity_id, action, device_id)
+        VALUES ('place', ${req.params.id}, 'author_delete', ${req.deviceId!})
+      `);
+      return { ok: true };
+    },
+  );
+
   /** Modification, reservee aux moderateurs. */
   app.patch<{ Params: { id: string } }>(
     '/places/:id',

@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMyPlaces } from '../place/useMyPlaces';
+import { formatDistance, haversine } from '../shared';
 import { api } from '../api/client';
 import { radius, spacing, typography, type Palette } from '../theme';
 
@@ -24,10 +26,16 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   colors: Palette;
+  /** Position courante, pour afficher la distance de chaque lieu enregistre — c'est elle qui
+   * permet de reperer d'un coup d'oeil un enregistrement dont le GPS avait derape. */
+  position?: { lat: number; lon: number } | null;
+  /** Ouvre la fiche d'un lieu enregistre, ou se trouvent « Modifier » et « Supprimer ». */
+  onOpenPlace?: (place: { id: string; name: string; lat: number; lon: number }) => void;
 };
 
 /** Panneau « Mes contributions », repris de `#profilePanel`/renderProfilePanel() en v83. */
-export function ProfilePanel({ visible, onClose, colors }: Props) {
+export function ProfilePanel({ visible, onClose, colors, position, onOpenPlace }: Props) {
+  const mine = useMyPlaces(visible);
   const { t } = useTranslation();
 
   const { data, isLoading } = useQuery({
@@ -84,6 +92,47 @@ export function ProfilePanel({ visible, onClose, colors }: Props) {
             </>
           )}
 
+          {/* « Mes enregistrements ».
+              Retrouver un lieu que l'on a soi-meme ajoute obligeait a retaper son nom dans la
+              recherche — ce que personne ne fait. La liste donne aussi la distance, qui est le
+              signe le plus simple d'un enregistrement a corriger : un lieu du quartier affiche
+              a douze kilometres a ete pris avec un GPS mal stabilise. */}
+          <View style={styles.myPlaces}>
+            <Text style={[typography.caption, { color: colors.textMuted, fontWeight: '800' }]}>
+              📍 {t('place.myPlaces')}
+            </Text>
+            {mine.isLoading ? (
+              <ActivityIndicator color={colors.accent} style={{ marginVertical: spacing.sm }} />
+            ) : (mine.data?.items.length ?? 0) === 0 ? (
+              <Text style={[typography.caption, { color: colors.textMuted, marginTop: 6 }]}>
+                {t('place.myPlacesEmpty')}
+              </Text>
+            ) : (
+              <ScrollView style={styles.myList} nestedScrollEnabled>
+                {mine.data!.items.map((p) => {
+                  const away = position ? haversine(position.lat, position.lon, p.lat, p.lon) : null;
+                  return (
+                    <Pressable
+                      key={p.id}
+                      onPress={() => {
+                        onOpenPlace?.({ id: p.id, name: p.name, lat: p.lat, lon: p.lon });
+                        onClose();
+                      }}
+                      style={[styles.myRow, { borderColor: colors.border }]}
+                    >
+                      <Text style={[typography.body, { color: colors.text, flex: 1 }]} numberOfLines={1}>
+                        {p.name}
+                      </Text>
+                      {away != null ? (
+                        <Text style={[typography.caption, { color: colors.textMuted }]}>{formatDistance(away)}</Text>
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+
           {/* Discret, jamais un code partage : l'authentification reelle (voir apps/api/src/
               routes/admin.ts) protege deja l'espace qui s'ouvre ensuite. */}
           <Pressable
@@ -111,6 +160,17 @@ function Stat({ value, label, colors }: { value: number; label: string; colors: 
 }
 
 const styles = StyleSheet.create({
+  myPlaces: { width: '100%', marginTop: spacing.md },
+  // Hauteur bornee : la liste defile a l'interieur du panneau au lieu de le faire grandir
+  // sans fin quand un contributeur a enregistre trente lieux.
+  myList: { maxHeight: 170, marginTop: 6 },
+  myRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 9,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

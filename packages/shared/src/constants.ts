@@ -32,23 +32,36 @@ export const REPORT_KINDS = [
 export type ReportKind = (typeof REPORT_KINDS)[number];
 
 /**
- * Un signalement permanent survit aux redemarrages et ne disparait que par
- * vote ; un signalement temporaire expire tout seul.
+ * Un signalement permanent survit aux redemarrages et ne disparait que par vote ; un
+ * signalement temporaire expire tout seul.
+ *
+ * Le BARRAGE rejoint la liste a la demande du client. Un barrage de police ou de gendarmerie
+ * n'est pas un evenement d'une heure : en Algerie, le meme point de controle est tenu des mois
+ * durant, et l'annoncer est precisement ce qu'on attend de l'application. Comme le dos d'ane,
+ * il reste donc affiche jusqu'a ce qu'un conducteur reponde « Plus la » ou qu'un
+ * administrateur le retire.
  */
-export const PERMANENT_KINDS: readonly ReportKind[] = ['radar', 'bump', 'pothole'];
+export const PERMANENT_KINDS: readonly ReportKind[] = ['radar', 'bump', 'pothole', 'police'];
 
-/** Duree de vie d'un signalement temporaire, en minutes, par type. */
+/**
+ * Duree de vie d'un signalement temporaire, en minutes, par type.
+ *
+ * Valeurs reprises du tableau du client, lui-meme aligne sur `getAlertTTL(type)` de la version
+ * web. Elles ne sont pas arbitraires : elles suivent le temps que met l'evenement a disparaitre
+ * REELLEMENT de la route. Un objet tombe est ramasse ou evite en une demi-heure ; une
+ * inondation met une demi-journee a se retirer.
+ */
 export const TEMPORARY_TTL_MINUTES: Record<ReportKind, number> = {
-  radar: 0,
-  bump: 0,
-  pothole: 0,
-  police: 45,
-  crash: 90,
-  jam: 60,
-  object: 60,
-  fire: 180,
-  flood: 240,
-  block: 240,
+  radar: 0, // permanent
+  bump: 0, // permanent
+  pothole: 0, // permanent
+  police: 0, // permanent — barrage, voir ci-dessus
+  object: 30, // objet sur la route
+  jam: 60, // bouchon
+  crash: 120, // accident
+  fire: 180, // incendie
+  block: 240, // route coupee
+  flood: 360, // route inondee
 };
 
 /**
