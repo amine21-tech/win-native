@@ -11,7 +11,7 @@
     ],
     "icon": "./assets/icon.png",
     "android": {
-      "package": "dz.win.app",
+      "package": "com.windz.app",
       "versionCode": 38,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
@@ -29,7 +29,7 @@
       ]
     },
     "ios": {
-      "bundleIdentifier": "dz.win.app",
+      "bundleIdentifier": "com.windz.app",
       "buildNumber": "1",
       "supportsTablet": false,
       "infoPlist": {
