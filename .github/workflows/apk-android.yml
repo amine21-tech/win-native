@@ -81,7 +81,18 @@ jobs:
           WIN_KEYSTORE_PASSWORD: ${{ secrets.WIN_KEYSTORE_PASSWORD }}
           WIN_KEY_ALIAS: ${{ secrets.WIN_KEY_ALIAS }}
           WIN_KEY_PASSWORD: ${{ secrets.WIN_KEY_PASSWORD }}
-        run: node scripts/ci-signing.mjs
+        run: |
+          # Une publication ne doit JAMAIS partir signee avec la cle de developpement d'Android.
+          # Google Play la refuse, et l'application ne pourrait pas se mettre a jour par-dessus
+          # une version signee autrement. Pour l'essai client, en revanche, on tolere l'absence
+          # de secret : c'est ce qui permet de compiler sans rien configurer.
+          if [ "${{ inputs.cible }}" = "aab" ] && [ -z "${WIN_KEYSTORE_BASE64}" ]; then
+            echo "::error::Cible Play demandee sans cle de signature. Renseignez les secrets"
+            echo "::error::WIN_KEYSTORE_BASE64, WIN_KEYSTORE_PASSWORD, WIN_KEY_ALIAS et"
+            echo "::error::WIN_KEY_PASSWORD dans Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          node scripts/ci-signing.mjs
 
       # Les mots de passe sont lus par Gradle depuis l'environnement, jamais ecrits dans un
       # fichier du projet (voir scripts/ci-signing.mjs).
