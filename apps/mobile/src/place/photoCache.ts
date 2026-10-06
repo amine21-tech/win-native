@@ -36,6 +36,15 @@ function fileNameFor(url: string): string {
 
 let dirReady = false;
 
+/* Le module natif expose-t-il encore le telechargement ?
+ *
+ * `downloadAsync` appartient a la partie DEPRECIEE d'expo-file-system et leve
+ * `UnavailabilityError` quand la compilation ne l'embarque pas — le projet connait deja ce
+ * piege pour l'ENVOI de photos (voir api/client.ts, qui prevoit une seconde voie). Une fois le
+ * refus constate, inutile de retenter a chaque fiche : on passe directement au repli.
+ */
+let telechargementIndisponible = false;
+
 async function ensureDir(): Promise<boolean> {
   if (!DIR) return false;
   if (dirReady) return true;
@@ -58,6 +67,7 @@ const inFlight = new Map<string, Promise<string | null>>();
  * l'appelant d'afficher la fiche sans image plutot qu'un cadre vide.
  */
 export async function localPhotoUri(url: string): Promise<string | null> {
+  if (telechargementIndisponible) return null;
   if (!(await ensureDir()) || !DIR) return null;
 
   const target = DIR + fileNameFor(url);
@@ -82,8 +92,14 @@ export async function localPhotoUri(url: string): Promise<string | null> {
           // Un 403 ou un 404 produit tout de meme un fichier, qui contient la page d'erreur :
           // sans ce controle, on afficherait du texte en guise de photo.
           if (res.status >= 200 && res.status < 300) return res.uri;
-        } catch {
-          /* on retente une fois */
+        } catch (e) {
+          // Un module natif absent ne se repare pas en reessayant : on le note une fois pour
+          // toutes et l'appelant affichera l'image directement depuis son adresse.
+          if ((e as { code?: string })?.code === 'ERR_UNAVAILABLE' || /unavailab/i.test(String(e))) {
+            telechargementIndisponible = true;
+            return null;
+          }
+          /* coupure passagere : on retente une fois */
         }
       }
       return null;

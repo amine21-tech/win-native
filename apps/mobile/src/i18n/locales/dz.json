@@ -117,7 +117,8 @@
     "deletePlace": "امسح",
     "deleteConfirmTitle": "تمسح هاد البلاصة؟",
     "deleteConfirm": "ما تقدرش ترجع: التصويرة والإحداثيات وكل شي يتمسح.",
-    "deleted": "تمسحت البلاصة."
+    "deleted": "تمسحت البلاصة.",
+    "photoUnavailable": "الصورة ما كاينش"
   },
   "categories": {
     "groups": {

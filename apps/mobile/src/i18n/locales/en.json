@@ -117,7 +117,8 @@
     "deletePlace": "Delete",
     "deleteConfirmTitle": "Delete this place?",
     "deleteConfirm": "This cannot be undone: the photo, the coordinates and all related data will be removed.",
-    "deleted": "Place deleted."
+    "deleted": "Place deleted.",
+    "photoUnavailable": "Photo unavailable"
   },
   "categories": {
     "groups": {

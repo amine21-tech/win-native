@@ -117,7 +117,8 @@
     "deletePlace": "حذف",
     "deleteConfirmTitle": "حذف هذا المكان؟",
     "deleteConfirm": "لا يمكن التراجع: ستُحذف الصورة والإحداثيات وكل البيانات المرتبطة.",
-    "deleted": "تم حذف المكان."
+    "deleted": "تم حذف المكان.",
+    "photoUnavailable": "الصورة غير متاحة"
   },
   "categories": {
     "groups": {

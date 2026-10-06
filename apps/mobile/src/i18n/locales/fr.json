@@ -117,7 +117,8 @@
     "deletePlace": "Supprimer",
     "deleteConfirmTitle": "Supprimer ce lieu ?",
     "deleteConfirm": "Cette action est irréversible : la photo, les coordonnées et toutes les données associées seront supprimées.",
-    "deleted": "Lieu supprimé."
+    "deleted": "Lieu supprimé.",
+    "photoUnavailable": "Photo indisponible"
   },
   "categories": {
     "groups": {

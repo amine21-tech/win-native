@@ -51,11 +51,19 @@ function usePlacePhoto(place: SelectedPlace | null): string | null {
     void (async () => {
       const found = await lookupPlacePhoto(place);
       if (cancelled || !found) return;
-      // On telecharge l'image NOUS-MEMES avant de l'afficher : Wikimedia refuse les requetes
-      // sans agent declare, et rien ne garantit que le composant natif transmette les en-tetes
-      // de la source. Voir photoCache.ts.
+      /* DEUX VOIES, et c'est deliberé.
+       *
+       * On telecharge l'image nous-memes quand c'est possible : Wikimedia refuse les requetes
+       * sans agent declare, et rien ne garantit que le composant natif transmette les en-tetes
+       * de la source. Mais `downloadAsync` appartient a la partie depreciee d'expo-file-system
+       * et peut tout simplement ne pas exister dans la compilation — c'est ce qui s'est produit,
+       * et la fiche se retrouvait sans photo alors que l'adresse etait trouvee.
+       *
+       * Faute de telechargement, on affiche donc l'adresse distante telle quelle : les en-tetes
+       * y sont jointes par `photoSource`, et si le composant les transmet, l'image s'affiche.
+       * Deux chances valent mieux qu'une seule. */
       const local = await localPhotoUri(found);
-      if (!cancelled && local) setPhoto(local);
+      if (!cancelled) setPhoto(local ?? found);
     })();
     return () => {
       cancelled = true;
@@ -156,6 +164,16 @@ export function PlaceSheet({
         {place.isPartner ? (
           <Text style={[styles.badge, { color: colors.alert, backgroundColor: colors.gold + '2a' }]}>
             {t('place.partner')}
+          </Text>
+        ) : null}
+
+        {/* Une photo trouvee mais impossible a charger le DIT, au lieu de disparaitre sans
+            laisser de trace. C'est ce que le client demandait — jamais de cadre vide
+            silencieux — et c'est aussi notre seul moyen de distinguer, depuis un telephone,
+            une adresse introuvable d'une image refusee. */}
+        {mainPhoto && photoState === 'failed' ? (
+          <Text style={[typography.caption, styles.photoFailed, { color: colors.textMuted }]}>
+            📷 {t('place.photoUnavailable')}
           </Text>
         ) : null}
 
@@ -480,6 +498,7 @@ const styles = StyleSheet.create({
   gallery: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.md },
   thumb: { flex: 1, height: 52, borderRadius: radius.sm, overflow: 'hidden', borderWidth: 2 },
   photoLoading: { alignItems: 'center', justifyContent: 'center' },
+  photoFailed: { textAlign: 'center', paddingVertical: spacing.sm },
   ownerRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   ownerBtn: { flex: 1, borderWidth: 1.5, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },
   thumbImage: { width: '100%', height: '100%' },
