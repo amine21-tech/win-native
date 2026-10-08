@@ -12,7 +12,7 @@
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.windz.app",
-      "versionCode": 39,
+      "versionCode": 40,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0A5840"

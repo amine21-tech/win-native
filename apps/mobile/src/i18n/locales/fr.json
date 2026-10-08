@@ -118,7 +118,15 @@
     "deleteConfirmTitle": "Supprimer ce lieu ?",
     "deleteConfirm": "Cette action est irréversible : la photo, les coordonnées et toutes les données associées seront supprimées.",
     "deleted": "Lieu supprimé.",
-    "photoUnavailable": "Photo indisponible"
+    "photoUnavailable": "Photo indisponible",
+    "reportPhoto": "Signaler cette photo",
+    "reportPhotoTitle": "Signaler cette photo",
+    "reportPhotoSent": "Signalement envoyé. Merci.",
+    "reason_wrong_place": "Ce n'est pas cet endroit",
+    "reason_wrong_facade": "Bon endroit, mauvaise façade",
+    "reason_poor_quality": "Photo floue ou illisible",
+    "reason_inappropriate": "Contenu déplacé",
+    "reason_other": "Autre"
   },
   "categories": {
     "groups": {

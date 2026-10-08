@@ -118,7 +118,15 @@
     "deleteConfirmTitle": "Delete this place?",
     "deleteConfirm": "This cannot be undone: the photo, the coordinates and all related data will be removed.",
     "deleted": "Place deleted.",
-    "photoUnavailable": "Photo unavailable"
+    "photoUnavailable": "Photo unavailable",
+    "reportPhoto": "Report this photo",
+    "reportPhotoTitle": "Report this photo",
+    "reportPhotoSent": "Report sent. Thank you.",
+    "reason_wrong_place": "This is not the place",
+    "reason_wrong_facade": "Right place, wrong frontage",
+    "reason_poor_quality": "Blurry or unreadable",
+    "reason_inappropriate": "Inappropriate content",
+    "reason_other": "Other"
   },
   "categories": {
     "groups": {

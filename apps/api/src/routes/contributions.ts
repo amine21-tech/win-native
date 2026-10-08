@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
-import { correctionInput, partnerLeadInput } from '@win/shared';
+import { correctionInput, partnerLeadInput, photoReportInput } from '@win/shared';
 import { db } from '../db/client.js';
 import { parse } from '../lib/http.js';
 
@@ -26,6 +26,34 @@ const routes: FastifyPluginAsync = async (app) => {
 
     return reply.code(201).send({ id: rows[0]!.id });
   });
+
+  /**
+   * Signalement d'une photo incorrecte.
+   *
+   * La photo n'est PAS retiree automatiquement, meme signalee plusieurs fois : une photo exacte
+   * qui deplait se ferait effacer par quelques clics mal intentionnes. Le signalement rejoint le
+   * tableau de bord, et un moderateur tranche.
+   *
+   * Un meme appareil ne signale qu'une fois la meme photo — `ON CONFLICT DO NOTHING` s'appuie
+   * sur l'index unique de la migration 0003. Le second appui repond donc comme le premier, sans
+   * rien ajouter : l'utilisateur n'a pas a savoir qu'il avait deja signale, et rien ne lui est
+   * reproche.
+   */
+  app.post<{ Params: { id: string } }>(
+    '/photos/:id/report',
+    { preHandler: [app.requireDevice] },
+    async (req, reply) => {
+      const input = parse(photoReportInput, req.body);
+      await db.execute(sql`
+        INSERT INTO photo_reports (photo_id, place_id, reason, message, device_id)
+        SELECT f.id, f.place_id, ${input.reason}, ${input.message ?? null}, ${req.deviceId!}
+        FROM place_photos f
+        WHERE f.id = ${req.params.id}
+        ON CONFLICT (photo_id, device_id) DO NOTHING
+      `);
+      return reply.code(201).send({ ok: true });
+    },
+  );
 
   /** Candidature d'un commerce souhaitant devenir partenaire. */
   app.post('/partner-leads', { preHandler: [app.optionalDevice] }, async (req, reply) => {

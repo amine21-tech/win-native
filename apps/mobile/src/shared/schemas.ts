@@ -227,6 +227,28 @@ export const correctionInput = z.object({
 });
 export type CorrectionInput = z.infer<typeof correctionInput>;
 
+/**
+ * Signalement d'une photo incorrecte.
+ *
+ * Les motifs sont une LISTE FERMEE, et non un champ libre : au volant ou en marchant, personne
+ * ne redige un paragraphe. Quatre cas couvrent ce qu'un contributeur constate reellement, et un
+ * motif « autre » recueille le reste, avec un message facultatif.
+ */
+export const PHOTO_REPORT_REASONS = [
+  'wrong_place', // ce n'est pas cet endroit
+  'wrong_facade', // bon endroit, mauvaise facade
+  'poor_quality', // floue, trop sombre, illisible
+  'inappropriate', // contenu deplace
+  'other',
+] as const;
+export type PhotoReportReason = (typeof PHOTO_REPORT_REASONS)[number];
+
+export const photoReportInput = z.object({
+  reason: z.enum(PHOTO_REPORT_REASONS),
+  message: z.string().trim().max(500).optional(),
+});
+export type PhotoReportInput = z.infer<typeof photoReportInput>;
+
 export const partnerLeadInput = z.object({
   name: z.string().trim().min(2).max(160),
   phone: phone,

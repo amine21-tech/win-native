@@ -118,7 +118,15 @@
     "deleteConfirmTitle": "تمسح هاد البلاصة؟",
     "deleteConfirm": "ما تقدرش ترجع: التصويرة والإحداثيات وكل شي يتمسح.",
     "deleted": "تمسحت البلاصة.",
-    "photoUnavailable": "الصورة ما كاينش"
+    "photoUnavailable": "الصورة ما كاينش",
+    "reportPhoto": "بلّغ على هاد التصويرة",
+    "reportPhotoTitle": "بلّغ على هاد التصويرة",
+    "reportPhotoSent": "راح البلاغ. صحيت.",
+    "reason_wrong_place": "ماشي هي هاد البلاصة",
+    "reason_wrong_facade": "البلاصة صح بصح الواجهة غالطة",
+    "reason_poor_quality": "التصويرة ما تبانش",
+    "reason_inappropriate": "محتوى ما يصلحش",
+    "reason_other": "حاجة أخرى"
   },
   "categories": {
     "groups": {

@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { adminLoginInput } from '@win/shared';
 import { db } from '../db/client.js';
+import { env } from '../env.js';
 import { HttpError, notFound, parse } from '../lib/http.js';
 
 const routes: FastifyPluginAsync = async (app) => {
@@ -83,6 +84,73 @@ const routes: FastifyPluginAsync = async (app) => {
         RETURNING id
       `)) as unknown as { id: string }[];
       if (rows.length === 0) throw notFound();
+      return { ok: true };
+    },
+  );
+
+  /**
+   * Photos signalees comme incorrectes.
+   *
+   * Chaque ligne porte l'adresse de la photo visee : le moderateur doit la VOIR pour trancher,
+   * et aller la chercher ailleurs rendrait le traitement inutilisable. Les signalements d'une
+   * meme photo sont regroupes, avec leur nombre : trois personnes qui signalent la meme image
+   * ne font pas trois dossiers.
+   */
+  app.get('/admin/photo-reports', { preHandler: [app.requireAdmin] }, async (req) => {
+    const status = (req.query as { status?: string }).status ?? 'pending';
+    const rows = await db.execute(sql`
+      SELECT r.photo_id                         AS "photoId",
+             r.place_id                         AS "placeId",
+             p.name                             AS "placeName",
+             ${env.PUBLIC_BASE_URL} || '/uploads/' || f.storage_key AS "photoUrl",
+             count(*)::int                      AS "reportCount",
+             min(r.created_at)                  AS "firstAt",
+             max(r.created_at)                  AS "lastAt",
+             array_agg(DISTINCT r.reason)       AS reasons,
+             array_remove(array_agg(r.message), NULL) AS messages
+      FROM photo_reports r
+      JOIN place_photos f ON f.id = r.photo_id
+      LEFT JOIN places p  ON p.id = r.place_id
+      WHERE r.status = ${status}
+      GROUP BY r.photo_id, r.place_id, p.name, f.storage_key
+      ORDER BY max(r.created_at) DESC
+      LIMIT 200
+    `);
+    return { items: rows };
+  });
+
+  /**
+   * Decision du moderateur sur une photo signalee.
+   *
+   * `accepted` veut dire « le signalement est fonde » : la photo est alors RETIREE du lieu. Les
+   * signalements qui la visaient disparaissent avec elle, par cascade — ils n'ont plus d'objet.
+   * `rejected` conserve la photo et clot les signalements, de sorte qu'ils ne reviennent pas
+   * encombrer la liste a chaque ouverture.
+   */
+  app.post<{ Params: { photoId: string }; Body: { status: 'accepted' | 'rejected' } }>(
+    '/admin/photo-reports/:photoId/status',
+    { preHandler: [app.requireAdmin] },
+    async (req) => {
+      const status = req.body?.status;
+      if (status !== 'accepted' && status !== 'rejected') {
+        throw new HttpError(400, 'statut_invalide', 'Statut attendu : accepted ou rejected.');
+      }
+
+      const rows = (await db.execute(sql`
+        UPDATE photo_reports
+        SET status = ${status}, handled_by = ${req.admin!.id}
+        WHERE photo_id = ${req.params.photoId} AND status = 'pending'
+        RETURNING id
+      `)) as unknown as { id: string }[];
+      if (rows.length === 0) throw notFound();
+
+      if (status === 'accepted') {
+        await db.execute(sql`DELETE FROM place_photos WHERE id = ${req.params.photoId}`);
+        await db.execute(sql`
+          INSERT INTO moderation_log (entity_type, entity_id, action, admin_id)
+          VALUES ('photo', ${req.params.photoId}, 'delete', ${req.admin!.id})
+        `);
+      }
       return { ok: true };
     },
   );

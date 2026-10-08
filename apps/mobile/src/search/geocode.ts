@@ -13,7 +13,8 @@ export type GeocodedResult = RankableResult & {
   placeId?: string;
   category?: PlaceCategory;
   photoUrl?: string | null;
-  photos?: { url: string; thumbUrl: string | null; credit: string | null }[];
+  /** `id` sert a signaler une photo incorrecte : sans lui, le serveur ne sait pas laquelle. */
+  photos?: { id?: string; url: string; thumbUrl: string | null; credit: string | null }[];
   isPartner?: boolean;
   phoneFixe?: string | null;
   phoneMobile?: string | null;

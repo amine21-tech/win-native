@@ -10,6 +10,7 @@ import { lookupPlacePhoto, photoSource } from '../place/placePhoto';
 import { localPhotoUri } from '../place/photoCache';
 import { useMyPlaceIds, useRefreshMyPlaces } from '../place/useMyPlaces';
 import { MyPlaceSheet } from './MyPlaceSheet';
+import { ReportPhotoSheet } from './ReportPhotoSheet';
 import { api } from '../api/client';
 import { clearSearchCache } from '../search/usePlaceSearch';
 import { fonts, radius, spacing, typography, type Palette } from '../theme';
@@ -110,11 +111,15 @@ export function PlaceSheet({
   const myPlaceIds = useMyPlaceIds();
   const refreshMyPlaces = useRefreshMyPlaces();
   const [myEditOpen, setMyEditOpen] = useState(false);
+  const [photoReportOpen, setPhotoReportOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   if (!place) return null;
 
   const isContributed = place.source === 'win';
   const isMine = !!place.placeId && myPlaceIds.has(place.placeId);
+  /* Seules les photos de contributeurs se signalent : une illustration Wikimedia ne nous
+   * appartient pas, et il n'y a rien a moderer chez nous la concernant. */
+  const currentPhotoId = place.photos?.find((ph) => ph.url === mainPhoto)?.id ?? null;
 
   /* La confirmation est obligatoire et le dit clairement : la suppression efface la photo, les
    * coordonnees et tout ce qui est rattache au lieu, sans retour possible cote utilisateur. */
@@ -203,6 +208,19 @@ export function PlaceSheet({
               <Text style={styles.photoTag}>
                 {gallery.includes(mainPhoto) ? t('place.photoByWin') : '© Wikimedia'}
               </Text>
+            ) : null}
+
+            {/* Discret, en haut a droite de l'image : une photo juste ne doit pas etre encombree
+                d'un bouton, mais une photo fausse doit pouvoir se signaler sans chercher. */}
+            {photoState === 'ok' && currentPhotoId ? (
+              <Pressable
+                onPress={() => setPhotoReportOpen(true)}
+                hitSlop={10}
+                accessibilityLabel={t('place.reportPhoto')}
+                style={styles.photoFlag}
+              >
+                <Text style={styles.photoFlagText}>⚑</Text>
+              </Pressable>
             ) : null}
           </View>
         ) : null}
@@ -358,6 +376,14 @@ export function PlaceSheet({
         colors={colors}
       />
 
+      <ReportPhotoSheet
+        visible={photoReportOpen}
+        photoId={currentPhotoId}
+        onClose={() => setPhotoReportOpen(false)}
+        onSent={() => setPhotoReportOpen(false)}
+        colors={colors}
+      />
+
       <MyPlaceSheet
         visible={myEditOpen}
         place={
@@ -483,6 +509,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   photo: { width: '100%', height: '100%' },
+  photoFlag: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.42)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoFlagText: { color: '#fff', fontSize: 14, lineHeight: 16 },
   photoTag: {
     position: 'absolute',
     left: 0,

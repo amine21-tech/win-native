@@ -53,7 +53,7 @@ function mapPlace(p: Place, lang: Language): GeocodedResult {
     placeId: p.id,
     category: p.category,
     photoUrl: p.photos[0]?.url ?? null,
-    photos: p.photos.map((ph) => ({ url: ph.url, thumbUrl: ph.thumbUrl, credit: ph.credit })),
+    photos: p.photos.map((ph) => ({ id: ph.id, url: ph.url, thumbUrl: ph.thumbUrl, credit: ph.credit })),
     isPartner: p.isPartner,
     phoneFixe: p.phoneFixe,
     phoneMobile: p.phoneMobile,
