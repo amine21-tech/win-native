@@ -28,10 +28,17 @@ const routeRequest = z.object({
 /**
  * Reglages de cout transmis a Valhalla.
  *
- * Les valeurs par defaut sont celles de la version web (`costing_options` en v83) et non celles
- * de Valhalla : le site evite deja legerement les peages (0,3 au lieu de 0,5) et marche a
- * 4,5 km/h. Sans les envoyer, l'application proposait des itineraires legerement differents de
- * ceux du site pour la meme demande — un ecart que le client aurait fini par relever.
+ * La vitesse de marche est celle du site (4,5 km/h au lieu de 5,1). Les peages, en revanche,
+ * reviennent a la valeur NEUTRE de Valhalla.
+ *
+ * Le site envoie 0,3, ce qui ne veut pas dire « un peu moins de peages » mais « evite-les
+ * autant que possible » : mesure faite sur notre propre moteur, un Paris-Lyon passe de 4 h
+ * (239 min) a 5 h 40 (340 min) entre 1 et 0, et 0,3 donne le meme resultat que 0. Ce reglage
+ * est inoffensif en Algerie, qui n'a quasiment pas de peages — il est tres couteux en France.
+ *
+ * Il avait de plus un effet pervers depuis que l'application expose un bouton « Sans peage » :
+ * le trajet les evitant deja, le bouton ne pouvait rien changer. La valeur par defaut est donc
+ * 0,5, celle de Valhalla, et le bouton descend a 0. Le choix de l'utilisateur redevient visible.
  *
  * Les preferences ne font que deplacer ces curseurs : zero pour refuser, un pour privilegier.
  * `exclude_unpaved` accompagne `use_tracks` car les deux ne visent pas la meme chose — l'un
@@ -47,7 +54,7 @@ function costingOptions(input: {
   return {
     auto: {
       use_highways: input.preferHighways ? 1 : 0.5,
-      use_tolls: input.avoidTolls ? 0 : 0.3,
+      use_tolls: input.avoidTolls ? 0 : 0.5,
       ...(input.avoidUnpaved ? { use_tracks: 0, exclude_unpaved: true } : {}),
     },
   };
