@@ -72,7 +72,13 @@
     "newRoute": "طريق جديد",
     "continueNav": "كمّل الطريق",
     "serviceTitle": "وين — راك في الطريق",
-    "serviceBody": "أضغط باش ترجع للمسار"
+    "serviceBody": "أضغط باش ترجع للمسار",
+    "detourTitle": "تحب تحوّل لهاد البلاصة؟",
+    "detourYes": "إيه، حوّل",
+    "detourNo": "لا، كمّل",
+    "detourLocating": "راني نشوف واش هي البلاصة…",
+    "detourDone": "راك تحوّل.",
+    "resumeOriginal": "ارجع للطريق الأصلي"
   },
   "consent": {
     "title": "قبل ما نبداو",

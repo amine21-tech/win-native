@@ -72,7 +72,13 @@
     "newRoute": "Nouvel itinéraire",
     "continueNav": "Continuer la navigation",
     "serviceTitle": "WIN — Navigation en cours",
-    "serviceBody": "Appuyez pour revenir à l'itinéraire"
+    "serviceBody": "Appuyez pour revenir à l'itinéraire",
+    "detourTitle": "Souhaitez-vous dévier vers ce point ?",
+    "detourYes": "Oui, dévier",
+    "detourNo": "Non, continuer",
+    "detourLocating": "Identification du point…",
+    "detourDone": "Déviation en cours.",
+    "resumeOriginal": "Reprendre l'itinéraire initial"
   },
   "consent": {
     "title": "Avant de commencer",

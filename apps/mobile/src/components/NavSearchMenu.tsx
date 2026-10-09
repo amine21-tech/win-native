@@ -23,11 +23,15 @@ export function NavSearchMenu({
   visible,
   onNewRoute,
   onContinue,
+  onResumeOriginal,
   colors,
 }: {
   visible: boolean;
   onNewRoute: () => void;
   onContinue: () => void;
+  /** Propose de revenir a la destination d'avant le detour. Absente s'il n'y a pas eu de
+   * detour : une option grisee ou inutile encombrerait un menu qui doit se lire d'un regard. */
+  onResumeOriginal?: () => void;
   colors: Palette;
 }) {
   const { t } = useTranslation();
@@ -47,6 +51,20 @@ export function NavSearchMenu({
           >
             <Text style={[styles.label, { color: colors.accent }]}>🔍 {t('nav.newRoute')}</Text>
           </Pressable>
+
+          {onResumeOriginal ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={onResumeOriginal}
+              style={({ pressed }) => [
+                styles.row,
+                { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+                pressed ? { backgroundColor: colors.surfaceAlt } : null,
+              ]}
+            >
+              <Text style={[styles.label, { color: colors.accentDark }]}>↩ {t('nav.resumeOriginal')}</Text>
+            </Pressable>
+          ) : null}
 
           <Pressable
             accessibilityRole="button"

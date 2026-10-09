@@ -72,7 +72,13 @@
     "newRoute": "New itinerary",
     "continueNav": "Continue navigation",
     "serviceTitle": "WIN — Navigation in progress",
-    "serviceBody": "Tap to return to your route"
+    "serviceBody": "Tap to return to your route",
+    "detourTitle": "Detour to this point?",
+    "detourYes": "Yes, detour",
+    "detourNo": "No, keep going",
+    "detourLocating": "Identifying the point…",
+    "detourDone": "Detour under way.",
+    "resumeOriginal": "Resume the original route"
   },
   "consent": {
     "title": "Before you start",

@@ -51,6 +51,7 @@ import { TunisiaUnlockSheet } from '../src/components/TunisiaUnlockSheet';
 import { useTunisiaUnlock } from '../src/unlock/useTunisiaUnlock';
 import { LocateIcon } from '../src/components/LocateIcon';
 import { NavDestinationPicker } from '../src/components/NavDestinationPicker';
+import { DetourSheet } from '../src/components/DetourSheet';
 import { NavSearchMenu } from '../src/components/NavSearchMenu';
 import { MeMarker } from '../src/map/MeMarker';
 import { COUNTRY_VIEWS, INITIAL_VIEW_STATE, MAP_STYLES, REPORT_COLORS, type CountryView } from '../src/map/style';
@@ -353,6 +354,14 @@ export default function MapScreen() {
   const [routeMode, setRouteMode] = useState<RouteMode>('auto');
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
   const [navDestination, setNavDestination] = useState<(Position & { emoji: string }) | null>(null);
+  /** Point vise par un appui long PENDANT le guidage, en attente de confirmation. */
+  const [detourPoint, setDetourPoint] = useState<Position | null>(null);
+  /* Destination d'origine, mise de cote le temps d'un detour.
+   *
+   * Sans elle, se derouter vers une station-service ferait perdre le trajet : il faudrait
+   * rechercher sa destination finale et tout relancer. Elle est conservee jusqu'a ce que
+   * l'utilisateur reprenne sa route ou arrete le guidage. */
+  const [originalDestination, setOriginalDestination] = useState<(Position & { emoji: string }) | null>(null);
   const [navInitialRoute, setNavInitialRoute] = useState<Route | null>(null);
   // Vue d'ensemble / recentrer (v83: overviewBtn + navRecenterBtn) : vraie tant que la camera
   // suit la position et le cap du conducteur ; fausse des que la vue d'ensemble est ouverte, le
@@ -879,11 +888,50 @@ export default function MapScreen() {
     };
   }, [detailsPlaceId]);
 
-  /** Appui long sur la carte : ouvre le formulaire d'ajout de lieu a cet endroit (openAddPoint en v83). */
-  const onMapLongPress = useCallback((event: { nativeEvent: { lngLat: [number, number] } }) => {
-    const [lon, lat] = event.nativeEvent.lngLat;
-    setAddPlaceCoords({ lat, lon });
-  }, []);
+  /**
+   * Appui long sur la carte — DEUX gestes differents selon l'etat du guidage.
+   *
+   * Hors navigation, il ouvre le formulaire d'enregistrement d'un lieu (openAddPoint en v83).
+   * Pendant le guidage, ce formulaire n'a aucun sens : on ne saisit pas un nom et une photo au
+   * volant, et il masquait l'instruction en cours. Le meme geste propose alors de SE DEROUTER
+   * vers le point touche — ce commerce ou cette avenue que l'on vient d'apercevoir.
+   *
+   * C'est la logique de `triggerAddPoint` en v83, qui teste `nav-active` sur le corps du
+   * document ; ici l'etat `navigating` joue le meme role.
+   */
+  const onMapLongPress = useCallback(
+    (event: { nativeEvent: { lngLat: [number, number] } }) => {
+      const [lon, lat] = event.nativeEvent.lngLat;
+      if (navigating) setDetourPoint({ lat, lon });
+      else setAddPlaceCoords({ lat, lon });
+    },
+    [navigating],
+  );
+
+  /** Deviation confirmee : la destination change, l'ancienne est mise de cote. */
+  const confirmDetour = useCallback(
+    (nom: string | null) => {
+      if (!detourPoint) return;
+      // La destination d'origine n'est memorisee qu'au PREMIER detour : s'arreter deux fois en
+      // chemin ne doit pas faire oublier ou l'on allait.
+      setOriginalDestination((actuelle) => actuelle ?? navDestination);
+      setNavDestination({ ...detourPoint, emoji: '📍' });
+      // Pas d'itineraire pre-calcule : la session en demande un depuis l'endroit exact ou l'on
+      // se trouve, comme pour un detour choisi dans la recherche.
+      setNavInitialRoute(null);
+      setDetourPoint(null);
+      setToast(nom ? `${t('nav.detourDone')} ${nom}` : t('nav.detourDone'));
+    },
+    [detourPoint, navDestination, t],
+  );
+
+  /** Retour a la destination initiale, apres un detour. */
+  const resumeOriginalRoute = useCallback(() => {
+    if (!originalDestination) return;
+    setNavDestination(originalDestination);
+    setNavInitialRoute(null);
+    setOriginalDestination(null);
+  }, [originalDestination]);
 
   // Au demarrage du guidage vocal, et a chaque changement de langue : si le telephone n'a
   // aucune voix pour la langue de l'application, on le dit, avec l'endroit ou l'ajouter. Sinon
@@ -961,6 +1009,8 @@ export default function MapScreen() {
     setStepsOpen(false);
     setNavSearchOpen(false);
     setNavSearchMenuOpen(false);
+    setDetourPoint(null);
+    setOriginalDestination(null);
     setNavigating(false);
     setNavDestination(null);
     setNavInitialRoute(null);
@@ -1787,6 +1837,15 @@ export default function MapScreen() {
             guidage. */}
         {/* La loupe ouvre ce menu, et non plus la recherche directement : au volant, un appui
             malheureux masquait l'instruction en cours derriere un panneau plein ecran. */}
+        <DetourSheet
+          visible={detourPoint !== null}
+          point={detourPoint}
+          lang={lang}
+          onCancel={() => setDetourPoint(null)}
+          onConfirm={confirmDetour}
+          colors={colors}
+        />
+
         <NavSearchMenu
           visible={navSearchMenuOpen}
           onContinue={() => setNavSearchMenuOpen(false)}
@@ -1796,6 +1855,14 @@ export default function MapScreen() {
             setResultsOpen(true);
             setNavSearchOpen(true);
           }}
+          onResumeOriginal={
+            originalDestination
+              ? () => {
+                  setNavSearchMenuOpen(false);
+                  resumeOriginalRoute();
+                }
+              : undefined
+          }
           colors={colors}
         />
 

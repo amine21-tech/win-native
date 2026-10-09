@@ -72,7 +72,13 @@
     "newRoute": "بدء مسار جديد",
     "continueNav": "متابعة التوجيه",
     "serviceTitle": "وين — الملاحة جارية",
-    "serviceBody": "اضغط للعودة إلى المسار"
+    "serviceBody": "اضغط للعودة إلى المسار",
+    "detourTitle": "هل تريد التحويل نحو هذه النقطة؟",
+    "detourYes": "نعم، حوّل",
+    "detourNo": "لا، تابع",
+    "detourLocating": "جاري تحديد النقطة…",
+    "detourDone": "التحويل جارٍ.",
+    "resumeOriginal": "العودة إلى المسار الأصلي"
   },
   "consent": {
     "title": "قبل أن نبدأ",

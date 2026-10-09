@@ -232,3 +232,45 @@ export async function fetchNominatim(
     .map(mapRow)
     .filter((r): r is GeocodedResult => r !== null);
 }
+
+/**
+ * Nom d'un point a partir de ses coordonnees — l'operation inverse de la recherche.
+ *
+ * Elle sert a la fiche de deviation : quand un conducteur appuie longuement sur un batiment ou
+ * une avenue en pleine navigation, il faut lui dire SUR QUOI il vient d'appuyer avant de lui
+ * demander s'il veut y aller. « Souhaitez-vous devier vers 36,7538 / 3,0588 ? » ne veut rien
+ * dire ; « vers Rue Larbi Tebessi » se decide d'un coup d'oeil.
+ *
+ * `zoom=18` demande le detail de la rue ou du batiment, et non celui de la commune. En cas
+ * d'echec — reseau coupe, service indisponible —, on rend `null` : l'appelant affichera les
+ * coordonnees, ce qui vaut mieux qu'une fiche vide.
+ */
+export async function reverseGeocode(
+  lat: number,
+  lon: number,
+  lang: Language,
+): Promise<{ name: string; displayName: string } | null> {
+  const langue = lang === 'dz' ? 'ar' : lang;
+  try {
+    const d = await fetchGeocoder<{
+      name?: string;
+      display_name?: string;
+      address?: Record<string, string>;
+    }>(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&accept-language=${langue}`,
+    );
+    const a = d.address ?? {};
+    const name =
+      d.name ||
+      a.amenity ||
+      a.shop ||
+      a.building ||
+      a.road ||
+      (d.display_name ?? '').split(',')[0] ||
+      '';
+    if (!name) return null;
+    return { name, displayName: d.display_name ?? name };
+  } catch {
+    return null;
+  }
+}
