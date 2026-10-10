@@ -16,6 +16,13 @@ export type GeocodedResult = RankableResult & {
   /** `id` sert a signaler une photo incorrecte : sans lui, le serveur ne sait pas laquelle. */
   photos?: { id?: string; url: string; thumbUrl: string | null; credit: string | null }[];
   isPartner?: boolean;
+  /* Adresse decomposee, telle qu'elle a ete SAISIE. `displayName` la recompose pour
+   * l'affichage, mais la corriger demande les champs separes. */
+  houseNumber?: string | null;
+  street?: string | null;
+  city?: string | null;
+  postalCode?: string | null;
+  wilaya?: string | null;
   phoneFixe?: string | null;
   phoneMobile?: string | null;
   whatsapp?: string | null;

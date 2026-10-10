@@ -282,7 +282,8 @@
     "gpsAccuracy": "Current GPS accuracy: {{m}} m",
     "gpsUnstable": "GPS still stabilising — wait a few seconds.",
     "savedCheckTitle": "Recommended check",
-    "savedCheck": "Type this place name in the search again. If the distance shown matches your real position (say 50 m), the record is correct. If it is abnormally large (10 km or more), delete it and start again with a better GPS fix."
+    "savedCheck": "Type this place name in the search again. If the distance shown matches your real position (say 50 m), the record is correct. If it is abnormally large (10 km or more), delete it and start again with a better GPS fix.",
+    "address": "Address"
   },
   "placeCategories": {
     "pharmacie": "Pharmacy",

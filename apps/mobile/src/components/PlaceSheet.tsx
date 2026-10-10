@@ -388,11 +388,26 @@ export function PlaceSheet({
         visible={myEditOpen}
         place={
           isMine && place.placeId
-            ? { id: place.placeId, name: place.name, category: place.category, lat: place.lat, lon: place.lon }
+            ? {
+                id: place.placeId,
+                name: place.name,
+                category: place.category,
+                lat: place.lat,
+                lon: place.lon,
+                houseNumber: place.houseNumber,
+                street: place.street,
+                city: place.city,
+                postalCode: place.postalCode,
+              }
             : null
         }
         onClose={() => setMyEditOpen(false)}
         onSaved={() => {
+          setMyEditOpen(false);
+          refreshMyPlaces();
+          onClose();
+        }}
+        onDeleted={() => {
           setMyEditOpen(false);
           refreshMyPlaces();
           onClose();

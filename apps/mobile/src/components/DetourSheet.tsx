@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { reverseGeocode } from '../search/geocode';
 import type { Language } from '../shared';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, spacing, typography, type Palette } from '../theme';
 
 /**
@@ -38,6 +39,7 @@ export function DetourSheet({
   colors: Palette;
 }) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [nom, setNom] = useState<string | null>(null);
   const [cherche, setCherche] = useState(false);
 
@@ -61,7 +63,7 @@ export function DetourSheet({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
       <Pressable style={styles.backdrop} onPress={onCancel}>
-        <Pressable onPress={(e) => e.stopPropagation()} style={[styles.box, { backgroundColor: colors.surface }]}>
+        <Pressable onPress={(e) => e.stopPropagation()} style={[styles.box, { backgroundColor: colors.surface, paddingBottom: insets.bottom + spacing.lg }]}>
           <Text style={[typography.heading, styles.nom, { color: colors.accentDark }]} numberOfLines={2}>
             {nom ?? (cherche ? t('nav.detourLocating') : `${point.lat.toFixed(5)}, ${point.lon.toFixed(5)}`)}
           </Text>
@@ -99,7 +101,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     padding: spacing.lg,
-    paddingBottom: spacing.xl,
   },
   nom: { textAlign: 'center' },
   chargement: { marginTop: spacing.sm },

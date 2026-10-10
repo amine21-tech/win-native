@@ -282,7 +282,8 @@
     "gpsAccuracy": "Précision GPS actuelle : {{m}} m",
     "gpsUnstable": "GPS en cours de stabilisation — attendez quelques secondes.",
     "savedCheckTitle": "Vérification recommandée",
-    "savedCheck": "Retapez le nom de ce lieu dans la recherche. Si la distance affichée correspond à votre position réelle (par exemple 50 m), l'enregistrement est correct. Si elle est anormalement grande (10 km ou plus), supprimez-le et recommencez avec un GPS mieux stabilisé."
+    "savedCheck": "Retapez le nom de ce lieu dans la recherche. Si la distance affichée correspond à votre position réelle (par exemple 50 m), l'enregistrement est correct. Si elle est anormalement grande (10 km ou plus), supprimez-le et recommencez avec un GPS mieux stabilisé.",
+    "address": "Adresse"
   },
   "placeCategories": {
     "pharmacie": "Pharmacie",

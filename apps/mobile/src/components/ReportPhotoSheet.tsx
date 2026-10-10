@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { api } from '../api/client';
 import { PHOTO_REPORT_REASONS, type PhotoReportReason } from '../shared';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, spacing, typography, type Palette } from '../theme';
 
 /**
@@ -42,6 +43,7 @@ export function ReportPhotoSheet({
   colors: Palette;
 }) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [sending, setSending] = useState<PhotoReportReason | null>(null);
 
   const send = (reason: PhotoReportReason) => {
@@ -61,7 +63,7 @@ export function ReportPhotoSheet({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable onPress={(e) => e.stopPropagation()} style={[styles.box, { backgroundColor: colors.surface }]}>
+        <Pressable onPress={(e) => e.stopPropagation()} style={[styles.box, { backgroundColor: colors.surface, paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={styles.head}>
             <Text style={[typography.heading, { color: colors.text }]}>{t('place.reportPhotoTitle')}</Text>
             <Pressable onPress={onClose} hitSlop={12}>
