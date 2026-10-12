@@ -16,7 +16,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, ApiError, uploadPhoto } from '../api/client';
 import { clearSearchCache } from '../search/usePlaceSearch';
-import { countryFromCoords, haversine, PLACE_CATEGORIES, type PlaceCategory } from '../shared';
+import * as Location from 'expo-location';
+import { countryFromCoords, formatDistance, haversine, PLACE_CATEGORIES, type PlaceCategory } from '../shared';
 import { radius, spacing, typography, type Palette } from '../theme';
 
 type Coords = { lat: number; lon: number };
@@ -42,6 +43,24 @@ const GPS_UNSTABLE_ACCURACY_M = 100;
  * la seule situation ou la precision du GPS entre en jeu : viser volontairement un point a
  * l'autre bout de la carte reste libre. */
 const REGISTERING_HERE_M = 150;
+
+/**
+ * Au-dela de cette distance, l'enregistrement est signale comme douteux.
+ *
+ * C'est la « double verification » demandee par le client, et elle vient d'un cas reel : un
+ * contributeur a enregistre la poste de Boulay en se tenant juste devant, et la fiche s'est
+ * retrouvee a DIX KILOMETRES — le telephone avait pris une position du reseau mobile, pas du
+ * satellite. Personne ne s'en est apercu avant que la recherche ne renvoie l'adresse a l'autre
+ * bout de la commune.
+ *
+ * Le client a eu la bonne idee : rechercher la fiche juste apres l'avoir creee et regarder la
+ * distance annoncee. Mais une verification qui repose sur la memoire de l'utilisateur n'est
+ * jamais faite — la preuve. L'application la fait donc elle-meme, tout de suite, avec une
+ * mesure GPS FRAICHE : elle connait les coordonnees enregistrees et sait ou se trouve le
+ * telephone. Trois cents metres laissent passer un releve fait depuis le trottoir d'en face
+ * sans laisser passer une erreur de quartier.
+ */
+const VERIFY_SUSPICIOUS_M = 300;
 
 /** Jusqu'a 3 photos par fiche (v81 #14) — la fiche du lieu (PlaceSheet) affiche deja une galerie
  * de plusieurs photos, mais ce formulaire n'en proposait qu'une seule a l'envoi. */
@@ -77,6 +96,12 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
   const [savedWithoutPhoto, setSavedWithoutPhoto] = useState<string | null>(null);
   /** Conseil de verification affiche APRES un enregistrement reussi (demande du client). */
   const [savedOk, setSavedOk] = useState(false);
+  /** Identifiant rendu par le serveur : il permet de corriger l'emplacement sans ressaisir. */
+  const [savedId, setSavedId] = useState<string | null>(null);
+  /** Resultat de la verification automatique : distance entre le lieu enregistre et le GPS. */
+  const [verifyM, setVerifyM] = useState<number | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [moving, setMoving] = useState(false);
   /** Service VIP : null = ferme, 'code' = saisie du code, sinon le code valide par le serveur. */
   const [vip, setVip] = useState<null | 'code' | { code: string }>(null);
   const [vipInput, setVipInput] = useState('');
@@ -209,6 +234,48 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
     !!userFix && haversine(userFix.lat, userFix.lon, saveLat, saveLon) < REGISTERING_HERE_M;
   const gpsUnstable = registeringHere && userFix!.accuracyM > GPS_UNSTABLE_ACCURACY_M;
 
+  /**
+   * Double verification de l'emplacement, juste apres l'enregistrement.
+   *
+   * On redemande une mesure GPS FRAICHE, en haute precision, plutot que de reutiliser celle
+   * qui a servi a l'enregistrement : si cette derniere venait du reseau mobile, la reprendre
+   * reviendrait a comparer une erreur avec elle-meme. C'est exactement ce qui est arrive a la
+   * poste de Boulay.
+   *
+   * Un echec reste silencieux : on ne reproche pas a l'utilisateur un GPS qui ne repond pas,
+   * et sa fiche est enregistree de toute facon.
+   */
+  const verifyLocation = async (lat: number, lon: number) => {
+    setVerifying(true);
+    try {
+      const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.BestForNavigation });
+      setVerifyM(haversine(fix.coords.latitude, fix.coords.longitude, lat, lon));
+    } catch {
+      setVerifyM(null);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  /** « Replacer sur ma position » : un appui corrige la fiche, sans rien ressaisir. */
+  const moveToMe = async () => {
+    if (!savedId) return;
+    setMoving(true);
+    try {
+      const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.BestForNavigation });
+      await api(`/places/${savedId}/mine`, {
+        method: 'PATCH',
+        body: { lat: fix.coords.latitude, lon: fix.coords.longitude },
+      });
+      clearSearchCache();
+      setVerifyM(0);
+    } catch {
+      setError(t('addPlace.error'));
+    } finally {
+      setMoving(false);
+    }
+  };
+
   const submit = async () => {
     if (!form.name.trim()) {
       setError(t('addPlace.nameRequired'));
@@ -251,7 +318,7 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
         }
       }
 
-      await api<{ id: string }>('/places', {
+      const cree = await api<{ id: string }>('/places', {
         method: 'POST',
         body: {
           name: form.name.trim(),
@@ -274,6 +341,10 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
       });
 
       clearSearchCache();
+      setSavedId(cree.id);
+      // La verification part tout de suite, en arriere-plan : le temps que l'utilisateur lise
+      // l'ecran de confirmation, la reponse est la.
+      void verifyLocation(saveLat, saveLon);
       if (photoProblem) {
         // Le lieu est en base : on ne referme pas le formulaire sur un simple message d'erreur,
         // on dit ce qui s'est passe pour que le contributeur sache qu'il peut revenir ajouter
@@ -321,9 +392,42 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
               <Text style={[typography.heading, { color: colors.accentDark, marginBottom: spacing.sm }]}>
                 ✅ {t('addPlace.savedCheckTitle')}
               </Text>
-              <Text style={[typography.body, { color: colors.text }]}>{t('addPlace.savedCheck')}</Text>
+
+              {/* La verification parle d'elle-meme : trois cas, trois tons. */}
+              {verifying ? (
+                <View style={styles.verifyRow}>
+                  <ActivityIndicator color={colors.accent} />
+                  <Text style={[typography.body, { color: colors.textMuted }]}>{t('addPlace.verifying')}</Text>
+                </View>
+              ) : verifyM === null ? (
+                // GPS muet : on retombe sur le conseil manuel, qui reste valable.
+                <Text style={[typography.body, { color: colors.text }]}>{t('addPlace.savedCheck')}</Text>
+              ) : verifyM <= VERIFY_SUSPICIOUS_M ? (
+                <Text style={[typography.body, { color: colors.accentDark }]}>
+                  ✅ {t('addPlace.verifyOk', { d: formatDistance(verifyM) })}
+                </Text>
+              ) : (
+                <View style={[styles.verifyWarn, { borderColor: colors.danger, backgroundColor: colors.danger + '12' }]}>
+                  <Text style={[typography.body, { color: colors.danger, fontWeight: '700' }]}>
+                    ⚠️ {t('addPlace.verifyFar', { d: formatDistance(verifyM) })}
+                  </Text>
+                  <Text style={[typography.caption, { color: colors.text, marginTop: 6 }]}>
+                    {t('addPlace.verifyFarWhy')}
+                  </Text>
+                  <Pressable
+                    disabled={moving}
+                    onPress={() => void moveToMe()}
+                    style={[styles.save, { backgroundColor: colors.accent, marginTop: spacing.md }]}
+                  >
+                    <Text style={styles.saveText}>{moving ? '…' : t('addPlace.moveHere')}</Text>
+                  </Pressable>
+                </View>
+              )}
+
               <Pressable onPress={onSaved} style={[styles.save, { backgroundColor: colors.accent }]}>
-                <Text style={styles.saveText}>{t('search.confirm')}</Text>
+                <Text style={styles.saveText}>
+                  {verifyM !== null && verifyM > VERIFY_SUSPICIOUS_M ? t('addPlace.keepAnyway') : t('search.confirm')}
+                </Text>
               </Pressable>
             </ScrollView>
           ) : savedWithoutPhoto ? (
@@ -626,6 +730,8 @@ const styles = StyleSheet.create({
   },
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
   gpsNotice: { borderWidth: 1, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.sm },
+  verifyRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  verifyWarn: { borderWidth: 1.5, borderRadius: radius.md, padding: spacing.md },
   coords: {
     alignSelf: 'flex-start',
     fontWeight: '700' as const,

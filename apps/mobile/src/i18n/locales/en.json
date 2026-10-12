@@ -283,7 +283,14 @@
     "gpsUnstable": "GPS still stabilising — wait a few seconds.",
     "savedCheckTitle": "Recommended check",
     "savedCheck": "Type this place name in the search again. If the distance shown matches your real position (say 50 m), the record is correct. If it is abnormally large (10 km or more), delete it and start again with a better GPS fix.",
-    "address": "Address"
+    "address": "Address",
+    "verifying": "Checking the location…",
+    "verifyOk": "Location looks right: you are {{d}} from the saved place.",
+    "verifyFar": "The saved place is {{d}} from your current position.",
+    "verifyFarWhy": "If you are standing there, the location is wrong — the GPS had not settled. Move it to your position, or fix it later from the place sheet.",
+    "moveHere": "📍 Move to my position",
+    "keepAnyway": "Keep as is",
+    "moved": "Location corrected."
   },
   "placeCategories": {
     "pharmacie": "Pharmacy",
