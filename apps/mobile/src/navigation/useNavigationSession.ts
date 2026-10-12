@@ -44,7 +44,6 @@ const MANEUVER_ARRIVAL_RADIUS_M = 30;
  * Le cap du vehicule est transmis avec la demande (voir loadRoute) : le nouveau trajet part dans
  * le sens ou l'on roule, au lieu de commencer par un demi-tour vers le trace abandonne.
  */
-const MATCHING_THRESHOLD_M = 50;
 const OFF_ROUTE_CERTAIN_M = 120;
 /** Au-dessus de cette vitesse, une mesure hors trace compte double (Organic Maps : 3 km/h). */
 const MIN_SPEED_FOR_REBUILD_MPS = 3 / 3.6;
@@ -52,6 +51,53 @@ const MIN_SPEED_FOR_REBUILD_MPS = 3 / 3.6;
 const RUNAWAY_SENSITIVITY_M = 1;
 const OFF_ROUTE_SCORE_TO_RECALC = 6;
 const RECALC_COOLDOWN_MS = 4_000;
+
+/**
+ * SEUIL D'ECART ET TEMPS DE CONFIRMATION, SELON LA VITESSE (point 5A du client).
+ *
+ * Un seuil unique ne peut pas convenir aux deux bouts de l'echelle, et c'est exactement le
+ * reproche que le client fait a Waze :
+ *
+ *   - Sur autoroute, a 120 km/h, une sortie ratee se paie en kilometres. Il faut s'en rendre
+ *     compte en une seconde, et vingt metres d'ecart y sont deja sans ambiguite : les voies
+ *     sont larges, bien cartographiees, et rien ne passe a vingt metres d'une autoroute sauf la
+ *     bretelle que l'on vient justement de prendre par erreur.
+ *
+ *   - En ville, les memes vingt metres ne veulent rien dire. Entre deux immeubles, le GPS saute
+ *     d'un trottoir a l'autre, et la rue parallele est a quinze metres. Declencher la un
+ *     recalcul, c'est recalculer en boucle un trajet parfaitement suivi.
+ *
+ * D'ou trois regimes. Le temps de confirmation s'AJOUTE au comptage de points herite d'Organic
+ * Maps : il faut desormais que l'ecart dure, et pas seulement qu'il se repete. Les deux
+ * ensemble sont ce qui permet de descendre a vingt metres sans recalculer a tort.
+ */
+const DEVIATION_BANDS = [
+  { minSpeedMps: 70 / 3.6, thresholdM: 20, confirmMs: 1_000 },
+  { minSpeedMps: 30 / 3.6, thresholdM: 25, confirmMs: 2_000 },
+  { minSpeedMps: 0, thresholdM: 30, confirmMs: 2_000 },
+] as const;
+
+function deviationBand(speedMps: number): (typeof DEVIATION_BANDS)[number] {
+  return DEVIATION_BANDS.find((band) => speedMps >= band.minSpeedMps) ?? DEVIATION_BANDS[2];
+}
+
+/**
+ * DEMI-TOUR (point 5E du client).
+ *
+ * Un conducteur qui fait demi-tour reste, lui, parfaitement SUR le trace : son ecart au trace
+ * est nul, et la detection de sortie d'itineraire ne se declenchera donc jamais. Il roulerait
+ * ainsi vers son point de depart pendant que l'application continue de lui annoncer des
+ * virages qu'il a deja passes.
+ *
+ * On surveille donc le SENS : des que le vehicule recule de plus de vingt metres le long de
+ * l'itineraire, ce qui reste du trajet n'est plus le bon et il faut le reprendre d'ou l'on est.
+ * La reference ne retient que le point le plus avance atteint — elle suit le conducteur tant
+ * qu'il avance, et reste en place des qu'il revient en arriere.
+ */
+const U_TURN_BACKWARD_M = 20;
+
+/** Apres un demi-tour, on laisse le nouveau trajet s'installer avant d'en redetecter un. */
+const U_TURN_COOLDOWN_MS = 8_000;
 
 /** Distances d'annonce, exprimees en SECONDES de trajet puis bornees : a 120 km/h une
  * consigne donnee a 200 m arrive trop tard pour changer de file, et en ville la meme
@@ -92,11 +138,28 @@ export function useNavigationSession(params: {
    * lors d'un recalcul pour qu'il reparte dans le sens de la marche. */
   getHeading?: () => number | undefined;
   /** Precision annoncee par le GPS, en metres. Elle ouvre la tolerance de suivi : voir
-   * MATCHING_THRESHOLD_M. Sans elle, on retombe sur la tolerance fixe. */
+   * DEVIATION_BANDS. Sans elle, on retombe sur le seuil lie a la vitesse. */
   getAccuracyM?: () => number;
+  /**
+   * Barrages et routes coupees signales par les utilisateurs, a contourner au recalcul
+   * (point 5F du client). Lu par une fonction et non par une propriete : la liste change a
+   * chaque signalement recu en temps reel, et le guidage ne doit pas repartir de zero pour
+   * autant.
+   */
+  getAvoidPoints?: () => { lat: number; lon: number }[];
 }) {
-  const { active, position, destination, mode, lang, initialRoute, getSpeedMps, getHeading, getAccuracyM } =
-    params;
+  const {
+    active,
+    position,
+    destination,
+    mode,
+    lang,
+    initialRoute,
+    getSpeedMps,
+    getHeading,
+    getAccuracyM,
+    getAvoidPoints,
+  } = params;
   const [route, setRoute] = useState<Route | null>(null);
   const [maneuverIndex, setManeuverIndex] = useState(0);
   const [traveledM, setTraveledM] = useState(0);
@@ -115,6 +178,11 @@ export function useNavigationSession(params: {
   /** Distance au trace lors de la derniere mesure comptee, pour ne pas compter du bruit. */
   const offRouteDistanceRef = useRef(0);
   const lastRecalcAtRef = useRef(0);
+  /** Heure de la premiere mesure hors trace de la serie en cours — voir DEVIATION_BANDS. */
+  const offRouteSinceRef = useRef(0);
+  /** Point le plus avance atteint sur le trace, pour reperer une marche arriere. */
+  const farthestTraveledRef = useRef(0);
+  const lastUTurnAtRef = useRef(0);
   const initialRouteRef = useRef<Route | null>(null);
   const getSpeedRef = useRef(getSpeedMps);
   const getHeadingRef = useRef(getHeading);
@@ -123,6 +191,15 @@ export function useNavigationSession(params: {
    * recree — donc le guidage relance — parce qu'une case a ete cochee. */
   const prefsRef = useRef(useSession.getState().routePrefs);
   prefsRef.current = useSession((s) => s.routePrefs);
+  const getAvoidRef = useRef(getAvoidPoints);
+  getAvoidRef.current = getAvoidPoints;
+  /* Vitesse et precision sont lues par reference DANS l'effet de suivi. C'est volontaire : cet
+   * effet ne doit se declencher qu'a l'arrivee d'une position, jamais a un simple rendu. S'il
+   * figurait dans ses dependances, un rendu de plus — un changement de theme, une pastille qui
+   * se met a jour — compterait un second point d'ecart pour la MEME mesure GPS, et le recalcul
+   * partirait deux fois plus vite que prevu. */
+  const getAccuracyRef = useRef(getAccuracyM);
+  getAccuracyRef.current = getAccuracyM;
   getSpeedRef.current = getSpeedMps;
   useEffect(() => {
     initialRouteRef.current = initialRoute ?? null;
@@ -142,12 +219,16 @@ export function useNavigationSession(params: {
     segmentHintRef.current = undefined;
     offRouteScoreRef.current = 0;
     offRouteDistanceRef.current = 0;
+    offRouteSinceRef.current = 0;
+    farthestTraveledRef.current = 0;
     announcedForRef.current = { index: -1, stage: 0 };
     departureSaidRef.current = false;
   }, []);
 
+  /** `premier` : le calcul de depart. Les recalculs en roulant, eux, sont presses — voir
+   * l'option `quick`, qui raccourcit l'attente et reessaie une fois. */
   const loadRoute = useCallback(
-    async (from: Coords) => {
+    async (from: Coords, premier = false) => {
       if (!destination) return;
       setRecalculating(true);
       try {
@@ -163,6 +244,10 @@ export function useNavigationSession(params: {
           // Un recalcul en route doit respecter les memes preferences que le trajet d'origine,
           // sinon un detour ramenerait le conducteur sur une piste qu'il a demande d'eviter.
           prefs: prefsRef.current,
+          quick: !premier,
+          // Contourner ce que les utilisateurs ont signale comme coupe. Sans cela, le recalcul
+          // declenche par un barrage renvoie droit sur ce meme barrage.
+          avoid: getAvoidRef.current?.() ?? [],
         });
         setError(false);
         applyRoute(primary);
@@ -205,7 +290,7 @@ export function useNavigationSession(params: {
         applyRoute(initialRouteRef.current);
         initialRouteRef.current = null;
       } else {
-        void loadRoute(position);
+        void loadRoute(position, true);
       }
     }
     if (!active) {
@@ -254,28 +339,59 @@ export function useNavigationSession(params: {
     }
     if (idx !== maneuverIndexRef.current) setManeuverIndex(idx);
 
+    const speedMps = getSpeedRef.current?.() ?? 0;
+    const band = deviationBand(speedMps);
     // La tolerance s'ouvre avec la precision annoncee : un GPS qui s'avoue a 80 m pres ne
-    // permet pas d'affirmer qu'un vehicule a quitte sa route.
-    const tolerance = Math.max(MATCHING_THRESHOLD_M, getAccuracyM?.() ?? 0);
+    // permet pas d'affirmer qu'un vehicule a quitte sa route. C'est elle qui rend les seuils
+    // serres ci-dessus utilisables : ils ne mordent que lorsque le signal est bon.
+    const tolerance = Math.max(band.thresholdM, getAccuracyRef.current?.() ?? 0);
+
+    const now = Date.now();
+    const cooledDown = now - lastRecalcAtRef.current > RECALC_COOLDOWN_MS;
+
+    /* Demi-tour : teste AVANT la tolerance, puisqu'un demi-tour se fait sur le trace et ne
+     * creuse aucun ecart. */
+    if (traveled > farthestTraveledRef.current) farthestTraveledRef.current = traveled;
+    if (
+      farthestTraveledRef.current - traveled > U_TURN_BACKWARD_M &&
+      speedMps >= MIN_SPEED_FOR_REBUILD_MPS &&
+      now - lastUTurnAtRef.current > U_TURN_COOLDOWN_MS &&
+      cooledDown
+    ) {
+      lastUTurnAtRef.current = now;
+      lastRecalcAtRef.current = now;
+      farthestTraveledRef.current = traveled;
+      offRouteScoreRef.current = 0;
+      offRouteDistanceRef.current = 0;
+      offRouteSinceRef.current = 0;
+      void loadRoute(position);
+      return;
+    }
 
     if (located.distanceM <= tolerance) {
       offRouteScoreRef.current = 0;
       offRouteDistanceRef.current = 0;
+      offRouteSinceRef.current = 0;
       return;
     }
+
+    // Premiere mesure hors trace de la serie : on retient l'heure, c'est elle qui ouvre le
+    // temps de confirmation. Un ecart isole ne declenche donc jamais rien a lui seul.
+    if (offRouteSinceRef.current === 0) offRouteSinceRef.current = now;
 
     // Toujours a la meme distance du trace qu'a la mesure precedente : c'est du bruit.
     if (Math.abs(located.distanceM - offRouteDistanceRef.current) < RUNAWAY_SENSITIVITY_M) return;
     offRouteDistanceRef.current = located.distanceM;
 
     offRouteScoreRef.current +=
-      located.distanceM > OFF_ROUTE_CERTAIN_M ? 3 : (getSpeedMps?.() ?? 0) >= MIN_SPEED_FOR_REBUILD_MPS ? 2 : 1;
+      located.distanceM > OFF_ROUTE_CERTAIN_M ? 3 : speedMps >= MIN_SPEED_FOR_REBUILD_MPS ? 2 : 1;
 
-    const cooledDown = Date.now() - lastRecalcAtRef.current > RECALC_COOLDOWN_MS;
-    if (offRouteScoreRef.current >= OFF_ROUTE_SCORE_TO_RECALC && cooledDown) {
-      lastRecalcAtRef.current = Date.now();
+    const confirmed = now - offRouteSinceRef.current >= band.confirmMs;
+    if (offRouteScoreRef.current >= OFF_ROUTE_SCORE_TO_RECALC && confirmed && cooledDown) {
+      lastRecalcAtRef.current = now;
       offRouteScoreRef.current = 0;
       offRouteDistanceRef.current = 0;
+      offRouteSinceRef.current = 0;
       void loadRoute(position);
     }
   }, [position, active, loadRoute]);

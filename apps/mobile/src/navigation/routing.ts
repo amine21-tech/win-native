@@ -11,7 +11,10 @@ type RawManeuver = {
   time: number;
   length: number;
   begin_shape_index: number;
+  lanes?: RawLane[];
 };
+
+type RawLane = { directions: number; valid?: number; active?: number };
 
 type RawTrip = {
   legs: { maneuvers: RawManeuver[]; shape: string }[];
@@ -19,6 +22,41 @@ type RawTrip = {
 };
 
 type RawRouteResponse = { trip: RawTrip; alternates?: { trip: RawTrip }[] };
+
+/* Voies de circulation a l'approche d'une bifurcation (point 4 du client).
+ *
+ * Valhalla les decrit en MASQUES DE BITS, une voie par element du tableau, de gauche a droite.
+ * Un meme masque peut porter plusieurs directions : une voie peignant a la fois une fleche tout
+ * droit et une fleche a droite vaut 2 + 64 = 66.
+ *
+ *   `directions` : tout ce qui est peint au sol sur cette voie.
+ *   `valid`      : ce qui permet de suivre l'itineraire, quitte a changer encore de file.
+ *   `active`     : ce qui le permet SANS changer de file. C'est la voie a prendre.
+ *
+ * Les trois champs ne sont renvoyes qu'a partir de Valhalla 3.6 et seulement la ou
+ * OpenStreetMap porte les marquages au sol (`turn:lanes`). Partout ailleurs, le tableau est
+ * vide et l'application n'affiche rien — jamais une voie inventee. */
+export const LANE = {
+  none: 1,
+  through: 2,
+  sharpLeft: 4,
+  left: 8,
+  slightLeft: 16,
+  slightRight: 32,
+  right: 64,
+  sharpRight: 128,
+  reverse: 256,
+  mergeToLeft: 512,
+  mergeToRight: 1024,
+} as const;
+
+export type Lane = {
+  directions: number;
+  /** Suit l'itineraire, eventuellement apres un nouveau changement de file. */
+  valid: number;
+  /** Suit l'itineraire sans changer de file : c'est la voie ou se placer. */
+  active: number;
+};
 
 export type Maneuver = {
   type: number;
@@ -38,6 +76,8 @@ export type Maneuver = {
    * (voir locateOnRoute : un virage serre fait parfois passer le GPS a plus de 30 m
    * du point de manoeuvre sans jamais s'en rapprocher davantage). */
   shapeIndex: number;
+  /** Voies a prendre a cette manoeuvre, de gauche a droite. Vide quand la donnee n'existe pas. */
+  lanes: Lane[];
   /** Distance depuis le depart, le long du trace, a laquelle commence cette manoeuvre.
    * Permet d'afficher « dans 250 m » en distance REELLEMENT parcourue plutot qu'a vol
    * d'oiseau, et de faire descendre la distance restante en continu. */
@@ -87,6 +127,11 @@ function normalize(trip: RawTrip, narration: 'fr' | 'en'): Route {
     point: geometry[m.begin_shape_index] ?? geometry[0]!,
     shapeIndex: m.begin_shape_index,
     startM: cumulativeM[m.begin_shape_index] ?? 0,
+    lanes: (m.lanes ?? []).map((lane) => ({
+      directions: lane.directions,
+      valid: lane.valid ?? 0,
+      active: lane.active ?? 0,
+    })),
   }));
   return {
     distanceM: trip.summary.length * 1000,
@@ -114,6 +159,10 @@ export async function fetchRoute(opts: {
   heading?: number;
   /** Preferences du conducteur — peages, pistes, grands axes (voir store/session). */
   prefs?: { avoidTolls: boolean; avoidUnpaved: boolean; preferHighways: boolean };
+  /** Recalcul en roulant : attente courte et une reprise, plutot qu'une longue attente. */
+  quick?: boolean;
+  /** Barrages et routes coupees signales par les utilisateurs, a contourner. */
+  avoid?: { lat: number; lon: number }[];
 }): Promise<{ primary: Route; alternates: Route[] }> {
   const data = await api<RawRouteResponse>('/routing/route', {
     method: 'POST',
@@ -127,6 +176,8 @@ export async function fetchRoute(opts: {
       avoidTolls: opts.prefs?.avoidTolls ?? false,
       avoidUnpaved: opts.prefs?.avoidUnpaved ?? false,
       preferHighways: opts.prefs?.preferHighways ?? false,
+      quick: opts.quick ?? false,
+      avoid: opts.avoid ?? [],
     },
   });
   const narration = opts.narrationLanguage === 'en-US' ? 'en' : 'fr';

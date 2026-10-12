@@ -54,7 +54,7 @@
   "nav": {
     "start": "Start",
     "stop": "Stop",
-    "recalculating": "Finding a new route...",
+    "recalculating": "Recalculating the route…",
     "arrived": "You have arrived.",
     "remaining": "Remaining",
     "eta": "arrival",

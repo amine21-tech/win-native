@@ -94,9 +94,14 @@ const HEADER_HEIGHT = 64;
  *
  * Le liseré suit le meme sort : blanc de jour, vert tres sombre la nuit.
  */
+/* `casing` est la BORDURE demandee par le client (point 2) : un liseré plus sombre que le
+ * trace, pose dessous et plus large de quelques points. C'est ce qui donne au trace son relief
+ * et l'empeche de se confondre avec une route du fond de meme teinte. Le liseré clair (`halo`)
+ * reste en-dessous des deux : lui seul detache l'itineraire des nationales algeriennes, peintes
+ * en orange et en beige dans ce style. */
 const ROUTE_COLORS = {
-  day: { main: '#0D6E4F', halo: '#FFFFFF', alt: '#9AA89F' },
-  night: { main: '#2EE6A6', halo: '#06251C', alt: '#5B6B63' },
+  day: { main: '#0D6E4F', casing: '#063B2A', halo: '#FFFFFF', alt: '#9AA89F' },
+  night: { main: '#2EE6A6', casing: '#0B6B4E', halo: '#06251C', alt: '#5B6B63' },
 } as const;
 
 /* Epaisseur des traces, selon le zoom.
@@ -106,6 +111,10 @@ const ROUTE_COLORS = {
  * itineraires — c'est ce que le client a releve, capture de Waze a l'appui. Les cartes de
  * navigation courantes font donc varier l'epaisseur avec le zoom ; ces quatre paliers
  * reproduisent leur progression.
+ *
+ * Les paliers sont ceux que le client a donnes (point 2 : 8 points au zoom 10, 14 au zoom 14,
+ * 20 au zoom 18), augmentes d'un palier de recul a 6 pour la vue « pays entier » — sans lui,
+ * l'interpolation descendait sous le point de large et le trace disparaissait.
  */
 type LineWidth = NonNullable<React.ComponentProps<typeof Layer>['paint']> extends infer P
   ? P extends { 'line-width'?: infer W }
@@ -114,7 +123,7 @@ type LineWidth = NonNullable<React.ComponentProps<typeof Layer>['paint']> extend
   : never;
 
 function ROUTE_WIDTH(widths: [number, number, number, number]): LineWidth {
-  return ['interpolate', ['linear'], ['zoom'], 7, widths[0], 11, widths[1], 14, widths[2], 17, widths[3]];
+  return ['interpolate', ['linear'], ['zoom'], 6, widths[0], 10, widths[1], 14, widths[2], 18, widths[3]];
 }
 
 /* L'epingle de destination, dessinee par le moteur de la carte.
@@ -395,6 +404,27 @@ export default function MapScreen() {
     [preview.data],
   );
 
+  /**
+   * Routes coupees a contourner lors d'un recalcul (point 5F du client).
+   *
+   * Seuls les barrages et les routes inondees sont transmis : ce sont les deux signalements qui
+   * EMPECHENT reellement de passer. Un bouchon, lui, se traverse — l'eviter enverrait le
+   * conducteur faire vingt kilometres pour economiser cinq minutes.
+   *
+   * Lu au moment du recalcul plutot que surveille en continu : un signalement qui arrive
+   * pendant le trajet ne doit pas, a lui seul, relancer le calcul de tout l'itineraire.
+   */
+  const liveReportsRef = useRef(liveReports);
+  liveReportsRef.current = liveReports;
+  const avoidPoints = useCallback(
+    () =>
+      liveReportsRef.current
+        .filter((r) => r.kind === 'block' || r.kind === 'flood')
+        .slice(0, 20)
+        .map((r) => ({ lat: r.lat, lon: r.lon })),
+    [],
+  );
+
   const nav = useNavigationSession({
     active: navigating,
     position,
@@ -405,6 +435,7 @@ export default function MapScreen() {
     getSpeedMps: currentSpeedMps,
     getHeading: currentHeading,
     getAccuracyM: currentAccuracyM,
+    getAvoidPoints: avoidPoints,
   });
 
   /* ------------------------------------------------------------------ */
@@ -1260,7 +1291,11 @@ export default function MapScreen() {
     ),
   });
 
-  const mapStyle = useMapStyle(scheme === 'dark' ? MAP_STYLES.night : MAP_STYLES.day);
+  /* `routeAnchorId` : couche sous laquelle l'itineraire se glisse, pour que les panneaux et les
+   * numeros de route (A1, RN5, nom de wilaya) restent lisibles PAR-DESSUS le trace — point 3 du
+   * client, « critique sur autoroutes algeriennes ». Voir useMapStyle : elle est trouvee en
+   * lisant le style, les deux fonds d'OpenFreeMap n'ayant pas les memes noms de couches. */
+  const { mapStyle, routeAnchorId } = useMapStyle(scheme === 'dark' ? MAP_STYLES.night : MAP_STYLES.day);
 
   /* Colonne des dix boutons. Elle etait ecrite dans la branche « accueil » du rendu, donc
    * absente pendant le guidage — le client a constate qu'il ne restait que le bouton du son.
@@ -1476,7 +1511,11 @@ export default function MapScreen() {
 
         <Images images={MAP_IMAGES} />
 
-        <GeoJSONSource id="route" data={routeLinesGeoJson}>
+        {/* La cle force un remontage quand l'ancrage change — c'est-a-dire une seule fois, au
+            moment ou le style corrige arrive. Sans elle, les couches d'itineraire resteraient
+            posees la ou elles ont ete creees : au-dessus des panneaux, qu'on vient justement
+            de degager. */}
+        <GeoJSONSource key={routeAnchorId ?? 'dessus'} id="route" data={routeLinesGeoJson}>
           {/* Couleurs choisies ici une fois pour les quatre couches ci-dessous. */}
           {/* Alternative(s) estompee(s) sous le trace choisi — memes codes que l'apercu Google Maps.
               Traits epaissis (doc 110 #2) : trop fins auparavant, surtout dezoome sur un long trajet. */}
@@ -1484,11 +1523,12 @@ export default function MapScreen() {
             id="route-alt"
             type="line"
             source="route"
+            beforeId={routeAnchorId}
             filter={['==', ['get', 'kind'], 'alt']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{
               'line-color': routeColors.alt,
-              'line-width': ROUTE_WIDTH([2.5, 3.5, 5, 8]),
+              'line-width': ROUTE_WIDTH([2.5, 5, 8, 12]),
               'line-opacity': 0.55,
             }}
           />
@@ -1498,15 +1538,32 @@ export default function MapScreen() {
               technique cartographique habituelle, et la raison pour laquelle un itineraire
               reste lisible sur n'importe quel fond. */}
           <Layer
-            id="route-casing"
+            id="route-halo"
             type="line"
             source="route"
+            beforeId={routeAnchorId}
             filter={['!=', ['get', 'kind'], 'alt']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{
               'line-color': routeColors.halo,
-              'line-width': ROUTE_WIDTH([5, 7, 10, 19]),
+              'line-width': ROUTE_WIDTH([8, 18, 25, 31]),
               'line-opacity': 0.95,
+            }}
+          />
+          {/* Bordure sombre demandee par le client (point 2) : quatre points de plus que le
+              trace, dans une teinte plus foncee. C'est elle qui donne l'arete nette des cartes
+              de navigation courantes — le trace cesse d'etre un ruban pose sur la carte pour
+              devenir un objet avec un bord. */}
+          <Layer
+            id="route-casing"
+            type="line"
+            source="route"
+            beforeId={routeAnchorId}
+            filter={['!=', ['get', 'kind'], 'alt']}
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{
+              'line-color': routeColors.casing,
+              'line-width': ROUTE_WIDTH([5, 12, 18, 24]),
             }}
           />
           {/* Portion deja parcourue, en gris — meme teinte que le `#b9c4bf` de v83. Bout coupe
@@ -1516,11 +1573,12 @@ export default function MapScreen() {
             id="route-traveled"
             type="line"
             source="route"
+            beforeId={routeAnchorId}
             filter={['==', ['get', 'kind'], 'traveled']}
             layout={{ 'line-cap': 'butt', 'line-join': 'round' }}
             paint={{
               'line-color': '#B9C4BF',
-              'line-width': ROUTE_WIDTH([2.5, 3.5, 5.5, 10]),
+              'line-width': ROUTE_WIDTH([3, 8, 14, 20]),
               'line-opacity': 0.9,
             }}
           />
@@ -1528,9 +1586,10 @@ export default function MapScreen() {
             id="route-primary"
             type="line"
             source="route"
+            beforeId={routeAnchorId}
             filter={['==', ['get', 'kind'], 'primary']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{ 'line-color': routeColors.main, 'line-width': ROUTE_WIDTH([3, 4.5, 7, 13]) }}
+            paint={{ 'line-color': routeColors.main, 'line-width': ROUTE_WIDTH([3, 8, 14, 20]) }}
           />
         </GeoJSONSource>
 
@@ -1796,7 +1855,8 @@ export default function MapScreen() {
             },
           ]}
         >
-          <NavArrow size={NAV_PUCK_SIZE} />
+          {/* Meme couleur que l'itineraire : vert WIN de jour, turquoise de nuit. */}
+          <NavArrow size={NAV_PUCK_SIZE} color={routeColors.main} />
         </View>
       ) : null}
 

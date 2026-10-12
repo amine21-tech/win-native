@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { localizedInstruction, maneuverArrow, roadRef } from '../navigation/instructions';
 import type { Maneuver } from '../navigation/routing';
+import { LaneGuidance } from './LaneGuidance';
 import type { FixListener } from '../navigation/useLiveLocation';
 import { formatDistance, formatDuration, type Language } from '../shared';
 import { SpeedBadge } from './SpeedBadge';
@@ -14,6 +15,20 @@ import { formatClock24, useClock } from '../utils/clock';
 const CARD_MARGIN = spacing.sm;
 /** Ecart entre le bas du bandeau et le compteur de vitesse. */
 const BADGE_GAP = 48;
+
+/**
+ * Fond du bandeau PENDANT un recalcul (point 5B du client : « aucun message visible pendant le
+ * recalcul »).
+ *
+ * Changer la couleur du bandeau entier, et pas seulement son texte, est deliberate : au volant,
+ * on ne lit pas, on reconnait. Un aplat orange qui remplace le vert se voit du coin de l'oeil et
+ * dit, sans etre lu, que la consigne affichee n'est plus valable — ce qui est precisement
+ * l'information utile a cette seconde-la.
+ */
+const RECALC_BG = '#7D3C00';
+
+/** Hauteur de la languette « puis », sous laquelle les voies doivent passer. */
+const THEN_TAB_H = 40;
 
 type Props = {
   active: boolean;
@@ -137,14 +152,19 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         onLayout={(e) => setBannerHeight(e.nativeEvent.layout.height)}
         style={[
           landscape ? styles.topBannerLandscape : styles.topBanner,
-          { backgroundColor: colors.accentDark },
+          { backgroundColor: recalculating ? RECALC_BG : colors.accentDark },
           landscape
             ? { top: bannerTop, left: leftInset + CARD_MARGIN, width: cardWidth }
             : { paddingTop: topInset + spacing.md },
         ]}
       >
         {recalculating ? (
-          <Text style={styles.recalcPill}>{t('nav.recalculating')}</Text>
+          <View style={styles.instructionRow}>
+            <Text style={styles.arrow}>🔄</Text>
+            <Text style={[styles.instruction, { flex: 1, fontFamily: titleFontFor(lang) }]} numberOfLines={2}>
+              {t('nav.recalculating')}
+            </Text>
+          </View>
         ) : arrived ? (
           <Text style={styles.instruction}>{t('nav.arrived')}</Text>
         ) : (
@@ -218,6 +238,25 @@ export const NavigationOverlay = memo(function NavigationOverlay({
             <Text style={styles.thenArrow}>{maneuverArrow(followingManeuver.type)}</Text>
           </View>
         </View>
+      ) : null}
+
+      {/* Voies a prendre, accrochees sous le bandeau — et sous la languette « puis » quand elle
+          est la, pour qu'elles ne se recouvrent jamais. Elles n'apparaissent qu'a l'approche
+          d'une bifurcation, et seulement la ou OpenStreetMap connait les marquages au sol. */}
+      {!arrived && !recalculating && !landscape ? (
+        <LaneGuidance
+          lanes={nextManeuver?.lanes ?? []}
+          distanceM={distanceToUpcoming}
+          colors={colors}
+          top={
+            bannerTop +
+            bannerHeight +
+            (followingManeuver && distanceToUpcoming != null && distanceToUpcoming < 600
+              ? THEN_TAB_H
+              : 0) +
+            spacing.sm
+          }
+        />
       ) : null}
 
       {/* Compteur de vitesse et limite reglementaire, EN HAUT A GAUCHE et l'un sous l'autre,
@@ -330,18 +369,6 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         ]}
         pointerEvents="box-none"
       >
-        {/* Petite croix a cheval sur le bord superieur, comme sur le site : placee HORS des
-            boutons, elle ne peut jamais etre touchee par erreur a la place de « Fin ». */}
-        <Pressable
-          onPress={() => setBottomOpen(false)}
-          accessibilityRole="button"
-          accessibilityLabel={t('nav.hidePanel')}
-          hitSlop={8}
-          style={[styles.closeBar, { backgroundColor: colors.text, borderColor: colors.surface }]}
-        >
-          <Text style={[styles.closeBarGlyph, { color: colors.surface }]}>✕</Text>
-        </Pressable>
-
         {/* Meme contenu que le cadre du bas de la version web (`#navBottom`) : duree et
             distance restantes a gauche, puis retour, recherche, recentrer, et « Fin ». Il n'y
             avait ici qu'une croix et une icone d'etapes. */}
@@ -419,15 +446,35 @@ export const NavigationOverlay = memo(function NavigationOverlay({
             cela pour toutes les langues — l'arabe est plus long encore. Sur sa propre ligne,
             elle tient en entier quelle que soit la langue, et le cadre grandit de quinze
             points, ce que sa hauteur mesuree repercute au reste de l'ecran. */}
-        {remaining && eta ? (
-          <Text
-            style={[styles.bottomEta, { color: colors.accentDark }]}
-            numberOfLines={1}
-            accessibilityLabel={`${t('nav.etaLong')} ${formatClock24(eta)}`}
+        {/* Derniere ligne : heure d'arrivee au centre, et la croix de fermeture a DROITE, DANS
+            le cadre (point 1 du client).
+            Elle etait jusqu'ici a cheval sur le bord superieur, dans l'angle haut droit — c'est
+            exactement la que descend la colonne des dix boutons. Deux zones tactiles s'y
+            touchaient : viser le dernier bouton fermait le cadre une fois sur deux. En bas a
+            droite, elle n'a plus de voisine, et sa zone tactile fait les 48 points reglementaires
+            la ou elle n'en faisait que 30. */}
+        <View style={styles.bottomFoot}>
+          {remaining && eta ? (
+            <Text
+              style={[styles.bottomEta, { color: colors.accentDark }]}
+              numberOfLines={1}
+              accessibilityLabel={`${t('nav.etaLong')} ${formatClock24(eta)}`}
+            >
+              🏁 {t('nav.etaLong')} {formatClock24(eta)}
+            </Text>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+          <Pressable
+            onPress={() => setBottomOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel={t('nav.hidePanel')}
+            hitSlop={8}
+            style={[styles.closeBtn, { backgroundColor: colors.surfaceAlt }]}
           >
-            🏁 {t('nav.etaLong')} {formatClock24(eta)}
-          </Text>
-        ) : null}
+            <Text style={[styles.closeGlyph, { color: colors.text }]}>✕</Text>
+          </Pressable>
+        </View>
       </View>
       ) : null}
     </>
@@ -464,7 +511,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     fontVariant: ['tabular-nums'],
   },
-  recalcPill: { color: '#fff', fontSize: 15, fontWeight: '700' as const, textAlign: 'center' },
   thenWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'flex-start' },
   thenTab: {
     flexDirection: 'row',
@@ -558,26 +604,24 @@ const styles = StyleSheet.create({
   },
   stopLabel: { color: '#fff', fontSize: 13.5, fontWeight: '800' as const },
   bottomEta: {
+    flex: 1,
     fontSize: 12.5,
     fontWeight: '800' as const,
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
     marginTop: 6,
   },
-  closeBar: {
-    position: 'absolute',
-    top: -13,
-    right: -2,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 2,
+  /** Ligne du bas : l'heure d'arrivee occupe la largeur restante, la croix se range a droite. */
+  bottomFoot: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  closeBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 9,
-    zIndex: 5,
+    marginLeft: spacing.lg,
   },
-  closeBarGlyph: { fontSize: 14, fontWeight: '800' as const, lineHeight: 16 },
+  closeGlyph: { fontSize: 16, fontWeight: '800' as const, lineHeight: 18 },
   reopenPill: {
     position: 'absolute',
     right: spacing.md,

@@ -23,6 +23,23 @@ const routeRequest = z.object({
   avoidTolls: z.boolean().default(false),
   avoidUnpaved: z.boolean().default(false),
   preferHighways: z.boolean().default(false),
+
+  /**
+   * Recalcul en roulant : le conducteur attend, la voiture avance. On raccourcit l'attente et
+   * on reessaie une fois plutot que de rendre une erreur au bout de douze secondes — au-dela,
+   * la reponse arriverait de toute facon trop tard pour la prochaine intersection.
+   */
+  quick: z.boolean().default(false),
+
+  /**
+   * Points a EVITER : les signalements « route barree / coupee » encore actifs que
+   * l'application connait deja (point 5F). Sans eux, le recalcul propose a nouveau la route
+   * barree que le conducteur vient justement de signaler.
+   *
+   * Plafonne a vingt : Valhalla refuse une liste trop longue, et vingt barrages sur un meme
+   * trajet releveraient de toute facon de l'evenement exceptionnel.
+   */
+  avoid: z.array(z.object({ lat: latitude, lon: longitude })).max(20).default([]),
 });
 
 /**
@@ -55,7 +72,24 @@ function costingOptions(input: {
     auto: {
       use_highways: input.preferHighways ? 1 : 0.5,
       use_tolls: input.avoidTolls ? 0 : 0.5,
-      ...(input.avoidUnpaved ? { use_tracks: 0, exclude_unpaved: true } : {}),
+
+      /* « Routes carrossables uniquement » (point 5D du client).
+       *
+       * Valhalla ne propose jamais de chemin pietonnier a une voiture : ce point-la est acquis.
+       * En revanche il accepte volontiers les PISTES (`track` : chemins agricoles, forestiers)
+       * et les voies de desserte (`service` : parkings, allees) pour gagner quelques minutes.
+       * En Algerie, le raccourci ainsi propose est souvent une piste de terre qu'une berline ne
+       * passe pas — et le conducteur, lui, decouvre le probleme sur place.
+       *
+       * 0,1 et non 0 : a zero, Valhalla s'interdirait aussi d'ARRIVER chez quelqu'un dont la
+       * maison est au bout d'une piste. Le penaliser fortement laisse le moteur l'emprunter
+       * quand il n'existe aucune autre facon d'atteindre la destination, et jamais pour gagner
+       * du temps. Meme raisonnement pour la penalite de desserte, en secondes de detour fictif.
+       */
+      use_tracks: input.avoidUnpaved ? 0 : 0.1,
+      service_penalty: 120,
+      service_factor: 1.3,
+      ...(input.avoidUnpaved ? { exclude_unpaved: true } : {}),
     },
   };
 }
@@ -120,17 +154,36 @@ const routes: FastifyPluginAsync = async (app) => {
         costing: input.mode,
         costing_options: costingOptions(input),
         alternates: input.alternates,
+        /**
+         * Voies a prendre aux bifurcations (point 4 du client). Valhalla ne les renvoie que si
+         * on les demande — et seulement a partir de sa version 3.6. Sur un moteur plus ancien,
+         * l'option est ignoree et la reponse est exactement celle d'avant : l'application
+         * n'affiche alors simplement aucune fleche de voie.
+         */
+        turn_lanes: true,
+        ...(input.avoid.length > 0
+          ? { exclude_locations: input.avoid.map((p) => ({ lat: p.lat, lon: p.lon })) }
+          : {}),
         directions_options: { units: 'kilometers', language: input.language },
       };
 
-      let response: Response;
-      try {
-        response = await fetch(`${valhallaFor(input.from, input.to)}/route`, {
+      const timeoutMs = input.quick ? 5_000 : 12_000;
+
+      const ask = async (body: unknown): Promise<Response> =>
+        fetch(`${valhallaFor(input.from, input.to)}/route`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(12_000),
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(timeoutMs),
         });
+
+      let response: Response;
+      try {
+        response = await ask(payload);
+        // Une seule reprise, et seulement en recalcul : le reseau algerien a des trous d'une
+        // seconde ou deux. Au-dela d'un essai de plus, mieux vaut rendre la main — le conducteur
+        // a deja depasse l'intersection.
+        if (!response.ok && input.quick && response.status >= 500) response = await ask(payload);
       } catch (error) {
         throw new HttpError(
           503,
@@ -138,6 +191,19 @@ const routes: FastifyPluginAsync = async (app) => {
           "Le service d'itineraire ne repond pas.",
           { cause: (error as Error).message },
         );
+      }
+
+      /* Un point a eviter que Valhalla n'arrive pas a rattacher a une route fait echouer TOUT
+       * le calcul. Un signalement pose a cote de la chaussee, ou sur une route que le moteur ne
+       * connait pas, priverait alors le conducteur d'itineraire — c'est pire que de lui en
+       * donner un qui passe par la route barree. On refait donc le calcul sans les evitements. */
+      if (!response.ok && input.avoid.length > 0) {
+        const { exclude_locations: _dropped, ...withoutAvoid } = payload as Record<string, unknown>;
+        try {
+          response = await ask(withoutAvoid);
+        } catch {
+          // On garde la reponse en echec d'origine : le message rendu plus bas reste le bon.
+        }
       }
 
       if (!response.ok) {
