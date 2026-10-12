@@ -234,7 +234,13 @@
     "rankError": "Classement national indisponible pour le moment.",
     "badge1": "Premier signalement",
     "badge10": "10 contributions",
-    "badge50": "50 contributions"
+    "badge50": "50 contributions",
+    "becomeTitle": "Espace contributeur",
+    "becomeCode": "Code contributeur",
+    "becomeHint": "L'enregistrement de lieux est réservé aux contributeurs WIN. Si vous en avez reçu le code, saisissez-le ici.",
+    "becomeOk": "Vous êtes contributeur. L’appui long sur la carte enregistre un lieu.",
+    "becomeBad": "Code incorrect.",
+    "becomeAlready": "Vous êtes contributeur WIN."
   },
   "addPlace": {
     "title": "Ajouter un lieu",

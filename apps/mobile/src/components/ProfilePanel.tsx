@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useMyPlaces } from '../place/useMyPlaces';
+import { claimContributor, useContributor } from '../place/useContributor';
 import { formatDistance, haversine } from '../shared';
 import { api } from '../api/client';
 import { radius, spacing, typography, type Palette } from '../theme';
@@ -36,6 +38,13 @@ type Props = {
 /** Panneau « Mes contributions », repris de `#profilePanel`/renderProfilePanel() en v83. */
 export function ProfilePanel({ visible, onClose, colors, position, onOpenPlace }: Props) {
   const mine = useMyPlaces(visible);
+  const { isContributor, refresh: refreshContributor } = useContributor();
+  /* L'entree « contributeur » reste fermee par defaut. Un utilisateur ordinaire ne doit pas
+   * tomber sur un champ de code dont il ne sait que faire : il la depliera s'il cherche, ce
+   * qui est exactement le cas de quelqu'un a qui on vient de remettre le code. */
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [code, setCode] = useState('');
+  const [codeState, setCodeState] = useState<'idle' | 'checking' | 'bad'>('idle');
   const { t } = useTranslation();
 
   const { data, isLoading } = useQuery({
@@ -133,6 +142,58 @@ export function ProfilePanel({ visible, onClose, colors, position, onOpenPlace }
             )}
           </View>
 
+          {/* Espace contributeur : c'est ici qu'on ouvre le droit d'enregistrer des lieux.
+              Replie tant qu'on ne le cherche pas, et remplace par une simple mention une fois
+              le droit obtenu — il n'y a plus rien a y faire. */}
+          <View style={styles.contributor}>
+            {isContributor ? (
+              <Text style={[typography.caption, { color: colors.accentDark, fontWeight: '700' }]}>
+                ✅ {t('profile.becomeAlready')}
+              </Text>
+            ) : codeOpen ? (
+              <>
+                <Text style={[typography.caption, { color: colors.textMuted }]}>{t('profile.becomeHint')}</Text>
+                <TextInput
+                  value={code}
+                  onChangeText={(v) => {
+                    setCode(v);
+                    setCodeState('idle');
+                  }}
+                  placeholder={t('profile.becomeCode')}
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                  secureTextEntry
+                  style={[styles.codeInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                />
+                {codeState === 'bad' ? (
+                  <Text style={[typography.caption, { color: colors.danger }]}>{t('profile.becomeBad')}</Text>
+                ) : null}
+                <Pressable
+                  disabled={codeState === 'checking' || code.trim().length < 4}
+                  onPress={() => {
+                    setCodeState('checking');
+                    void claimContributor(code.trim())
+                      .then(() => {
+                        refreshContributor();
+                        setCodeState('idle');
+                        setCode('');
+                      })
+                      .catch(() => setCodeState('bad'));
+                  }}
+                  style={[styles.codeBtn, { backgroundColor: colors.accent, opacity: code.trim().length < 4 ? 0.5 : 1 }]}
+                >
+                  <Text style={styles.codeBtnText}>
+                    {codeState === 'checking' ? '…' : t('search.confirm')}
+                  </Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable onPress={() => setCodeOpen(true)}>
+                <Text style={[typography.caption, { color: colors.textMuted }]}>{t('profile.becomeTitle')}</Text>
+              </Pressable>
+            )}
+          </View>
+
           {/* Discret, jamais un code partage : l'authentification reelle (voir apps/api/src/
               routes/admin.ts) protege deja l'espace qui s'ouvre ensuite. */}
           <Pressable
@@ -161,6 +222,10 @@ function Stat({ value, label, colors }: { value: number; label: string; colors: 
 
 const styles = StyleSheet.create({
   myPlaces: { width: '100%', marginTop: spacing.md },
+  contributor: { width: '100%', marginTop: spacing.md, gap: 6 },
+  codeInput: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 8 },
+  codeBtn: { borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },
+  codeBtnText: { color: '#fff', fontWeight: '800' as const, fontSize: 14 },
   // Hauteur bornee : la liste defile a l'interieur du panneau au lieu de le faire grandir
   // sans fin quand un contributeur a enregistre trente lieux.
   myList: { maxHeight: 170, marginTop: 6 },

@@ -41,6 +41,9 @@ export const devices = pgTable('devices', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
   blocked: boolean('blocked').notNull().default(false),
+  /** Droit d'enregistrer des lieux. Porte par l'appareil pour pouvoir etre retire. */
+  isContributor: boolean('is_contributor').notNull().default(false),
+  contributorGrantedAt: timestamp('contributor_granted_at', { withTimezone: true }),
 });
 
 export const admins = pgTable('admins', {

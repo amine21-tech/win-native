@@ -6,6 +6,7 @@ import {
   DUPLICATE_RADIUS_M,
   searchPlacesQuery,
   updatePlaceInput,
+  contributorCheckInput,
   vipCheckInput,
 } from '@win/shared';
 import { timingSafeEqual } from 'node:crypto';
@@ -113,13 +114,16 @@ function categoriesInQuery(q: string): string[] {
     .map(([category]) => category);
 }
 
-/** Compare le code VIP en temps constant : la duree de la reponse ne revele pas combien de
+/** Compare un code en temps constant : la duree de la reponse ne revele pas combien de
  * chiffres sont justes. */
-function vipCodeMatches(code: string): boolean {
-  const a = Buffer.from(code);
-  const b = Buffer.from(env.VIP_CODE);
+function codeMatches(saisi: string, attendu: string): boolean {
+  const a = Buffer.from(saisi);
+  const b = Buffer.from(attendu);
   return a.length === b.length && timingSafeEqual(a, b);
 }
+
+const vipCodeMatches = (code: string) => codeMatches(code, env.VIP_CODE);
+const contributorCodeMatches = (code: string) => codeMatches(code, env.CONTRIBUTOR_CODE);
 
 /**
  * Limite des essais de code VIP, par adresse IP et non par appareil : un appareil se recree
@@ -273,9 +277,62 @@ const routes: FastifyPluginAsync = async (app) => {
     return { ok: true };
   });
 
+  /**
+   * Ouverture du droit de contribuer, sur presentation du code.
+   *
+   * Le droit est inscrit sur l'APPAREIL, et non rendu sous forme de jeton a conserver : un
+   * jeton se recopie d'un telephone a l'autre, une ligne en base se retire d'un UPDATE le jour
+   * ou quelqu'un abuse.
+   */
+  app.post(
+    '/places/contributor-check',
+    { preHandler: [app.requireDevice], config: VIP_RATE_LIMIT },
+    async (req) => {
+      const { code } = parse(contributorCheckInput, req.body);
+      if (!contributorCodeMatches(code)) {
+        throw new HttpError(403, 'code_contributeur_invalide', 'Code contributeur incorrect.');
+      }
+      await db.execute(sql`
+        UPDATE devices
+        SET is_contributor = true,
+            contributor_granted_at = COALESCE(contributor_granted_at, now())
+        WHERE id = ${req.deviceId!}
+      `);
+      return { ok: true };
+    },
+  );
+
+  /** L'appareil a-t-il le droit d'enregistrer des lieux ? */
+  app.get('/places/contributor', { preHandler: [app.requireDevice] }, async (req) => {
+    const rows = (await db.execute(sql`
+      SELECT is_contributor AS "isContributor" FROM devices WHERE id = ${req.deviceId!}
+    `)) as unknown as { isContributor: boolean }[];
+    return { isContributor: rows[0]?.isContributor === true };
+  });
+
   app.post('/places', { preHandler: [app.requireDevice] }, async (req, reply) => {
     const input = parse(createPlaceInput, req.body);
     const deviceId = req.deviceId!;
+
+    /* Seul un contributeur enregistre un lieu.
+     *
+     * Le controle est ICI, et pas seulement dans l'application : une route ouverte reste
+     * appelable directement, et c'est precisement ce qu'on veut empecher. Un code VIP valide
+     * vaut aussi droit d'ecrire — un partenaire commercial est, par construction, quelqu'un
+     * que l'equipe connait. */
+    const avecCodeVip = input.vipCode !== undefined && vipCodeMatches(input.vipCode);
+    if (!avecCodeVip) {
+      const rows = (await db.execute(sql`
+        SELECT is_contributor AS "isContributor" FROM devices WHERE id = ${deviceId}
+      `)) as unknown as { isContributor: boolean }[];
+      if (rows[0]?.isContributor !== true) {
+        throw new HttpError(
+          403,
+          'contributeur_requis',
+          "L'enregistrement de lieux est reserve aux contributeurs WIN.",
+        );
+      }
+    }
     // Le code est reverifie ici : l'etape vip-check ne sert qu'a l'affichage du formulaire, et
     // n'importe qui peut appeler cette route directement.
     const isVip = input.vipCode !== undefined;

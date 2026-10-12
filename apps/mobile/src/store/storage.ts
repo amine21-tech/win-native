@@ -25,6 +25,8 @@ export const StorageKeys = {
   unlockedCountries: 'unlockedCountries',
   /** Preferences d'itineraire : peages, pistes, grands axes. */
   routePrefs: 'routePrefs',
+  /** Droit d'enregistrer des lieux, retenu pour que l'interface soit juste hors ligne. */
+  contributor: 'contributor',
 } as const;
 
 export function readJson<T>(key: string, fallback: T): T {

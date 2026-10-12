@@ -234,7 +234,13 @@
     "rankError": "National ranking unavailable right now.",
     "badge1": "First report",
     "badge10": "10 contributions",
-    "badge50": "50 contributions"
+    "badge50": "50 contributions",
+    "becomeTitle": "Contributor access",
+    "becomeCode": "Contributor code",
+    "becomeHint": "Saving places is reserved for WIN contributors. If you were given the code, enter it here.",
+    "becomeOk": "You are a contributor. Long-press the map to save a place.",
+    "becomeBad": "Wrong code.",
+    "becomeAlready": "You are a WIN contributor."
   },
   "addPlace": {
     "title": "Add a place",

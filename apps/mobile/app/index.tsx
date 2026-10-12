@@ -51,6 +51,7 @@ import { TunisiaUnlockSheet } from '../src/components/TunisiaUnlockSheet';
 import { useTunisiaUnlock } from '../src/unlock/useTunisiaUnlock';
 import { LocateIcon } from '../src/components/LocateIcon';
 import { NavDestinationPicker } from '../src/components/NavDestinationPicker';
+import { useContributor } from '../src/place/useContributor';
 import { DetourSheet } from '../src/components/DetourSheet';
 import { NavSearchMenu } from '../src/components/NavSearchMenu';
 import { MeMarker } from '../src/map/MeMarker';
@@ -356,6 +357,9 @@ export default function MapScreen() {
   const [navDestination, setNavDestination] = useState<(Position & { emoji: string }) | null>(null);
   /** Point vise par un appui long PENDANT le guidage, en attente de confirmation. */
   const [detourPoint, setDetourPoint] = useState<Position | null>(null);
+  /* L'enregistrement de lieux est reserve aux contributeurs : pour les autres, l'appui long
+   * hors navigation ne fait rien, et rien a l'ecran ne laisse deviner qu'il existe. */
+  const { isContributor } = useContributor();
   /* Destination d'origine, mise de cote le temps d'un detour.
    *
    * Sans elle, se derouter vers une station-service ferait perdre le trajet : il faudrait
@@ -903,9 +907,12 @@ export default function MapScreen() {
     (event: { nativeEvent: { lngLat: [number, number] } }) => {
       const [lon, lat] = event.nativeEvent.lngLat;
       if (navigating) setDetourPoint({ lat, lon });
-      else setAddPlaceCoords({ lat, lon });
+      // Hors navigation, seul un contributeur ouvre le formulaire. Un utilisateur ordinaire ne
+      // voit donc jamais cette fonction — c'est le choix du client : la carte ne se corrige pas
+      // a l'aveugle, et un nom mal orthographie y reste des mois.
+      else if (isContributor) setAddPlaceCoords({ lat, lon });
     },
-    [navigating],
+    [navigating, isContributor],
   );
 
   /** Deviation confirmee : la destination change, l'ancienne est mise de cote. */

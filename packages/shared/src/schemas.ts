@@ -245,6 +245,12 @@ export const photoReportInput = z.object({
 });
 export type PhotoReportInput = z.infer<typeof photoReportInput>;
 
+/** Code remis aux contributeurs, verifie avant d'ouvrir le formulaire d'enregistrement. */
+export const contributorCheckInput = z.object({
+  code: z.string().trim().min(4).max(32),
+});
+export type ContributorCheckInput = z.infer<typeof contributorCheckInput>;
+
 export const partnerLeadInput = z.object({
   name: z.string().trim().min(2).max(160),
   phone: phone,

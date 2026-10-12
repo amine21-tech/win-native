@@ -60,6 +60,18 @@ const schema = z.object({
    */
   LEGACY_API_URL: z.string().url().optional(),
 
+  /**
+   * Code remis aux CONTRIBUTEURS, les seuls autorises a enregistrer des lieux.
+   *
+   * Distinct du code VIP : celui-ci ouvre le droit d'ecrire sur la carte, celui-la designe un
+   * partenaire commercial. Un contributeur n'est pas un partenaire, et inversement.
+   *
+   * Comme VIP_CODE, il se change sur le serveur sans republier l'application — mais changer le
+   * code retire le droit a TOUT LE MONDE : pour n'en retirer qu'un, on repasse `is_contributor`
+   * a faux sur son appareil.
+   */
+  CONTRIBUTOR_CODE: z.string().min(4).default('0000'),
+
   /** Origines autorisees, separees par des virgules. `*` en developpement. */
   CORS_ORIGINS: z.string().default('*'),
 
