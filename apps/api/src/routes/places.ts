@@ -130,6 +130,46 @@ const contributorCodeMatches = (code: string) => codeMatches(code, env.CONTRIBUT
  * en une requete, une adresse non. Un code a quatre chiffres ne resiste pas a un essai
  * systematique ; cette limite le rend simplement tres long.
  */
+/**
+ * Cet appareil a-t-il le droit d'ecrire sur la carte ?
+ *
+ * Lu a chaque geste, et jamais mis en cache : c'est ce qui permet de RETIRER un droit et que
+ * cela prenne effet a la seconde suivante, sans attendre qu'un telephone veuille bien se
+ * rafraichir. Un contributeur qui abuse doit pouvoir etre arrete tout de suite.
+ */
+async function estContributeur(deviceId: string): Promise<boolean> {
+  const rows = (await db.execute(sql`
+    SELECT is_contributor AS "isContributor" FROM devices WHERE id = ${deviceId}
+  `)) as unknown as { isContributor: boolean }[];
+  return rows[0]?.isContributor === true;
+}
+
+/** La fiche a-t-elle ete creee depuis cet appareil ? */
+async function estAuteur(placeId: string, deviceId: string): Promise<boolean> {
+  const rows = (await db.execute(sql`
+    SELECT 1 AS ok FROM places WHERE id = ${placeId} AND created_by = ${deviceId} AND deleted_at IS NULL
+  `)) as unknown as unknown[];
+  return rows.length > 0;
+}
+
+/**
+ * Etat de la fiche avant le geste, pour le journal.
+ *
+ * Ce n'est pas de la comptabilite : c'est ce qui permet de REMETTRE une fiche comme elle etait,
+ * le jour ou un contributeur se trompe ou abuse. Sans cela, on saurait que quelque chose a ete
+ * change sans savoir quoi — et une carte qu'on ne peut pas reparer se degrade a sens unique.
+ */
+async function etatFiche(placeId: string): Promise<unknown | null> {
+  const rows = (await db.execute(sql`
+    SELECT name, category, house_number, street, city, postal_code, wilaya,
+           phone_fixe, phone_mobile, whatsapp, email, enseigne,
+           ST_Y(geom::geometry) AS lat, ST_X(geom::geometry) AS lon,
+           created_by, is_partner
+    FROM places WHERE id = ${placeId}
+  `)) as unknown as unknown[];
+  return rows[0] ?? null;
+}
+
 const VIP_RATE_LIMIT = {
   rateLimit: { max: 5, timeWindow: '10 minutes', keyGenerator: (req: { ip: string }) => req.ip },
 };
@@ -321,17 +361,12 @@ const routes: FastifyPluginAsync = async (app) => {
      * vaut aussi droit d'ecrire — un partenaire commercial est, par construction, quelqu'un
      * que l'equipe connait. */
     const avecCodeVip = input.vipCode !== undefined && vipCodeMatches(input.vipCode);
-    if (!avecCodeVip) {
-      const rows = (await db.execute(sql`
-        SELECT is_contributor AS "isContributor" FROM devices WHERE id = ${deviceId}
-      `)) as unknown as { isContributor: boolean }[];
-      if (rows[0]?.isContributor !== true) {
-        throw new HttpError(
-          403,
-          'contributeur_requis',
-          "L'enregistrement de lieux est reserve aux contributeurs WIN.",
-        );
-      }
+    if (!avecCodeVip && !(await estContributeur(deviceId))) {
+      throw new HttpError(
+        403,
+        'contributeur_requis',
+        "L'enregistrement de lieux est reserve aux contributeurs WIN.",
+      );
     }
     // Le code est reverifie ici : l'etape vip-check ne sert qu'a l'affichage du formulaire, et
     // n'importe qui peut appeler cette route directement.
@@ -446,6 +481,24 @@ const routes: FastifyPluginAsync = async (app) => {
     { preHandler: [app.requireDevice] },
     async (req) => {
       const input = parse(updatePlaceInput, req.body);
+
+      /* Le droit de corriger la fiche d'un AUTRE appartient aux contributeurs.
+       *
+       * Un contributeur qui passe devant une adresse fausse ne pouvait, jusqu'ici, que la
+       * signaler et attendre : la carte restait fausse entre-temps. C'est le choix du client,
+       * et c'est celui de toutes les cartes communautaires.
+       *
+       * Ce que cela change : un contributeur qui abuse n'abime plus seulement son propre
+       * travail, mais celui de tout le monde. Deux choses le rendent rattrapable — l'etat
+       * precedent de la fiche est garde dans le journal (`before`), et le droit se retire a la
+       * seconde pres (voir estContributeur). */
+      const surAutrui = !(await estAuteur(req.params.id, req.deviceId!));
+      if (surAutrui && !(await estContributeur(req.deviceId!))) throw notFound();
+
+      // L'etat d'avant, garde AVANT d'ecrire : c'est lui qui permet de revenir en arriere sans
+      // avoir a deviner ce qui a ete change.
+      const avant = surAutrui ? await etatFiche(req.params.id) : null;
+
       const rows = (await db.execute(sql`
         UPDATE places SET
           name         = COALESCE(${input.name ?? null}, name),
@@ -465,15 +518,21 @@ const routes: FastifyPluginAsync = async (app) => {
                               ELSE geom END,
           updated_at   = now()
         WHERE id = ${req.params.id}
-          AND created_by = ${req.deviceId!}
           AND deleted_at IS NULL
         RETURNING id
       `)) as unknown as unknown[];
       if (rows.length === 0) throw notFound();
 
       await db.execute(sql`
-        INSERT INTO moderation_log (entity_type, entity_id, action, after, device_id)
-        VALUES ('place', ${req.params.id}, 'author_update', ${JSON.stringify(input)}::jsonb, ${req.deviceId!})
+        INSERT INTO moderation_log (entity_type, entity_id, action, before, after, device_id)
+        VALUES (
+          'place',
+          ${req.params.id},
+          ${surAutrui ? 'contributor_update' : 'author_update'},
+          ${avant ? JSON.stringify(avant) : null}::jsonb,
+          ${JSON.stringify(input)}::jsonb,
+          ${req.deviceId!}
+        )
       `);
       return { ok: true };
     },
@@ -488,18 +547,32 @@ const routes: FastifyPluginAsync = async (app) => {
     '/places/:id/mine',
     { preHandler: [app.requireDevice] },
     async (req) => {
+      const surAutrui = !(await estAuteur(req.params.id, req.deviceId!));
+      if (surAutrui && !(await estContributeur(req.deviceId!))) throw notFound();
+      const avant = surAutrui ? await etatFiche(req.params.id) : null;
+
+      /* Une fiche PARTENAIRE echappe au retrait par un contributeur, et c'est la seule
+       * exception. Elle a ete payee : la supprimer coute de l'argent a quelqu'un, et le geste
+       * ne se repare pas par un simple << oups >>. Son auteur et l'equipe peuvent toujours le
+       * faire, un contributeur de passage non. */
       const rows = (await db.execute(sql`
         UPDATE places SET deleted_at = now()
         WHERE id = ${req.params.id}
-          AND created_by = ${req.deviceId!}
           AND deleted_at IS NULL
+          AND (created_by = ${req.deviceId!} OR is_partner = false)
         RETURNING id
       `)) as unknown as unknown[];
       if (rows.length === 0) throw notFound();
 
       await db.execute(sql`
-        INSERT INTO moderation_log (entity_type, entity_id, action, device_id)
-        VALUES ('place', ${req.params.id}, 'author_delete', ${req.deviceId!})
+        INSERT INTO moderation_log (entity_type, entity_id, action, before, device_id)
+        VALUES (
+          'place',
+          ${req.params.id},
+          ${surAutrui ? 'contributor_delete' : 'author_delete'},
+          ${avant ? JSON.stringify(avant) : null}::jsonb,
+          ${req.deviceId!}
+        )
       `);
       return { ok: true };
     },

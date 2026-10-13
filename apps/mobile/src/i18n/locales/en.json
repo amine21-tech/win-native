@@ -142,7 +142,9 @@
     "editPlaceTitle": "Edit this place",
     "editPlaceSub": "Correct the name, address or photo",
     "deletePlaceTitle": "Delete this place",
-    "deletePlaceSub": "Permanently remove the place and its photo"
+    "deletePlaceSub": "Permanently remove the place and its photo",
+    "editOtherSub": "Someone else’s place — your correction is logged",
+    "deleteOtherSub": "Someone else’s place — the removal is logged and reversible"
   },
   "categories": {
     "groups": {

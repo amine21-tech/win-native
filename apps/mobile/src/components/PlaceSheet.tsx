@@ -5,6 +5,7 @@ import { egsaForAirport, isAirport, isTrainStation, SNTF_URL } from '../reports/
 import type { Route, RouteMode } from '../navigation/routing';
 import type { GeocodedResult } from '../search/geocode';
 import { formatDistance } from '../shared';
+import { useContributor } from '../place/useContributor';
 import { useAdminSession } from '../store/admin';
 import { lookupPlacePhoto, photoSource } from '../place/placePhoto';
 import { localPhotoUri } from '../place/photoCache';
@@ -113,10 +114,18 @@ export function PlaceSheet({
   const [myEditOpen, setMyEditOpen] = useState(false);
   const [photoReportOpen, setPhotoReportOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const { isContributor } = useContributor();
   if (!place) return null;
 
   const isContributed = place.source === 'win';
   const isMine = !!place.placeId && myPlaceIds.has(place.placeId);
+  /* Corriger et retirer ne sont plus reserves a l'auteur : un contributeur designe peut agir
+   * sur n'importe quelle fiche WIN. Un contributeur qui passe devant une adresse fausse ne
+   * pouvait, auparavant, que la signaler et attendre — la carte restait fausse entre-temps.
+   *
+   * Le serveur verifie le droit a chaque geste ; ceci n'est que l'affichage. Et il garde l'etat
+   * precedent de la fiche, pour qu'une erreur de contributeur se repare. */
+  const peutGerer = isMine || isContributor;
   /* Seules les photos de contributeurs se signalent : une illustration Wikimedia ne nous
    * appartient pas, et il n'y a rien a moderer chez nous la concernant. */
   const currentPhotoId = place.photos?.find((ph) => ph.url === mainPhoto)?.id ?? null;
@@ -353,13 +362,13 @@ export function PlaceSheet({
               colors={colors}
             />
 
-            {isMine ? (
+            {peutGerer ? (
               <>
                 <ManageRow
                   emoji="✏️"
                   teinte={colors.accent + '1f'}
                   titre={t('place.editPlaceTitle')}
-                  detail={t('place.editPlaceSub')}
+                  detail={isMine ? t('place.editPlaceSub') : t('place.editOtherSub')}
                   onPress={() => setMyEditOpen(true)}
                   colors={colors}
                 />
@@ -367,7 +376,8 @@ export function PlaceSheet({
                   emoji="🗑️"
                   teinte={colors.danger + '1f'}
                   titre={t('place.deletePlaceTitle')}
-                  detail={t('place.deletePlaceSub')}
+                  // Agir sur la fiche d'un autre doit se savoir AVANT d'appuyer, pas apres.
+                  detail={isMine ? t('place.deletePlaceSub') : t('place.deleteOtherSub')}
                   onPress={askDelete}
                   disabled={deleting}
                   danger
@@ -412,7 +422,7 @@ export function PlaceSheet({
       <MyPlaceSheet
         visible={myEditOpen}
         place={
-          isMine && place.placeId
+          peutGerer && place.placeId
             ? {
                 id: place.placeId,
                 name: place.name,

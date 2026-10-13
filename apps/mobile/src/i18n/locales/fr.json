@@ -142,7 +142,9 @@
     "editPlaceTitle": "Modifier cette fiche",
     "editPlaceSub": "Corriger le nom, l'adresse ou la photo",
     "deletePlaceTitle": "Supprimer cette fiche",
-    "deletePlaceSub": "Supprimer le lieu et sa photo définitivement"
+    "deletePlaceSub": "Supprimer le lieu et sa photo définitivement",
+    "editOtherSub": "Fiche d'un autre utilisateur — votre correction est tracée",
+    "deleteOtherSub": "Fiche d'un autre utilisateur — le retrait est tracé et réversible"
   },
   "categories": {
     "groups": {

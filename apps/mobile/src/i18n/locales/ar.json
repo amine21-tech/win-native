@@ -142,7 +142,9 @@
     "editPlaceTitle": "تعديل هذه البطاقة",
     "editPlaceSub": "تصحيح الاسم أو العنوان أو الصورة",
     "deletePlaceTitle": "حذف هذه البطاقة",
-    "deletePlaceSub": "حذف المكان وصورته نهائياً"
+    "deletePlaceSub": "حذف المكان وصورته نهائياً",
+    "editOtherSub": "بطاقة مستخدم آخر — يُسجَّل تصحيحك",
+    "deleteOtherSub": "بطاقة مستخدم آخر — الحذف مُسجَّل ويمكن التراجع عنه"
   },
   "categories": {
     "groups": {
