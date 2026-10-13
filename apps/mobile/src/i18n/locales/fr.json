@@ -5,7 +5,9 @@
     "rtlRestartTitle": "Redémarrage nécessaire",
     "rtlRestartBody": "Le sens de lecture change avec cette langue : redémarrez l'app pour l'appliquer entièrement.",
     "restartLater": "Plus tard",
-    "restartNow": "Redémarrer"
+    "restartNow": "Redémarrer",
+    "soon": "Bientôt",
+    "soonBody": "Le tamazight arrive. Les textes de l'application sont en cours de traduction."
   },
   "map": {
     "locateMe": "Ma position",
@@ -132,7 +134,8 @@
     "reason_wrong_facade": "Bon endroit, mauvaise façade",
     "reason_poor_quality": "Photo floue ou illisible",
     "reason_inappropriate": "Contenu déplacé",
-    "reason_other": "Autre"
+    "reason_other": "Autre",
+    "contributorOnly": "L'enregistrement de lieux est réservé aux contributeurs WIN."
   },
   "categories": {
     "groups": {

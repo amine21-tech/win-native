@@ -5,7 +5,9 @@
     "rtlRestartTitle": "خاصك تعاود تشغيل التطبيق",
     "rtlRestartBody": "اتجاه الكتابة يتبدّل مع هاد اللغة: عاود شغّل التطبيق باش يتطبق مليح.",
     "restartLater": "من بعد",
-    "restartNow": "عاود شغّل"
+    "restartNow": "عاود شغّل",
+    "soon": "قريب",
+    "soonBody": "الأمازيغية جايّة. راهم يترجمو نصوص التطبيق."
   },
   "map": {
     "locateMe": "وين راني",
@@ -132,7 +134,8 @@
     "reason_wrong_facade": "البلاصة صح بصح الواجهة غالطة",
     "reason_poor_quality": "التصويرة ما تبانش",
     "reason_inappropriate": "محتوى ما يصلحش",
-    "reason_other": "حاجة أخرى"
+    "reason_other": "حاجة أخرى",
+    "contributorOnly": "زيادة البلايص خاصة بالمساهمين تاع WIN."
   },
   "categories": {
     "groups": {

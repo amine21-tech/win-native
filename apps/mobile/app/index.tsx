@@ -112,9 +112,17 @@ const ROUTE_COLORS = {
  * navigation courantes font donc varier l'epaisseur avec le zoom ; ces quatre paliers
  * reproduisent leur progression.
  *
- * Les paliers sont ceux que le client a donnes (point 2 : 8 points au zoom 10, 14 au zoom 14,
- * 20 au zoom 18), augmentes d'un palier de recul a 6 pour la vue « pays entier » — sans lui,
- * l'interpolation descendait sous le point de large et le trace disparaissait.
+ * Les paliers viennent de deux demandes successives, et c'est leur ECART qui compte :
+ *
+ *   - en navigation (zoom 17-18), le trace doit etre EPAIS : c'est la premiere demande, et elle
+ *     reste satisfaite — 20 points, plus la bordure et le lisere.
+ *   - en vue d'ensemble (zoom 9-11), le meme trace devenait « trop epais » : un boudin qui
+ *     recouvrait les villes qu'il traverse et empechait de comparer deux itineraires. C'est la
+ *     seconde demande, et elle ne contredit pas la premiere : elle porte sur l'autre bout de
+ *     l'echelle.
+ *
+ * D'ou une progression beaucoup plus marquee entre les deux : 4 points au zoom 10, 9 au zoom
+ * 14, 20 au zoom 18. Le palier de recul a 6 garde une ligne visible sur la vue « pays entier ».
  */
 type LineWidth = NonNullable<React.ComponentProps<typeof Layer>['paint']> extends infer P
   ? P extends { 'line-width'?: infer W }
@@ -938,12 +946,20 @@ export default function MapScreen() {
     (event: { nativeEvent: { lngLat: [number, number] } }) => {
       const [lon, lat] = event.nativeEvent.lngLat;
       if (navigating) setDetourPoint({ lat, lon });
-      // Hors navigation, seul un contributeur ouvre le formulaire. Un utilisateur ordinaire ne
-      // voit donc jamais cette fonction — c'est le choix du client : la carte ne se corrige pas
-      // a l'aveugle, et un nom mal orthographie y reste des mois.
+      // Hors navigation, seul un contributeur ouvre le formulaire. C'est le choix du client :
+      // la carte ne se corrige pas a l'aveugle, et un nom mal orthographie y reste des mois.
       else if (isContributor) setAddPlaceCoords({ lat, lon });
+      /* AUCUNE REACTION ne se distingue pas d'une PANNE.
+       *
+       * Le droit d'enregistrer un lieu a ete reserve aux contributeurs ; mais un appui long qui
+       * ne declenchait rien du tout a aussitot ete rapporte comme « l'enregistrement GPS est
+       * casse ». C'etait inevitable : du point de vue de celui qui appuie, une fonction
+       * silencieuse et une fonction en panne sont exactement la meme chose.
+       *
+       * Le geste repond donc toujours. Il explique, au lieu de se taire. */
+      else setToast(t('place.contributorOnly'));
     },
-    [navigating, isContributor],
+    [navigating, isContributor, t],
   );
 
   /** Deviation confirmee : la destination change, l'ancienne est mise de cote. */
@@ -1528,7 +1544,7 @@ export default function MapScreen() {
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{
               'line-color': routeColors.alt,
-              'line-width': ROUTE_WIDTH([2.5, 5, 8, 12]),
+              'line-width': ROUTE_WIDTH([2, 3, 6, 12]),
               'line-opacity': 0.55,
             }}
           />
@@ -1546,7 +1562,7 @@ export default function MapScreen() {
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{
               'line-color': routeColors.halo,
-              'line-width': ROUTE_WIDTH([8, 18, 25, 31]),
+              'line-width': ROUTE_WIDTH([5, 8, 16, 27]),
               'line-opacity': 0.95,
             }}
           />
@@ -1563,7 +1579,7 @@ export default function MapScreen() {
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{
               'line-color': routeColors.casing,
-              'line-width': ROUTE_WIDTH([5, 12, 18, 24]),
+              'line-width': ROUTE_WIDTH([4, 6, 12, 22]),
             }}
           />
           {/* Portion deja parcourue, en gris — meme teinte que le `#b9c4bf` de v83. Bout coupe
@@ -1578,7 +1594,7 @@ export default function MapScreen() {
             layout={{ 'line-cap': 'butt', 'line-join': 'round' }}
             paint={{
               'line-color': '#B9C4BF',
-              'line-width': ROUTE_WIDTH([3, 8, 14, 20]),
+              'line-width': ROUTE_WIDTH([2.5, 4, 9, 18]),
               'line-opacity': 0.9,
             }}
           />
@@ -1589,7 +1605,7 @@ export default function MapScreen() {
             beforeId={routeAnchorId}
             filter={['==', ['get', 'kind'], 'primary']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{ 'line-color': routeColors.main, 'line-width': ROUTE_WIDTH([3, 8, 14, 20]) }}
+            paint={{ 'line-color': routeColors.main, 'line-width': ROUTE_WIDTH([2.5, 4, 9, 18]) }}
           />
         </GeoJSONSource>
 

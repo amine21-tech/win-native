@@ -7,10 +7,23 @@ import type { Language } from '../shared';
 import { fonts, radius, spacing, type Palette } from '../theme';
 import { formatClock24, useClock } from '../utils/clock';
 
-const LANGUAGE_PILLS: { code: Language; label: string }[] = [
-  { code: 'fr', label: 'FR' },
-  { code: 'ar', label: 'عربي' },
-  { code: 'en', label: 'EN' },
+/**
+ * Langues proposees dans le bandeau.
+ *
+ * Le tamazight y figure AVANT d'etre traduit, a la demande du client : c'est la langue
+ * nationale et officielle de l'Algerie depuis 2016, et son absence se remarque plus que son
+ * inachevement. Le bouton est donc visible mais grise, avec la mention « Bientot » — on
+ * annonce, on ne fait pas semblant.
+ *
+ * `pret: false` est la seule chose a changer le jour ou les traductions existent (plus la voix
+ * de guidage, qu'aucun service ne propose encore en tamazight).
+ */
+const LANGUAGE_PILLS: { code: Language | 'kab'; label: string; pret: boolean }[] = [
+  { code: 'fr', label: 'FR', pret: true },
+  { code: 'ar', label: 'عربي', pret: true },
+  { code: 'en', label: 'EN', pret: true },
+  // Ecrit en tifinagh, l'alphabet officiel : « ⵜⴰⵎⴰⵣⵉⵖⵜ ».
+  { code: 'kab', label: 'ⵜⴰⵎⴰⵣⵉⵖⵜ', pret: false },
 ];
 
 type Props = { colors: Palette; top: number };
@@ -66,14 +79,23 @@ export function Header({ colors, top }: Props) {
           <Text style={[styles.clock, { color: colors.text }]}>{formatClock24(now)}</Text>
           <View style={[styles.langs, { backgroundColor: colors.surface }]}>
             {LANGUAGE_PILLS.map((p) => {
-              const on = p.code === i18n.language;
+              const on = p.pret && p.code === i18n.language;
               return (
                 <Pressable
                   key={p.code}
-                  onPress={() => pickLanguage(p.code)}
-                  style={[styles.langPill, on && { backgroundColor: colors.accent }]}
+                  disabled={!p.pret}
+                  // Une pastille grisee qui ne repond pas laisse croire a une panne : elle dit
+                  // donc elle-meme pourquoi elle ne repond pas.
+                  onPress={() => (p.pret ? pickLanguage(p.code as Language) : Alert.alert(t('app.soon'), t('app.soonBody')))}
+                  style={[styles.langPill, on && { backgroundColor: colors.accent }, !p.pret && styles.langPillSoon]}
                 >
-                  <Text style={[styles.langLabel, { color: on ? colors.accentText : colors.textMuted }]}>
+                  <Text
+                    style={[
+                      styles.langLabel,
+                      { color: on ? colors.accentText : colors.textMuted },
+                      !p.pret && styles.langLabelSoon,
+                    ]}
+                  >
                     {p.label}
                   </Text>
                 </Pressable>
@@ -106,4 +128,9 @@ const styles = StyleSheet.create({
   langs: { flexDirection: 'row', gap: 2, borderRadius: radius.pill, padding: 3 },
   langPill: { borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 6 },
   langLabel: { fontFamily: fonts.sansBold, fontSize: 11 },
+  /* Une langue annoncee mais pas encore traduite. Volontairement discrete : elle ne doit pas
+   * attirer l'oeil autant qu'une langue utilisable. */
+  langPillSoon: { opacity: 0.45 },
+  // Le tifinagh est plus etroit que les capitales latines : il tient a la meme taille.
+  langLabelSoon: { fontSize: 11.5 },
 });

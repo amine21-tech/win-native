@@ -5,7 +5,9 @@
     "rtlRestartTitle": "إعادة التشغيل ضرورية",
     "rtlRestartBody": "اتجاه الكتابة يتغيّر مع هذه اللغة: أعد تشغيل التطبيق لتطبيقه بالكامل.",
     "restartLater": "لاحقًا",
-    "restartNow": "إعادة التشغيل"
+    "restartNow": "إعادة التشغيل",
+    "soon": "قريباً",
+    "soonBody": "الأمازيغية قادمة. جاري ترجمة نصوص التطبيق."
   },
   "map": {
     "locateMe": "موقعي",
@@ -132,7 +134,8 @@
     "reason_wrong_facade": "المكان صحيح لكن الواجهة خاطئة",
     "reason_poor_quality": "صورة غير واضحة",
     "reason_inappropriate": "محتوى غير لائق",
-    "reason_other": "أخرى"
+    "reason_other": "أخرى",
+    "contributorOnly": "إضافة الأماكن مخصّصة لمساهمي WIN."
   },
   "categories": {
     "groups": {
