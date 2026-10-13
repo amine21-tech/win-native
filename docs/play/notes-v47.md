@@ -1,7 +1,7 @@
-# WIN v46 — note de version pour Google Play
+# WIN v47 — note de version pour Google Play
 
 Champ « Notes de version » de la Play Console, en francais. Play limite ce champ a
-500 caracteres par langue ; ce texte en fait moins de 450, accents compris.
+500 caracteres par langue ; ce texte en fait 439, accents compris. Les balises <fr-FR> sont celles que la Play Console attend.
 
 Il est ecrit pour un UTILISATEUR, pas pour un developpeur : on dit ce qui change a l'ecran,
 jamais le nom d'un fichier ni celui d'un moteur.
@@ -9,12 +9,14 @@ jamais le nom d'un fichier ni celui d'un moteur.
 ---
 
 ```
-• Trace de navigation plus epais et borde : les panneaux et numeros de route restent lisibles par-dessus.
-• Nouvelle fleche de position, avec halo.
-• Voies a prendre affichees a l'approche des bifurcations.
-• Recalcul plus rapide : seuil adapte a la vitesse, demi-tour detecte, routes signalees coupees contournees.
-• Relief des montagnes et pictogrammes des lieux (mosquees, pharmacies, stations, ecoles) des le zoom 13, de jour comme de nuit.
-• Enregistrement de lieux reserve aux contributeurs.
+<fr-FR>
+• Tracé plus épais et bordé : les panneaux de route restent lisibles par-dessus.
+• Nouvelle flèche de position, avec halo.
+• Voies à prendre affichées avant les bifurcations.
+• Recalcul plus rapide : seuil adapté à la vitesse, demi-tour détecté, routes coupées contournées.
+• Relief des montagnes et pictogrammes des lieux (mosquées, pharmacies, stations) dès le zoom 13, jour et nuit.
+• Enregistrement de lieux réservé aux contributeurs.
+</fr-FR>
 ```
 
 ---
