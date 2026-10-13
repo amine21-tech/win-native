@@ -135,7 +135,14 @@
     "reason_poor_quality": "التصويرة ما تبانش",
     "reason_inappropriate": "محتوى ما يصلحش",
     "reason_other": "حاجة أخرى",
-    "contributorOnly": "زيادة البلايص خاصة بالمساهمين تاع WIN."
+    "contributorOnly": "زيادة البلايص خاصة بالمساهمين تاع WIN.",
+    "manage": "إدارة هاد البطاقة",
+    "reportIssueTitle": "بلّغ على عنوان غالط",
+    "reportIssueSub": "الموقع ولا الاسم لي باين ماشي صحيح",
+    "editPlaceTitle": "بدّل هاد البطاقة",
+    "editPlaceSub": "صحّح الاسم ولا العنوان ولا التصويرة",
+    "deletePlaceTitle": "امسح هاد البطاقة",
+    "deletePlaceSub": "يتمسح البلاصة مع التصويرة نتاعها للأبد"
   },
   "categories": {
     "groups": {

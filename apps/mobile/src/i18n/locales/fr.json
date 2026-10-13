@@ -135,7 +135,14 @@
     "reason_poor_quality": "Photo floue ou illisible",
     "reason_inappropriate": "Contenu déplacé",
     "reason_other": "Autre",
-    "contributorOnly": "L'enregistrement de lieux est réservé aux contributeurs WIN."
+    "contributorOnly": "L'enregistrement de lieux est réservé aux contributeurs WIN.",
+    "manage": "Gérer cette fiche",
+    "reportIssueTitle": "Signaler une adresse incorrecte",
+    "reportIssueSub": "La position ou le nom affiché est faux",
+    "editPlaceTitle": "Modifier cette fiche",
+    "editPlaceSub": "Corriger le nom, l'adresse ou la photo",
+    "deletePlaceTitle": "Supprimer cette fiche",
+    "deletePlaceSub": "Supprimer le lieu et sa photo définitivement"
   },
   "categories": {
     "groups": {

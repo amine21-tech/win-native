@@ -135,7 +135,14 @@
     "reason_poor_quality": "صورة غير واضحة",
     "reason_inappropriate": "محتوى غير لائق",
     "reason_other": "أخرى",
-    "contributorOnly": "إضافة الأماكن مخصّصة لمساهمي WIN."
+    "contributorOnly": "إضافة الأماكن مخصّصة لمساهمي WIN.",
+    "manage": "إدارة هذه البطاقة",
+    "reportIssueTitle": "الإبلاغ عن عنوان خاطئ",
+    "reportIssueSub": "الموقع أو الاسم المعروض غير صحيح",
+    "editPlaceTitle": "تعديل هذه البطاقة",
+    "editPlaceSub": "تصحيح الاسم أو العنوان أو الصورة",
+    "deletePlaceTitle": "حذف هذه البطاقة",
+    "deletePlaceSub": "حذف المكان وصورته نهائياً"
   },
   "categories": {
     "groups": {

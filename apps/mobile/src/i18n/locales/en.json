@@ -135,7 +135,14 @@
     "reason_poor_quality": "Blurry or unreadable",
     "reason_inappropriate": "Inappropriate content",
     "reason_other": "Other",
-    "contributorOnly": "Adding places is reserved for WIN contributors."
+    "contributorOnly": "Adding places is reserved for WIN contributors.",
+    "manage": "Manage this place",
+    "reportIssueTitle": "Report a wrong address",
+    "reportIssueSub": "The position or the name shown is wrong",
+    "editPlaceTitle": "Edit this place",
+    "editPlaceSub": "Correct the name, address or photo",
+    "deletePlaceTitle": "Delete this place",
+    "deletePlaceSub": "Permanently remove the place and its photo"
   },
   "categories": {
     "groups": {

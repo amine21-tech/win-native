@@ -328,34 +328,59 @@ export function PlaceSheet({
           </View>
         ) : null}
 
-        {/* Gestion par l'auteur de la fiche. Reservee aux lieux WIN enregistres depuis cet
-            appareil : rien de tout cela n'apparait sur un resultat OpenStreetMap, qu'on ne
-            peut ni corriger ni retirer ici. */}
-        {isMine ? (
-          <View style={styles.ownerRow}>
-            <Pressable
-              onPress={() => setMyEditOpen(true)}
-              style={[styles.ownerBtn, { borderColor: colors.border, backgroundColor: colors.surfaceAlt }]}
-            >
-              <Text style={[typography.caption, { color: colors.text, fontWeight: '700' }]}>
-                ✏️ {t('place.editPlace')}
-              </Text>
-            </Pressable>
-            <Pressable
-              disabled={deleting}
-              onPress={askDelete}
-              style={[styles.ownerBtn, { borderColor: colors.danger, backgroundColor: colors.danger + '12' }]}
-            >
-              <Text style={[typography.caption, { color: colors.danger, fontWeight: '700' }]}>
-                {deleting ? '…' : `🗑 ${t('place.deletePlace')}`}
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
+        {/* « GERER CETTE FICHE » — maquette du client.
+         *
+         * Les trois gestes etaient disperses : deux petits boutons cote a cote pour l'auteur, et
+         * un lien gris perdu en bas de page pour le signalement. Rassembles sous un titre, avec
+         * chacun sa pastille et UNE LIGNE QUI DIT CE QU'IL FAIT, ils deviennent lisibles d'un
+         * coup d'oeil — c'est ce que demande la maquette, et c'est surtout ce qui evite de
+         * supprimer une fiche en croyant la corriger.
+         *
+         * Le signalement s'adresse a tout le monde ; modifier et supprimer n'apparaissent qu'a
+         * l'auteur de la fiche (ou a un contributeur a qui on en a donne la main). Rien de tout
+         * cela ne s'affiche sur un resultat OpenStreetMap, qu'on ne peut ni corriger ni retirer
+         * d'ici. */}
+        {place.placeId ? (
+          <View style={styles.manage}>
+            <Text style={[styles.manageTitle, { color: colors.textMuted }]}>{t('place.manage')}</Text>
 
-        <Pressable onPress={() => setCorrectionOpen(true)} style={styles.reportIssue}>
-          <Text style={[typography.caption, { color: colors.textMuted }]}>{t('place.reportIssue')}</Text>
-        </Pressable>
+            <ManageRow
+              emoji="🚩"
+              teinte={colors.alert + '1f'}
+              titre={t('place.reportIssueTitle')}
+              detail={t('place.reportIssueSub')}
+              onPress={() => setCorrectionOpen(true)}
+              colors={colors}
+            />
+
+            {isMine ? (
+              <>
+                <ManageRow
+                  emoji="✏️"
+                  teinte={colors.accent + '1f'}
+                  titre={t('place.editPlaceTitle')}
+                  detail={t('place.editPlaceSub')}
+                  onPress={() => setMyEditOpen(true)}
+                  colors={colors}
+                />
+                <ManageRow
+                  emoji="🗑️"
+                  teinte={colors.danger + '1f'}
+                  titre={t('place.deletePlaceTitle')}
+                  detail={t('place.deletePlaceSub')}
+                  onPress={askDelete}
+                  disabled={deleting}
+                  danger
+                  colors={colors}
+                />
+              </>
+            ) : null}
+          </View>
+        ) : (
+          <Pressable onPress={() => setCorrectionOpen(true)} style={styles.reportIssue}>
+            <Text style={[typography.caption, { color: colors.textMuted }]}>{t('place.reportIssue')}</Text>
+          </Pressable>
+        )}
       </ScrollView>
 
       <Pressable
@@ -488,7 +513,71 @@ function ContactButton({
   );
 }
 
+/** Une ligne de « Gerer cette fiche » : pastille, intitule, et la phrase qui dit ce qu'elle
+ * fait. Le chevron indique qu'elle ouvre quelque chose plutot que d'agir immediatement — sauf
+ * pour la suppression, qui demande confirmation ensuite. */
+function ManageRow({
+  emoji,
+  teinte,
+  titre,
+  detail,
+  onPress,
+  colors,
+  disabled,
+  danger,
+}: {
+  emoji: string;
+  teinte: string;
+  titre: string;
+  detail: string;
+  onPress: () => void;
+  colors: Palette;
+  disabled?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={titre}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.manageRow,
+        { borderTopColor: colors.border, backgroundColor: pressed ? colors.surfaceAlt : 'transparent' },
+      ]}
+    >
+      <View style={[styles.manageIcon, { backgroundColor: teinte }]}>
+        <Text style={{ fontSize: 17 }}>{emoji}</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.manageRowTitle, { color: danger ? colors.danger : colors.text }]}>{titre}</Text>
+        <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={2}>
+          {detail}
+        </Text>
+      </View>
+      <Text style={{ color: colors.textMuted, fontSize: 18 }}>›</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  manage: { marginTop: spacing.lg },
+  manageTitle: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
+  },
+  manageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  manageIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  manageRowTitle: { fontFamily: fonts.sansBold, fontSize: 14.5, marginBottom: 1 },
   sheet: {
     position: 'absolute',
     left: 0,
