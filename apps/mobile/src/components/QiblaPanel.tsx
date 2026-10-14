@@ -231,7 +231,9 @@ export function QiblaPanel({ visible, onClose, position }: Props) {
 
               <Text style={styles.title}>{t('qibla.title')}</Text>
 
-              <View style={styles.compassWrap}>
+              {/* Le cadre de la boussole n'a aucun role interactif : il laisse passer le
+                  glissement vers la liste, comme le dessin qu'il entoure. */}
+              <View pointerEvents="none" style={styles.compassWrap}>
                 <QiblaCompass
                   size={compassSize}
                   arrowRotation={arrowRotation}

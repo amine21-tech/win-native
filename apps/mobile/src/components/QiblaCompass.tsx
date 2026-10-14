@@ -82,7 +82,19 @@ export function QiblaCompass({ size, arrowRotation, dialRotation, gold, cardinal
   const arrowSpin = useSmoothRotation(arrowRotation);
 
   return (
-    <View style={[styles.frame, { width: size, height: size, borderColor: gold }]}>
+    /* `pointerEvents="none"` : LA BOUSSOLE NE DOIT RIEN RECEVOIR DU DOIGT.
+     *
+     * Sur Android, le defilement de l'ecran Qibla etait quasi impossible des que le geste
+     * partait du cercle. La cause n'est pas celle qu'on suppose d'ordinaire — il n'y a ici ni
+     * PanResponder ni gestionnaire tactile : c'est le dessin SVG lui-meme qui est, pour Android,
+     * une cible tactile a part entiere. Il retient le doigt, et la liste qui l'entoure ne voit
+     * jamais passer le glissement.
+     *
+     * Cette boussole ne sert qu'a REGARDER : elle tourne avec le magnetometre, jamais avec le
+     * doigt. Lui retirer tout contact ne lui enleve donc aucune fonction, et rend le geste a
+     * l'ecran qui en a besoin. C'est le comportement du navigateur, que la version HTML avait
+     * gratuitement. */
+    <View pointerEvents="none" style={[styles.frame, { width: size, height: size, borderColor: gold }]}>
       <Svg width="100%" height="100%" viewBox="0 0 100 100" style={StyleSheet.absoluteFill}>
         <Defs>
           {/* `radial-gradient(circle,#0a4a36,#0d3a2b)` : clair au centre, sombre au bord. */}

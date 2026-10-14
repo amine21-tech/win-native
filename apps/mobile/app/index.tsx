@@ -111,17 +111,19 @@ const ROUTE_COLORS = {
  * navigation courantes font donc varier l'epaisseur avec le zoom ; ces quatre paliers
  * reproduisent leur progression.
  *
- * Les paliers viennent de deux demandes successives, et c'est leur ECART qui compte :
+ * Les cinq paliers sont ceux du client, mesures sur son telephone apres trois essais :
+ * 1,5 au zoom 7 (pays entier), 2,5 au zoom 10 (itineraire complet), 6 au zoom 13 (approche
+ * d'une ville), 9 au zoom 15 (navigation courante) et 13 au zoom 18 (rue).
  *
- *   - en navigation (zoom 17-18), le trace doit etre EPAIS : c'est la premiere demande, et elle
- *     reste satisfaite — 20 points, plus la bordure et le lisere.
- *   - en vue d'ensemble (zoom 9-11), le meme trace devenait « trop epais » : un boudin qui
- *     recouvrait les villes qu'il traverse et empechait de comparer deux itineraires. C'est la
- *     seconde demande, et elle ne contredit pas la premiere : elle porte sur l'autre bout de
- *     l'echelle.
+ * Ces valeurs ont baisse deux fois. La premiere demande disait « trace trop fin » et visait la
+ * navigation ; la deuxieme « trop epais en zoom arriere » et visait la vue d'ensemble ; la
+ * troisieme a reduit encore la navigation elle-meme, de 18 a 13 — soit deux millimetres de
+ * moins sur l'ecran. Rien ne remplace l'oeil de quelqu'un qui conduit avec, et c'est pour cela
+ * que ces nombres viennent de lui et non d'une regle.
  *
- * D'ou une progression beaucoup plus marquee entre les deux : 4 points au zoom 10, 9 au zoom
- * 14, 20 au zoom 18. Le palier de recul a 6 garde une ligne visible sur la vue « pays entier ».
+ * Les autres couches en derivent : la bordure sombre et le lisere clair encadrent le trace sans
+ * le noyer, l'alternative reste plus fine que lui, et la portion deja parcourue a exactement sa
+ * largeur — sinon le changement de couleur se verrait comme un ressaut.
  */
 type LineWidth = NonNullable<React.ComponentProps<typeof Layer>['paint']> extends infer P
   ? P extends { 'line-width'?: infer W }
@@ -129,8 +131,8 @@ type LineWidth = NonNullable<React.ComponentProps<typeof Layer>['paint']> extend
     : never
   : never;
 
-function ROUTE_WIDTH(widths: [number, number, number, number]): LineWidth {
-  return ['interpolate', ['linear'], ['zoom'], 6, widths[0], 10, widths[1], 14, widths[2], 18, widths[3]];
+function ROUTE_WIDTH(widths: [number, number, number, number, number]): LineWidth {
+  return ['interpolate', ['linear'], ['zoom'], 7, widths[0], 10, widths[1], 13, widths[2], 15, widths[3], 18, widths[4]];
 }
 
 /* L'epingle de destination, dessinee par le moteur de la carte.
@@ -1537,7 +1539,7 @@ export default function MapScreen() {
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{
               'line-color': routeColors.alt,
-              'line-width': ROUTE_WIDTH([2, 3, 6, 12]),
+              'line-width': ROUTE_WIDTH([1, 1.8, 4, 6, 8.5]),
               'line-opacity': 0.55,
             }}
           />
@@ -1555,7 +1557,7 @@ export default function MapScreen() {
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{
               'line-color': routeColors.halo,
-              'line-width': ROUTE_WIDTH([5, 8, 16, 27]),
+              'line-width': ROUTE_WIDTH([3.5, 5.5, 11, 15, 20]),
               'line-opacity': 0.95,
             }}
           />
@@ -1572,7 +1574,7 @@ export default function MapScreen() {
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{
               'line-color': routeColors.casing,
-              'line-width': ROUTE_WIDTH([4, 6, 12, 22]),
+              'line-width': ROUTE_WIDTH([2.5, 4, 8.5, 12, 16.5]),
             }}
           />
           {/* Portion deja parcourue, en gris — meme teinte que le `#b9c4bf` de v83. Bout coupe
@@ -1587,7 +1589,7 @@ export default function MapScreen() {
             layout={{ 'line-cap': 'butt', 'line-join': 'round' }}
             paint={{
               'line-color': '#B9C4BF',
-              'line-width': ROUTE_WIDTH([2.5, 4, 9, 18]),
+              'line-width': ROUTE_WIDTH([1.5, 2.5, 6, 9, 13]),
               'line-opacity': 0.9,
             }}
           />
@@ -1598,7 +1600,7 @@ export default function MapScreen() {
             beforeId={routeAnchorId}
             filter={['==', ['get', 'kind'], 'primary']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{ 'line-color': routeColors.main, 'line-width': ROUTE_WIDTH([2.5, 4, 9, 18]) }}
+            paint={{ 'line-color': routeColors.main, 'line-width': ROUTE_WIDTH([1.5, 2.5, 6, 9, 13]) }}
           />
         </GeoJSONSource>
 

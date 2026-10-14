@@ -30,6 +30,34 @@ const BUS_STOP_RADIUS_M = 5_000;
  * Vide integralement apres tout ajout de lieu — voir clearSearchCache().
  */
 const cache = new Map<string, { at: number; value: SearchOutcome }>();
+
+/**
+ * Nombre de recherches gardees en memoire.
+ *
+ * Le cache n'avait aucune borne : une session longue — un trajet ou l'on cherche vingt stations,
+ * puis des restaurants, puis des pharmacies — le faisait grossir sans fin, chaque entree
+ * retenant une liste complete de resultats. Sur un telephone modeste, c'est de la memoire prise
+ * a la carte elle-meme.
+ *
+ * Cinquante entrees couvrent tres largement un aller-retour : au-dela, c'est la plus ANCIENNE
+ * qui part. Une recherche reutilisee se replace en tete, de sorte que les habitudes de
+ * quelqu'un — son travail, l'ecole des enfants — ne se font jamais evincer par une recherche
+ * faite une seule fois.
+ */
+const CACHE_MAX = 50;
+
+function cacheSet(cle: string, value: SearchOutcome) {
+  // Reecrire une cle existante ne la remonte pas dans l'ordre d'insertion : on la retire
+  // d'abord. Sans cela, la plus utilisee pourrait etre la premiere expulsee.
+  cache.delete(cle);
+  cache.set(cle, { at: Date.now(), value });
+  while (cache.size > CACHE_MAX) {
+    const plusAncienne = cache.keys().next().value;
+    if (plusAncienne === undefined) break;
+    cache.delete(plusAncienne);
+  }
+}
+
 export function clearSearchCache() {
   cache.clear();
 }
@@ -257,6 +285,9 @@ export function usePlaceSearch(here: Coords | null, lang: Language) {
       const cacheKey = `${q.toLowerCase().trim()}|${lang}|${here ? `${here.lat.toFixed(2)},${here.lon.toFixed(2)}` : 'noloc'}`;
       const cached = cache.get(cacheKey);
       if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+        // Reutilisee : elle se replace en tete et echappe a l'expulsion.
+        cache.delete(cacheKey);
+        cache.set(cacheKey, cached);
         setOutcome(cached.value);
         setLoading(false);
         return;
@@ -267,7 +298,7 @@ export function usePlaceSearch(here: Coords | null, lang: Language) {
       try {
         const value = await search(q, here, lang);
         if (id !== requestId.current) return; // une frappe plus recente a devance cette reponse
-        cache.set(cacheKey, { at: Date.now(), value });
+        cacheSet(cacheKey, value);
         setOutcome(value);
       } finally {
         if (id === requestId.current) setLoading(false);
