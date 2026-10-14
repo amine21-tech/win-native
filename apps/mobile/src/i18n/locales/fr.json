@@ -37,9 +37,9 @@
     "radar": "Radar",
     "bump": "Dos d'âne",
     "pothole": "Trou sur la route",
-    "police": "Police",
+    "police": "Barrage police",
     "crash": "Accident",
-    "jam": "Embouteillage",
+    "jam": "Bouchon",
     "object": "Objet sur la route",
     "fire": "Incendie",
     "flood": "Inondation",
@@ -51,7 +51,11 @@
     "menuTitle": "Signaler sur la route",
     "sent": "Signalement envoyé, merci !",
     "removedThanks": "Merci, l'élément a été retiré de la carte.",
-    "voteRecorded": "Merci. Il sera retiré de la carte dès que d'autres conducteurs le confirmeront."
+    "voteRecorded": "Merci. Il sera retiré de la carte dès que d'autres conducteurs le confirmeront.",
+    "gendarmerie": "Barrage gendarmerie",
+    "armee": "Barrage armée",
+    "works": "Travaux",
+    "nouveau": "Nouveau"
   },
   "nav": {
     "start": "C'est parti",

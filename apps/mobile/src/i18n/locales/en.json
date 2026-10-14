@@ -37,7 +37,7 @@
     "radar": "Speed camera",
     "bump": "Speed bump",
     "pothole": "Pothole",
-    "police": "Police",
+    "police": "Police checkpoint",
     "crash": "Crash",
     "jam": "Traffic jam",
     "object": "Object on the road",
@@ -51,7 +51,11 @@
     "menuTitle": "Report on the road",
     "sent": "Report sent, thank you!",
     "removedThanks": "Thanks, it has been removed from the map.",
-    "voteRecorded": "Thanks. It will be removed from the map once other drivers confirm it."
+    "voteRecorded": "Thanks. It will be removed from the map once other drivers confirm it.",
+    "gendarmerie": "Gendarmerie checkpoint",
+    "armee": "Army checkpoint",
+    "works": "Roadworks",
+    "nouveau": "New"
   },
   "nav": {
     "start": "Start",

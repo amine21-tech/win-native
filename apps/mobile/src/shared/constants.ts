@@ -32,6 +32,19 @@ export const REPORT_KINDS = [
   'fire',
   'flood',
   'block', // route bloquee
+  /* Les trois forces separement, a la demande du client (document v4.0, point J).
+   *
+   * Un conducteur algerien ne lit pas << barrage >> de la meme facon selon qui le tient : la
+   * gendarmerie sur une nationale, la police en ville, l'armee sur un axe sensible. Les
+   * confondre sous un seul mot, c'est perdre l'information la plus utile de l'annonce.
+   *
+   * Trois types distincts plutot qu'un type et un sous-champ : chacun garde sa couleur, son
+   * pictogramme et sa duree de vie, et le filtrage reste une simple comparaison. */
+  'gendarmerie',
+  'armee',
+  /* Les travaux manquaient. Ils ne sont ni un bouchon ni une route coupee : la voie passe, mais
+   * lentement, et souvent pendant des semaines. */
+  'works',
 ] as const;
 export type ReportKind = (typeof REPORT_KINDS)[number];
 
@@ -45,7 +58,7 @@ export type ReportKind = (typeof REPORT_KINDS)[number];
  * il reste donc affiche jusqu'a ce qu'un conducteur reponde « Plus la » ou qu'un
  * administrateur le retire.
  */
-export const PERMANENT_KINDS: readonly ReportKind[] = ['radar', 'bump', 'pothole', 'police'];
+export const PERMANENT_KINDS: readonly ReportKind[] = ['radar', 'bump', 'pothole', 'police', 'gendarmerie', 'armee'];
 
 /**
  * Duree de vie d'un signalement temporaire, en minutes, par type.
@@ -66,6 +79,15 @@ export const TEMPORARY_TTL_MINUTES: Record<ReportKind, number> = {
   fire: 180, // incendie
   block: 240, // route coupee
   flood: 360, // route inondee
+  gendarmerie: 0, // permanent — voir PERMANENT_KINDS
+  armee: 0, // permanent — voir PERMANENT_KINDS
+  /* Douze heures pour les travaux.
+   *
+   * Un chantier dure des semaines, mais l'ANNONCE, elle, ne doit pas survivre au chantier : une
+   * route rendue reste signalee en travaux des mois si personne ne pense a l'infirmer. Douze
+   * heures couvrent la journee de travail qui a motive le signalement, et le chantier encore la
+   * demain sera resignale par le premier conducteur qui le traverse. */
+  works: 720,
 };
 
 /**

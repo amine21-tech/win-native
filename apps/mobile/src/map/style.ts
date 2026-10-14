@@ -52,4 +52,11 @@ export const REPORT_COLORS: Record<string, string> = {
   fire: '#D64545',
   flood: '#4A7DD4',
   block: '#D64545',
+  /* Les trois forces gardent chacune leur couleur institutionnelle, celle de leur uniforme :
+   * bleu pour la police, vert pour la gendarmerie, brun pour l'armee. Sur la carte, la couleur
+   * suffit a reconnaitre le barrage sans lire l'etiquette. */
+  gendarmerie: '#2E7D4F',
+  armee: '#6B5B3E',
+  // L'ambre des travaux, la meme que les panneaux de chantier.
+  works: '#E09B2D',
 };
