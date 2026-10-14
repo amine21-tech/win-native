@@ -360,14 +360,17 @@ const routes: FastifyPluginAsync = async (app) => {
      * appelable directement, et c'est precisement ce qu'on veut empecher. Un code VIP valide
      * vaut aussi droit d'ecrire — un partenaire commercial est, par construction, quelqu'un
      * que l'equipe connait. */
-    const avecCodeVip = input.vipCode !== undefined && vipCodeMatches(input.vipCode);
-    if (!avecCodeVip && !(await estContributeur(deviceId))) {
-      throw new HttpError(
-        403,
-        'contributeur_requis',
-        "L'enregistrement de lieux est reserve aux contributeurs WIN.",
-      );
-    }
+    /* AJOUTER est ouvert a tous ; CORRIGER et SUPPRIMER sont reserves aux contributeurs.
+     *
+     * La restriction etait au depart posee a l'entree : personne ne pouvait enregistrer un lieu
+     * sans etre contributeur. Elle est maintenant posee a la CURATION, et c'est un autre
+     * equilibre : n'importe qui apporte ce qu'il connait — le commerce de son quartier, l'ecole
+     * de ses enfants, l'adresse que les cartes ignorent — et un petit nombre de personnes de
+     * confiance corrige ou retire ce qui ne va pas.
+     *
+     * C'est le choix du client, et c'est celui de toutes les cartes qui ont fini par couvrir un
+     * pays : fermer l'ecriture protege la qualite de ce qui est ecrit, mais garantit surtout
+     * qu'il n'y aura presque rien d'ecrit. */
     // Le code est reverifie ici : l'etape vip-check ne sert qu'a l'affichage du formulaire, et
     // n'importe qui peut appeler cette route directement.
     const isVip = input.vipCode !== undefined;

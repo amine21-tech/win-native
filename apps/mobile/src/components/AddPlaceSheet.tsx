@@ -354,14 +354,7 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
       }
       setSavedOk(true);
     } catch (e) {
-      /* DEUX refus differents portent le meme code 403, et les confondre envoyait l'utilisateur
-       * chercher un code VIP dont il n'a pas besoin. Le serveur les distingue : un appareil sans
-       * droit d'ecriture recoit `contributeur_requis`, un code VIP faux `code_vip_invalide`.
-       * Ce cas se produit des qu'un droit a ete retire alors que l'appareil le croyait encore
-       * acquis — le formulaire s'ouvre, et seul l'enregistrement echoue. */
-      if (e instanceof ApiError && e.code === 'contributeur_requis') {
-        setError(t('place.contributorOnly'));
-      } else if (e instanceof ApiError && e.status === 403) {
+      if (e instanceof ApiError && e.status === 403) {
         setVip('code');
         setVipError(t('addPlace.vipWrongCode'));
       } else if (e instanceof ApiError && e.status === 409) {

@@ -51,7 +51,6 @@ import { TunisiaUnlockSheet } from '../src/components/TunisiaUnlockSheet';
 import { useTunisiaUnlock } from '../src/unlock/useTunisiaUnlock';
 import { LocateIcon } from '../src/components/LocateIcon';
 import { NavDestinationPicker } from '../src/components/NavDestinationPicker';
-import { useContributor } from '../src/place/useContributor';
 import { DetourSheet } from '../src/components/DetourSheet';
 import { NavSearchMenu } from '../src/components/NavSearchMenu';
 import { MeMarker } from '../src/map/MeMarker';
@@ -376,7 +375,6 @@ export default function MapScreen() {
   const [detourPoint, setDetourPoint] = useState<Position | null>(null);
   /* L'enregistrement de lieux est reserve aux contributeurs : pour les autres, l'appui long
    * hors navigation ne fait rien, et rien a l'ecran ne laisse deviner qu'il existe. */
-  const { isContributor } = useContributor();
   /* Destination d'origine, mise de cote le temps d'un detour.
    *
    * Sans elle, se derouter vers une station-service ferait perdre le trajet : il faudrait
@@ -946,20 +944,15 @@ export default function MapScreen() {
     (event: { nativeEvent: { lngLat: [number, number] } }) => {
       const [lon, lat] = event.nativeEvent.lngLat;
       if (navigating) setDetourPoint({ lat, lon });
-      // Hors navigation, seul un contributeur ouvre le formulaire. C'est le choix du client :
-      // la carte ne se corrige pas a l'aveugle, et un nom mal orthographie y reste des mois.
-      else if (isContributor) setAddPlaceCoords({ lat, lon });
-      /* AUCUNE REACTION ne se distingue pas d'une PANNE.
+      /* Hors navigation, l'appui long ouvre le formulaire d'ajout POUR TOUT LE MONDE.
        *
-       * Le droit d'enregistrer un lieu a ete reserve aux contributeurs ; mais un appui long qui
-       * ne declenchait rien du tout a aussitot ete rapporte comme « l'enregistrement GPS est
-       * casse ». C'etait inevitable : du point de vue de celui qui appuie, une fonction
-       * silencieuse et une fonction en panne sont exactement la meme chose.
-       *
-       * Le geste repond donc toujours. Il explique, au lieu de se taire. */
-      else setToast(t('place.contributorOnly'));
+       * Ce droit a ete ferme un temps, puis rouvert : la selection ne se fait plus a l'entree
+       * mais a la curation — chacun apporte ce qu'il connait, les contributeurs corrigent et
+       * retirent. Fermer l'ecriture protegeait la qualite de ce qui etait ecrit, au prix de
+       * n'avoir presque rien d'ecrit. */
+      else setAddPlaceCoords({ lat, lon });
     },
-    [navigating, isContributor, t],
+    [navigating],
   );
 
   /** Deviation confirmee : la destination change, l'ancienne est mise de cote. */
