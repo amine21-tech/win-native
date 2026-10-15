@@ -186,6 +186,44 @@ export async function fetchPhotonCategory(
     .filter((r): r is GeocodedResult => r !== null && !r.name.includes(';'));
 }
 
+/**
+ * Lieux d'un TYPE donne autour d'un point — c'est la bonne question pour une rubrique.
+ *
+ * L'ancienne methode envoyait un TEXTE (<< train station >>) et triait la reponse apres coup.
+ * Elle echouait exactement la ou elle comptait : la gare d'Agha, a 1,6 km du centre d'Alger,
+ * ne s'appelle pas << train station >> mais << Agha >>. Photon cherchait des mots, pas des
+ * gares, et la rubrique rendait << Aucun resultat >> a cote d'une gare visible depuis la rue.
+ *
+ * `/reverse` avec `osm_tag` pose l'autre question : non pas << qui s'appelle ainsi >> mais
+ * << qu'y a-t-il de ce type autour de moi >>. La reponse arrive deja triee par distance.
+ * Verifie depuis Didouche Mourad : dix gares, Agha en 1,6 km.
+ *
+ * Plusieurs `osm_tag` se cumulent en OU : une rubrique peut donc couvrir plusieurs tags OSM,
+ * comme << Transport public >> qui reunit gares ferroviaires, gares routieres et arrets de bus.
+ */
+export async function fetchPhotonNearby(
+  tags: [string, string][],
+  here: Coords,
+  lang: Language,
+  radiusKm = 50,
+): Promise<GeocodedResult[]> {
+  const params = new URLSearchParams({
+    lat: String(here.lat),
+    lon: String(here.lon),
+    radius: String(radiusKm),
+    limit: '40',
+    lang: accLang(lang),
+  });
+  for (const [cle, valeur] of tags) params.append('osm_tag', `${cle}:${valeur}`);
+
+  const data = await fetchGeocoder<{ features?: PhotonFeature[] }>(
+    `https://photon.komoot.io/reverse?${params.toString()}`,
+  );
+  return (data.features ?? [])
+    .map((f) => mapPhotonFeature(f, lang))
+    .filter((r): r is GeocodedResult => r !== null && !r.name.includes(';'));
+}
+
 /** Repli Nominatim, utilise quand Photon ne renvoie rien. */
 export async function fetchNominatim(
   query: string,

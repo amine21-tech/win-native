@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ReportKind } from '../shared';
-import { menuEmoji, REPORT_FAMILLE, REPORT_MENU_ORDER, type ReportFamille } from '../reports/kinds';
+import { FORCES, menuEmoji, REPORT_FAMILLE, REPORT_MENU_ORDER } from '../reports/kinds';
+import { RadarIcon } from './RadarIcon';
 import { radius, spacing, typography, type Palette } from '../theme';
 
 type Props = {
@@ -11,68 +13,104 @@ type Props = {
   colors: Palette;
 };
 
-/**
- * Teinte de fond par famille de signalement.
+/* Fond et bordure des cartes, repris de la maquette du client.
  *
- * Ce menu s'ouvre au volant, et le choix s'y fait en une seconde — a la couleur et au
- * pictogramme, rarement en lisant l'etiquette. Le rouge appelle ce qui met en danger, l'ambre ce
- * qui ralentit, le bleu ce qui s'anticipe ou se contourne, le violet ce qui vient d'arriver.
- *
- * Les fonds restent tres pales (`14` en fin de code, soit 8 % d'opacite) : ils doivent guider
- * l'oeil, pas crier. La bordure, elle, porte la couleur pleine.
+ * Les contours de couleur vive ont disparu. J'avais teinte chaque carte selon sa famille, en
+ * pensant qu'au volant la couleur se lit plus vite que le mot ; le client a tranche autrement,
+ * et sa maquette se defend mieux que mon raisonnement : onze cartes de quatre couleurs
+ * differentes forment un damier ou plus rien ne ressort. Des cartes neutres, et la couleur
+ * reservee a ce qui la merite vraiment — les trois ecussons du barrage, le badge << Nouveau >>.
  */
-const TEINTES: Record<ReportFamille, string> = {
-  danger: '#D64545',
-  ralentit: '#E09B2D',
-  info: '#2F6FE0',
-  nouveau: '#7B5BD6',
-};
+const FOND_CARTE = '#F7F8F9';
+const BORDURE_CARTE = '#E4E6E8';
 
 /** Menu de signalement : grille 2 colonnes, heritee de `.alert-menu`/`.am-grid` en v83. */
 export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
   const { t } = useTranslation();
+  /* Quelle force tient le barrage : le choix se fait DANS la carte, sans la quitter. Un seul
+   * appui suffit a qui sait deja, deux a qui hesite. */
+  const [force, setForce] = useState<ReportKind>('police');
+
+  const choisir = (kind: ReportKind) => {
+    onPick(kind === 'police' ? force : kind);
+  };
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={[styles.card, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
-          <View style={styles.head}>
-            <Text style={[typography.heading, { color: colors.text }]}>{t('report.menuTitle')}</Text>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <Text style={{ color: colors.textMuted, fontSize: 18 }}>✕</Text>
-            </Pressable>
-          </View>
-          <View style={styles.grid}>
-            {REPORT_MENU_ORDER.map((kind) => {
-              const famille = REPORT_FAMILLE[kind];
-              const teinte = TEINTES[famille];
-              return (
-                <Pressable
-                  key={kind}
-                  onPress={() => onPick(kind)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t(`report.${kind}`)}
-                  style={({ pressed }) => [
-                    styles.item,
-                    { borderColor: teinte, backgroundColor: teinte + (pressed ? '2E' : '14') },
-                  ]}
-                >
-                  {/* Le badge ne marque pas une categorie mais une NOUVEAUTE : il attire l'oeil
-                      sur une fonction que personne ne cherche encore, et disparaitra quand elle
-                      sera entree dans les habitudes. */}
-                  {famille === 'nouveau' ? (
-                    <View style={[styles.badge, { backgroundColor: teinte }]}>
-                      <Text style={styles.badgeText}>{t('report.nouveau')}</Text>
-                    </View>
-                  ) : null}
-                  <Text style={styles.emoji}>{menuEmoji(kind)}</Text>
-                  <Text style={[typography.caption, styles.itemLabel, { color: colors.text }]} numberOfLines={2}>
-                    {t(`report.${kind}`)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <View style={styles.poignee} />
+          <Text style={[typography.heading, { color: colors.text }]}>{t('report.menuTitle')}</Text>
+          <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.md }]}>
+            {t('report.menuSub')}
+          </Text>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.grid}>
+              {REPORT_MENU_ORDER.map((kind) => {
+                const estBarrage = kind === 'police';
+                const estNouveau = REPORT_FAMILLE[kind] === 'nouveau';
+                return (
+                  <Pressable
+                    key={kind}
+                    onPress={() => choisir(kind)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t(`report.${kind}`)}
+                    style={({ pressed }) => [
+                      styles.item,
+                      { backgroundColor: pressed ? BORDURE_CARTE : FOND_CARTE, borderColor: BORDURE_CARTE },
+                    ]}
+                  >
+                    {estNouveau ? (
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>{t('report.nouveau')}</Text>
+                      </View>
+                    ) : null}
+
+                    {estBarrage ? (
+                      /* Les trois ecussons, a la place du pictogramme. Celui qui est choisi est
+                         plein, les deux autres s'effacent — l'etat du choix se voit sans lire. */
+                      <View style={styles.forces}>
+                        {FORCES.map((f) => {
+                          const actif = f.kind === force;
+                          return (
+                            <Pressable
+                              key={f.kind}
+                              onPress={() => setForce(f.kind)}
+                              accessibilityRole="button"
+                              accessibilityLabel={t(`report.${f.kind}`)}
+                              style={[
+                                styles.ecusson,
+                                { backgroundColor: f.couleur, opacity: actif ? 1 : 0.32 },
+                              ]}
+                            >
+                              <Text style={styles.ecussonText}>{f.court}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    ) : kind === 'radar' ? (
+                      // Un dessin plutot qu'un emoji : voir RadarIcon.
+                      <RadarIcon size={26} />
+                    ) : (
+                      <Text style={styles.emoji}>{menuEmoji(kind)}</Text>
+                    )}
+
+                    <Text style={[styles.itemLabel, { color: colors.text }]} numberOfLines={1}>
+                      {t(`report.${kind}`)}
+                    </Text>
+                    <Text style={[styles.itemSub, { color: colors.textMuted }]} numberOfLines={2}>
+                      {t(`report.sub_${kind}`)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ScrollView>
+
+          <Pressable onPress={onClose} style={[styles.annuler, { backgroundColor: FOND_CARTE }]}>
+            <Text style={[typography.body, { color: colors.textMuted }]}>{t('addPlace.cancel')}</Text>
+          </Pressable>
         </Pressable>
       </Pressable>
     </Modal>
@@ -83,47 +121,66 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(21,32,28,0.45)',
-    alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingBottom: spacing.xxl * 2,
-    paddingHorizontal: spacing.lg,
   },
   card: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
+    maxHeight: '86%',
   },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  poignee: {
+    alignSelf: 'center',
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D8DCDE',
+    marginBottom: spacing.md,
+  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'space-between' },
   item: {
-    width: '47%',
-    borderWidth: 2,
-    // 16 points de rayon, demandes par le client : des angles plus doux que le reste de
-    // l'interface, parce que ces pastilles se touchent vite et mal.
+    width: '48%',
+    borderWidth: 1,
+    // 16 points : des angles plus doux que le reste de l'interface, parce que ces cartes se
+    // touchent vite et mal.
     borderRadius: 16,
-    overflow: 'visible',
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
     alignItems: 'center',
-    gap: spacing.xs,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    gap: 3,
   },
-  emoji: { fontSize: 22 },
-  /* Le badge deborde volontairement du coin : pose a l'interieur, il se confondrait avec le
-   * contenu de la pastille ; a cheval sur le bord, il se lit comme une etiquette collee. */
+  emoji: { fontSize: 24 },
+  itemLabel: { fontSize: 14, fontWeight: '800' as const, marginTop: 2 },
+  itemSub: { fontSize: 10.5, textAlign: 'center', lineHeight: 13 },
+  forces: { flexDirection: 'row', gap: 5 },
+  ecusson: {
+    width: 34,
+    height: 26,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ecussonText: { color: '#fff', fontSize: 7.5, fontWeight: '800' as const, letterSpacing: 0.2 },
+  /* Le badge deborde du coin : pose a l'interieur, il se confondrait avec le contenu ; a cheval
+   * sur le bord, il se lit comme une etiquette collee. */
   badge: {
     position: 'absolute',
-    top: -8,
-    right: -4,
+    top: -7,
+    right: -3,
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 999,
+    backgroundColor: '#2E7D4F',
     elevation: 3,
   },
-  badgeText: { color: '#fff', fontSize: 9.5, fontWeight: '800' as const, letterSpacing: 0.3 },
-  itemLabel: { fontWeight: '700' as const, textAlign: 'center' },
+  badgeText: { color: '#fff', fontSize: 9, fontWeight: '800' as const },
+  annuler: {
+    marginTop: spacing.sm,
+    borderRadius: 14,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
 });

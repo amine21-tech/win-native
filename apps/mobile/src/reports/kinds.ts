@@ -6,22 +6,35 @@ import type { ReportKind } from '../shared';
  * Aucun equivalent emoji exact n'existe pour radar/dos d'ane/trou (des icones
  * dessinees a la main en v83) : choix les plus lisibles au premier coup d'oeil.
  */
+/* Les trois forces n'occupent qu'UNE case du menu.
+ *
+ * J'avais d'abord donne une case a chacune : trois pastilles cote a cote, un seul appui pour
+ * signaler. Le client a tranche autrement, et sa maquette a raison sur un point que je n'avais
+ * pas vu — trois cases sur onze, pour une seule realite, deseequilibrent la grille entiere : le
+ * barrage occupait un quart du menu, l'accident un onzieme.
+ *
+ * Une case, trois ecussons a l'interieur, et le choix de la force se fait DANS la case. Le
+ * modele de donnees, lui, ne change pas : trois types distincts en base, chacun avec sa
+ * couleur sur la carte. */
 export const REPORT_MENU_ORDER: ReportKind[] = [
   'jam',
   'crash',
-  // Les trois forces se suivent : on les choisit l'une pour l'autre, jamais l'une pour un
-  // bouchon. Les garder cote a cote evite de parcourir la grille a chaque fois.
-  'police',
-  'gendarmerie',
-  'armee',
-  'works',
+  'police', // la case << Barrage >> : voir FORCES ci-dessous
   'block',
+  'works',
+  'bump',
+  'radar',
+  'object',
+  'pothole',
   'flood',
   'fire',
-  'bump',
-  'object',
-  'radar',
-  'pothole',
+];
+
+/** Les trois forces, dans l'ordre de la maquette, avec leur couleur institutionnelle. */
+export const FORCES: { kind: ReportKind; court: string; couleur: string }[] = [
+  { kind: 'police', court: 'POLICE', couleur: '#2F6FE0' },
+  { kind: 'gendarmerie', court: 'GEND.', couleur: '#2E7D4F' },
+  { kind: 'armee', court: 'ARMÉE', couleur: '#6B5B3E' },
 ];
 
 /**

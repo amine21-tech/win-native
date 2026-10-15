@@ -16,9 +16,51 @@ import {
   type Language,
   type Place,
 } from '../shared';
-import { fetchNominatim, fetchPhoton, fetchPhotonCategory, type Coords, type GeocodedResult } from './geocode';
+import {
+  fetchNominatim,
+  fetchPhoton,
+  fetchPhotonCategory,
+  fetchPhotonNearby,
+  type Coords,
+  type GeocodedResult,
+} from './geocode';
 
-const DEBOUNCE_MS = 180;
+const DEBOUNCE_MS = 150;
+
+/**
+ * Les mots que tout le monde tape.
+ *
+ * Charges en fond des l'ouverture de l'application, pendant que l'utilisateur regarde encore la
+ * carte. Quand il tape enfin << aeroport >>, la reponse est deja la : zero milliseconde de
+ * reseau. C'est la seule facon d'obtenir l'instantaneite que le client reclame — aucun reglage
+ * de delai ne rattrape un aller-retour vers un serveur allemand depuis un telephone algerien.
+ *
+ * Le chargement se fait UN PAR UN et non tous ensemble : vingt requetes simultanees au
+ * demarrage retarderaient la premiere vraie recherche de l'utilisateur, qui est justement celle
+ * qui compte. Elles s'arretent des qu'il tape quelque chose.
+ */
+const TERMES_FREQUENTS = [
+  'aéroport',
+  'hôpital',
+  'pharmacie',
+  'mosquée',
+  'gare',
+  'hôtel',
+  'restaurant',
+  'station-service',
+  'banque',
+  'parking',
+  'école',
+  'mairie',
+  'police',
+  'poste',
+  'supermarché',
+  'café',
+  'plage',
+  'université',
+  'clinique',
+  'marché',
+];
 const CACHE_TTL_MS = 3 * 60 * 1000;
 /** Un partenaire au-dela de cette distance n'est plus mis en avant (reste trouvable par son nom). */
 const VIP_RADIUS_M = 60_000;
@@ -39,12 +81,18 @@ const cache = new Map<string, { at: number; value: SearchOutcome }>();
  * retenant une liste complete de resultats. Sur un telephone modeste, c'est de la memoire prise
  * a la carte elle-meme.
  *
- * Cinquante entrees couvrent tres largement un aller-retour : au-dela, c'est la plus ANCIENNE
+ * Cent entrees couvrent tres largement un aller-retour : au-dela, c'est la plus ANCIENNE
  * qui part. Une recherche reutilisee se replace en tete, de sorte que les habitudes de
  * quelqu'un — son travail, l'ecole des enfants — ne se font jamais evincer par une recherche
  * faite une seule fois.
  */
-const CACHE_MAX = 50;
+const CACHE_MAX = 100;
+
+/** La cle d'une recherche : le texte, la langue, et le quartier ou l'on se trouve. */
+function cleCache(q: string, here: Coords | null, lang: Language): string {
+  const lieu = here ? `${here.lat.toFixed(2)},${here.lon.toFixed(2)}` : 'noloc';
+  return `${q.toLowerCase().trim()}|${lang}|${lieu}`;
+}
 
 function cacheSet(cle: string, value: SearchOutcome) {
   // Reecrire une cle existante ne la remonte pas dans l'ordre d'insertion : on la retire
@@ -107,14 +155,46 @@ async function fetchWinPlaces(q: string, here: Coords | null, lang: Language): P
   }
 }
 
+/** Deux fiches a moins de cette distance, portant le meme nom, designent le meme lieu. */
+const MEME_LIEU_M = 120;
+
+/**
+ * Un meme lieu, une seule fiche — et c'est TOUJOURS la version WIN qui gagne.
+ *
+ * Le symptome etait deroutant : chercher << Plage Medusa >> donnait la fiche avec sa photo et
+ * son badge << ajoute par un utilisateur WIN >>, puis la meme recherche, une minute plus tard,
+ * la rendait sans photo et sans badge.
+ *
+ * La cause n'est pas le cache, qui conserve bien tous les champs. C'est cette fonction :
+ * elle comparait le nom ET l'adresse complete. Or la meme plage s'ecrit
+ * << Plage Medusa, 06000 Bejaia, Algerie >> chez nous et << Plage Medusa, Bejaia, Algerie >>
+ * chez OpenStreetMap. Deux chaines differentes, donc deux fiches conservees — et selon le
+ * classement du moment, c'est tantot l'une tantot l'autre qui se presentait en premier. D'ou
+ * une photo qui apparait et disparait sans raison visible.
+ *
+ * On rapproche donc sur le NOM et la POSITION, pas sur le texte de l'adresse. Et quand deux
+ * fiches se rapprochent, celle de WIN l'emporte : elle seule porte la photo, le badge, le
+ * telephone et les horaires que quelqu'un a pris le temps de saisir.
+ */
 function dedupe(results: GeocodedResult[]): GeocodedResult[] {
-  const seen = new Set<string>();
-  return results.filter((r) => {
-    const key = `${r.name}|${r.displayName}`.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const gardes: GeocodedResult[] = [];
+
+  for (const r of results) {
+    const nom = normalizeCity(r.name);
+    const jumelle = gardes.findIndex(
+      (g) => normalizeCity(g.name) === nom && haversineM(g, r) <= MEME_LIEU_M,
+    );
+
+    if (jumelle < 0) {
+      gardes.push(r);
+      continue;
+    }
+
+    // Deja vue. La version WIN remplace celle d'OpenStreetMap ; l'inverse n'arrive jamais.
+    if (r.source === 'win' && gardes[jumelle]!.source !== 'win') gardes[jumelle] = r;
+  }
+
+  return gardes;
 }
 
 async function runCategorySearch(
@@ -248,6 +328,36 @@ async function search(qRaw: string, here: Coords | null, lang: Language): Promis
  * categorie/texte-libre que doSearch() en v83. `here` peut changer sans
  * relancer la recherche courante : seule une nouvelle frappe la relance.
  */
+/**
+ * Charge en fond les recherches les plus frequentes, des l'ouverture de l'application.
+ *
+ * Un par un, avec une pause entre chacune : il s'agit d'occuper le temps mort pendant lequel
+ * l'utilisateur regarde la carte, surtout pas de saturer le reseau au moment ou il va s'en
+ * servir. Tout s'arrete des qu'il tape quelque chose — sa recherche a toujours la priorite.
+ *
+ * Les echecs sont silencieux : ce n'est qu'une avance prise, jamais une fonction.
+ */
+let prechauffageLance = false;
+
+export function prechaufferRecherches(here: Coords | null, lang: Language, interrompu: () => boolean) {
+  if (prechauffageLance) return;
+  prechauffageLance = true;
+
+  void (async () => {
+    for (const terme of TERMES_FREQUENTS) {
+      if (interrompu()) return;
+      const cle = cleCache(terme, here, lang);
+      if (cache.has(cle)) continue;
+      try {
+        cacheSet(cle, await search(terme, here, lang));
+      } catch {
+        // Hors ligne au demarrage : on reessaiera a la prochaine ouverture.
+      }
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  })();
+}
+
 export function usePlaceSearch(here: Coords | null, lang: Language) {
   // `displayValue` est ce que montre la barre de recherche ; `searchTerm` est ce qui pilote
   // reellement la recherche. Un appui sur une puce de categorie les decouple exprès : la barre
@@ -279,22 +389,48 @@ export function usePlaceSearch(here: Coords | null, lang: Language) {
   const hereRef = useRef(here);
   hereRef.current = here;
 
+  /* Le prechauffage part une fois, a la premiere position connue, et se tait des que
+   * l'utilisateur tape : sa recherche a toujours la priorite sur une avance qu'on prenait
+   * pour lui. */
+  const termeRef = useRef(searchTerm);
+  termeRef.current = searchTerm;
+  useEffect(() => {
+    if (!here) return;
+    prechaufferRecherches(here, lang, () => termeRef.current.trim().length > 0);
+    // Volontairement une seule fois : la liste prechauffee ne depend pas du quartier exact.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [here !== null]);
+
   const runSearch = useCallback(
     async (q: string) => {
       const here = hereRef.current;
-      const cacheKey = `${q.toLowerCase().trim()}|${lang}|${here ? `${here.lat.toFixed(2)},${here.lon.toFixed(2)}` : 'noloc'}`;
+      const cacheKey = cleCache(q, here, lang);
       const cached = cache.get(cacheKey);
-      if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
-        // Reutilisee : elle se replace en tete et echappe a l'expulsion.
+      const frais = cached && Date.now() - cached.at < CACHE_TTL_MS;
+
+      /* CE QU'ON A, TOUT DE SUITE. Puis ce qui arrive du reseau.
+       *
+       * Une liste affichee immediatement, meme vieille de quelques minutes, vaut mieux qu'un
+       * ecran vide pendant une seconde : l'utilisateur voit que l'application l'a compris, et
+       * la bonne reponse est souvent deja celle-la. La mise a jour la remplace ensuite sans
+       * qu'il ait rien a faire.
+       *
+       * Une entree perimee s'affiche donc AUSSI — on ne jette pas une reponse plausible pour
+       * en attendre une parfaite. Elle se replace en tete du cache au passage. */
+      if (cached) {
         cache.delete(cacheKey);
         cache.set(cacheKey, cached);
         setOutcome(cached.value);
+      }
+      if (frais) {
         setLoading(false);
         return;
       }
 
       const id = ++requestId.current;
-      setLoading(true);
+      // Pas de voile d'attente quand une liste est deja affichee : elle clignoterait a chaque
+      // frappe alors que des resultats utilisables sont sous les yeux.
+      if (!cached) setLoading(true);
       try {
         const value = await search(q, here, lang);
         if (id !== requestId.current) return; // une frappe plus recente a devance cette reponse
