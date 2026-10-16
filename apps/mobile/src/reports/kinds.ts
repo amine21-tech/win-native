@@ -77,7 +77,10 @@ export const REPORT_EMOJI: Record<ReportKind, string> = {
   // Les trois forces se distinguent au premier regard : casquette, beret, tenue de combat.
   gendarmerie: '🪖',
   armee: '🎖️',
-  works: '🚧',
+  /* La grue, pas la barriere : << Route bloquee >> porte deja le chevalet de chantier, et deux
+   * cases du meme menu affichaient le meme pictogramme. Sur la maquette du client, les deux se
+   * distinguent au premier regard — c'est tout l'interet d'une image. */
+  works: '🏗️',
 };
 
 /**
