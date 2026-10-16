@@ -12,7 +12,7 @@
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.windz.app",
-      "versionCode": 56,
+      "versionCode": 57,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0A5840"
@@ -85,7 +85,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#0A5840"
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "extra": {
       "apiBaseUrl": "https://51.77.194.25.nip.io/v2",

@@ -366,7 +366,8 @@
     "hadithSource": "— رواه الحاكم وغيره (صحيح)",
     "compassActiveBold": "البوصلة نشطة",
     "compassActiveRest": " — يتبع السهم الاتجاه الفعلي لهاتفك.",
-    "compassFlat": "أمسك الهاتف مسطّحًا أفقيًا."
+    "compassFlat": "أمسك الهاتف مسطّحًا أفقيًا.",
+    "quran": "تلاوات القرآن"
   },
   "trip": {
     "unavailable": "الطريق ماكاش.",

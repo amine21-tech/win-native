@@ -23,6 +23,7 @@ import {
 } from '../reports/qibla';
 import { bearing, formatDistance, haversine, type Language } from '../shared';
 import { QiblaCompass } from './QiblaCompass';
+import { QuranSection } from './QuranSection';
 import { type Palette } from '../theme';
 
 type Coords = { lat: number; lon: number };
@@ -316,6 +317,9 @@ export function QiblaPanel({ visible, onClose, position }: Props) {
                 ) : null}
                 <Text style={styles.hadithSrc}>{t('qibla.hadithSource')}</Text>
               </View>
+
+              {/* Les recitations ferment l'ecran : on s'oriente d'abord, on ecoute ensuite. */}
+              <QuranSection />
             </ScrollView>
           </LinearGradient>
         </Pressable>
