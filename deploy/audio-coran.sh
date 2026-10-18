@@ -41,11 +41,25 @@ case "${1:-}" in
         echo "   REFUSE : $taille octets, le telechargement est incomplet."
         exit 1
       fi
-      # Un mp3 commence par ID3 ou par une trame MPEG (0xFF). Un fichier d'erreur HTML, non.
-      if ! head -c 3 "$tmp/$nom" | grep -qaE '^(ID3|\xff)'; then
-        echo "   REFUSE : ce n'est pas un fichier audio (page d'erreur ?)."
-        exit 1
-      fi
+      # Un mp3 commence soit par une etiquette ID3 (octets 49 44), soit directement par une
+      # trame MPEG, dont le premier octet vaut toujours FF. Une page d'erreur HTML, elle,
+      # commence par '<' ou par un espace.
+      #
+      # La version precedente de ce controle comparait des CARACTERES et cherchait la suite
+      # \xff, que le shell ne traduit pas en octet : aucun fichier ne commence par ces quatre
+      # caracteres-la, et un mp3 valide etait donc refuse. Verifie sur le fichier reel : il
+      # commence par ff f2, une trame MPEG sans etiquette. On lit desormais les octets.
+      debut=$(head -c 2 "$tmp/$nom" | od -An -tx1 | tr -d ' \n')
+      case "$debut" in
+        4944 | ff*) : ;;
+        *)
+          echo "   REFUSE : ce n'est pas un fichier audio (commence par 0x$debut)."
+          echo "   Debut du fichier recu :"
+          head -c 120 "$tmp/$nom"
+          echo
+          exit 1
+          ;;
+      esac
       docker cp "$tmp/$nom" "$CONTENEUR:$DOSSIER/$nom"
       echo "   depose : $taille octets"
     done
