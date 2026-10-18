@@ -8,6 +8,9 @@ const BASE_URL =
   (Constants.expoConfig?.extra as { apiBaseUrl?: string } | undefined)?.apiBaseUrl ??
   'http://10.0.2.2:3001';
 
+/** Adresse de notre API, pour les fichiers qu'elle sert elle-meme (voir /uploads). */
+export const API_BASE_URL = BASE_URL;
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,

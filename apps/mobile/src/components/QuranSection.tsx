@@ -102,7 +102,7 @@ export function QuranSection() {
                 un seul : elles portent une etoile. */}
             <View style={styles.numero}>
               <Text style={styles.numeroText}>
-                {r.suite ? '✦' : String(r.numero).padStart(3, '0')}
+                {r.suite || r.fichierLocal ? '✦' : String(r.numero).padStart(3, '0')}
               </Text>
             </View>
 
