@@ -17,14 +17,15 @@ type Props = {
   onPhotoError: () => void;
   isFavorite: boolean;
   onToggleFavorite: () => void;
-  /** L'utilisateur a-t-il le droit de corriger et de retirer cette fiche ? */
+  /** L'utilisateur a-t-il le droit de corriger et de retirer cette fiche ? Ne commande plus
+   * que le crayon pose sur la photo : le bouton « Gerer cette fiche », lui, est pour tous. */
   peutGerer: boolean;
   hasUserPosition: boolean;
   onStart: () => void;
+  /** Ouvre directement le formulaire de correction (crayon sur la photo). */
   onEdit: () => void;
-  onDelete: () => void;
-  onReport: () => void;
-  deleting: boolean;
+  /** Ouvre le panneau des trois actions. */
+  onManage: () => void;
 };
 
 /**
@@ -63,9 +64,7 @@ export function WinPlaceCard({
   hasUserPosition,
   onStart,
   onEdit,
-  onDelete,
-  onReport,
-  deleting,
+  onManage,
 }: Props) {
   const { t } = useTranslation();
   const [copie, setCopie] = useState(false);
@@ -181,41 +180,25 @@ export function WinPlaceCard({
         </Pressable>
       ) : null}
 
-      {/* La mention de signalement n'est pas un avertissement : c'est une porte. Elle ouvre le
-          meme formulaire de correction que la fiche generale. */}
-      <Pressable onPress={onReport} style={styles.mention}>
-        <Text style={[typography.caption, { color: colors.textMuted }]}>
-          ⓘ {t('place.wrongAddress')}
+      {/* UNE SEULE PORTE, ET ELLE EST OUVERTE A TOUS.
+          Les deux boutons precedents n'apparaissaient qu'a l'auteur de la fiche ou a un
+          contributeur : un utilisateur ordinaire qui passait devant une adresse fausse ne
+          voyait rien du tout. Ce bouton-ci s'affiche pour tout le monde et mene aux trois
+          actions (signaler, corriger, retirer) — voir ManagePlaceSheet. */}
+      <Pressable
+        onPress={onManage}
+        accessibilityRole="button"
+        accessibilityLabel={t('place.manage')}
+        style={({ pressed }) => [
+          styles.gerer,
+          { borderColor: colors.border, backgroundColor: pressed ? colors.surfaceAlt : 'transparent' },
+        ]}
+      >
+        <Text style={[styles.gererText, { color: colors.text }]} numberOfLines={1}>
+          ⚙️  {t('place.manage')}
         </Text>
+        <Text style={[styles.gererChevron, { color: colors.textMuted }]}>›</Text>
       </Pressable>
-
-      {peutGerer ? (
-        <View style={styles.actions}>
-          <Pressable
-            onPress={onEdit}
-            style={({ pressed }) => [
-              styles.action,
-              { borderColor: colors.accent, backgroundColor: pressed ? colors.accent + '14' : 'transparent' },
-            ]}
-          >
-            <Text style={[styles.actionText, { color: colors.accent }]} numberOfLines={1}>
-              ✏️ {t('place.editThisAddress')}
-            </Text>
-          </Pressable>
-          <Pressable
-            disabled={deleting}
-            onPress={onDelete}
-            style={({ pressed }) => [
-              styles.action,
-              { borderColor: colors.danger, backgroundColor: pressed ? colors.danger + '14' : 'transparent' },
-            ]}
-          >
-            <Text style={[styles.actionText, { color: colors.danger }]} numberOfLines={1}>
-              {deleting ? '…' : `🗑️ ${t('place.deleteThisAddress')}`}
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -289,15 +272,15 @@ const styles = StyleSheet.create({
   },
   startBtnText: { color: '#fff', fontWeight: '800' as const, fontSize: 16 },
 
-  mention: { marginTop: spacing.sm, alignItems: 'center' },
-
-  actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  action: {
-    flex: 1,
-    borderWidth: 1.5,
+  gerer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
-    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
   },
-  actionText: { fontSize: 12.5, fontWeight: '800' as const },
+  gererText: { flex: 1, fontSize: 13.5, fontWeight: '700' as const },
+  gererChevron: { fontSize: 20, fontWeight: '300' as const },
 });

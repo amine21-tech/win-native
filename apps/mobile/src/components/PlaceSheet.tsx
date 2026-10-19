@@ -10,6 +10,7 @@ import { useAdminSession } from '../store/admin';
 import { lookupPlacePhoto, photoSource } from '../place/placePhoto';
 import { localPhotoUri } from '../place/photoCache';
 import { useMyPlaceIds, useRefreshMyPlaces } from '../place/useMyPlaces';
+import { ManagePlaceSheet } from './ManagePlaceSheet';
 import { MyPlaceSheet } from './MyPlaceSheet';
 import { ReportPhotoSheet } from './ReportPhotoSheet';
 import { api } from '../api/client';
@@ -105,6 +106,10 @@ export function PlaceSheet({
    * bandeau de credit n'apparait qu'une fois l'image reellement affichee. */
   const [photoState, setPhotoState] = useState<'loading' | 'ok' | 'failed'>('loading');
   useEffect(() => setPhotoState('loading'), [mainPhoto]);
+  /* Changer de lieu referme le panneau de gestion. Sans cela, fermer la fiche en le laissant
+   * ouvert le faisait reapparaitre sur le lieu SUIVANT — et les trois actions auraient alors
+   * porte sur une fiche que l'utilisateur n'avait pas choisie. */
+  useEffect(() => setManageOpen(false), [place?.placeId]);
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [adminEditOpen, setAdminEditOpen] = useState(false);
   const adminToken = useAdminSession((s) => s.token);
@@ -113,6 +118,7 @@ export function PlaceSheet({
   const myPlaceIds = useMyPlaceIds();
   const refreshMyPlaces = useRefreshMyPlaces();
   const [myEditOpen, setMyEditOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const [photoReportOpen, setPhotoReportOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const { isContributor } = useContributor();
@@ -146,6 +152,21 @@ export function PlaceSheet({
 
   /* La confirmation est obligatoire et le dit clairement : la suppression efface la photo, les
    * coordonnees et tout ce qui est rattache au lieu, sans retour possible cote utilisateur. */
+  /* Quelqu'un sans le droit appuie sur Modifier ou Supprimer. On ne lui dit pas seulement
+   * non : on lui dit ce qui manque, ou l'obtenir, et ce qu'il peut faire tout de suite. */
+  const expliquerDroit = () => {
+    Alert.alert(t('place.contributorNeededTitle'), t('place.contributorNeededBody'), [
+      { text: t('addPlace.cancel'), style: 'cancel' },
+      {
+        text: t('place.reportIssueTitle'),
+        onPress: () => {
+          setManageOpen(false);
+          setCorrectionOpen(true);
+        },
+      },
+    ]);
+  };
+
   const askDelete = () => {
     Alert.alert(t('place.deleteConfirmTitle'), t('place.deleteConfirm'), [
       { text: t('addPlace.cancel'), style: 'cancel' },
@@ -210,9 +231,7 @@ export function PlaceSheet({
             hasUserPosition={hasUserPosition}
             onStart={onStartNavigation}
             onEdit={() => setMyEditOpen(true)}
-            onDelete={askDelete}
-            onReport={() => setCorrectionOpen(true)}
-            deleting={deleting}
+            onManage={() => setManageOpen(true)}
           />
         ) : (
         <>
@@ -403,42 +422,20 @@ export function PlaceSheet({
          * cela ne s'affiche sur un resultat OpenStreetMap, qu'on ne peut ni corriger ni retirer
          * d'ici. */}
         {place.placeId ? (
-          <View style={styles.manage}>
-            <Text style={[styles.manageTitle, { color: colors.textMuted }]}>{t('place.manage')}</Text>
-
-            <ManageRow
-              emoji="🚩"
-              teinte={colors.alert + '1f'}
-              titre={t('place.reportIssueTitle')}
-              detail={t('place.reportIssueSub')}
-              onPress={() => setCorrectionOpen(true)}
-              colors={colors}
-            />
-
-            {peutGerer ? (
-              <>
-                <ManageRow
-                  emoji="✏️"
-                  teinte={colors.accent + '1f'}
-                  titre={t('place.editPlaceTitle')}
-                  detail={isMine ? t('place.editPlaceSub') : t('place.editOtherSub')}
-                  onPress={() => setMyEditOpen(true)}
-                  colors={colors}
-                />
-                <ManageRow
-                  emoji="🗑️"
-                  teinte={colors.danger + '1f'}
-                  titre={t('place.deletePlaceTitle')}
-                  // Agir sur la fiche d'un autre doit se savoir AVANT d'appuyer, pas apres.
-                  detail={isMine ? t('place.deletePlaceSub') : t('place.deleteOtherSub')}
-                  onPress={askDelete}
-                  disabled={deleting}
-                  danger
-                  colors={colors}
-                />
-              </>
-            ) : null}
-          </View>
+          <Pressable
+            onPress={() => setManageOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={t('place.manage')}
+            style={({ pressed }) => [
+              styles.gerer,
+              { borderColor: colors.border, backgroundColor: pressed ? colors.surfaceAlt : 'transparent' },
+            ]}
+          >
+            <Text style={[styles.gererText, { color: colors.text }]} numberOfLines={1}>
+              ⚙️  {t('place.manage')}
+            </Text>
+            <Text style={[styles.gererChevron, { color: colors.textMuted }]}>›</Text>
+          </Pressable>
         ) : (
           <Pressable onPress={() => setCorrectionOpen(true)} style={styles.reportIssue}>
             <Text style={[typography.caption, { color: colors.textMuted }]}>{t('place.reportIssue')}</Text>
@@ -456,6 +453,35 @@ export function PlaceSheet({
       >
         <Text style={{ color: colors.textMuted, fontSize: 16 }}>✕</Text>
       </Pressable>
+
+      {/* Les trois actions dans leur propre panneau (point K). Le bouton qui l'ouvre est
+          visible par tous ; a l'interieur, corriger et retirer restent soumis au droit. */}
+      <ManagePlaceSheet
+        visible={manageOpen}
+        onClose={() => setManageOpen(false)}
+        nom={place.name}
+        adresse={place.displayName}
+        contribuee={isContributed}
+        peutGerer={peutGerer}
+        estLaMienne={isMine}
+        onReport={() => {
+          setManageOpen(false);
+          setCorrectionOpen(true);
+        }}
+        onEdit={() => {
+          setManageOpen(false);
+          setMyEditOpen(true);
+        }}
+        onDelete={() => {
+          // Le panneau se referme AVANT la demande de confirmation : on ne revient pas sur un
+          // menu de gestion apres avoir supprime ce qu'il gerait.
+          setManageOpen(false);
+          askDelete();
+        }}
+        onSansDroit={expliquerDroit}
+        suppressionEnCours={deleting}
+        colors={colors}
+      />
 
       <CorrectionSheet
         visible={correctionOpen}
@@ -579,71 +605,7 @@ function ContactButton({
   );
 }
 
-/** Une ligne de « Gerer cette fiche » : pastille, intitule, et la phrase qui dit ce qu'elle
- * fait. Le chevron indique qu'elle ouvre quelque chose plutot que d'agir immediatement — sauf
- * pour la suppression, qui demande confirmation ensuite. */
-function ManageRow({
-  emoji,
-  teinte,
-  titre,
-  detail,
-  onPress,
-  colors,
-  disabled,
-  danger,
-}: {
-  emoji: string;
-  teinte: string;
-  titre: string;
-  detail: string;
-  onPress: () => void;
-  colors: Palette;
-  disabled?: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={titre}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.manageRow,
-        { borderTopColor: colors.border, backgroundColor: pressed ? colors.surfaceAlt : 'transparent' },
-      ]}
-    >
-      <View style={[styles.manageIcon, { backgroundColor: teinte }]}>
-        <Text style={{ fontSize: 17 }}>{emoji}</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.manageRowTitle, { color: danger ? colors.danger : colors.text }]}>{titre}</Text>
-        <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={2}>
-          {detail}
-        </Text>
-      </View>
-      <Text style={{ color: colors.textMuted, fontSize: 18 }}>›</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  manage: { marginTop: spacing.lg },
-  manageTitle: {
-    fontSize: 11,
-    fontWeight: '800' as const,
-    letterSpacing: 1.1,
-    textTransform: 'uppercase',
-    marginBottom: spacing.xs,
-  },
-  manageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  manageIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  manageRowTitle: { fontFamily: fonts.sansBold, fontSize: 14.5, marginBottom: 1 },
   sheet: {
     position: 'absolute',
     left: 0,
@@ -666,6 +628,17 @@ const styles = StyleSheet.create({
    * le contenu en commencait vingt-neuf. Vingt-six de plus mettent le coeur a six points
    * au-dessous d'elle — assez pour que l'oeil comme le pouce les separent. */
   sousLaCroix: { paddingTop: 26 },
+  gerer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.md,
+  },
+  gererText: { flex: 1, fontSize: 13.5, fontWeight: '700' as const },
+  gererChevron: { fontSize: 20, fontWeight: '300' as const },
   badge: {
     ...typography.caption,
     alignSelf: 'flex-start',
