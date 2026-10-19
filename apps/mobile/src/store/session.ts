@@ -28,19 +28,35 @@ export type ThemeOverride = 'auto' | 'light' | 'dark';
  * un choix lie au vehicule, pas a l'heure.
  */
 export type RoutePrefs = {
-  /** Evite les routes a peage (`use_tolls: 0`). */
-  avoidTolls: boolean;
-  /** Evite les pistes et les chemins non goudronnes (`exclude_unpaved`, `use_tracks: 0`). */
-  avoidUnpaved: boolean;
-  /** Privilegie les grands axes (`use_highways: 1`). */
-  preferHighways: boolean;
+  /**
+   * Passer par l'autoroute, ou l'eviter. UN seul reglage la ou il y en avait trois.
+   *
+   * Il y avait << Sans peage >>, << Sans piste >> et << Grands axes >>. Trois boutons qui se
+   * recouvraient a moitie et dont aucun ne posait la question que se pose vraiment un
+   * conducteur algerien : est-ce que je prends l'Est-Ouest, oui ou non.
+   *
+   * Les deux autres n'avaient plus lieu d'etre : le seul peage du pays est sur cette autoroute
+   * — le choix l'englobe donc —, et les pistes ne sont pas une preference mais une regle. Elles
+   * sont desormais ecartees en permanence (voir costingOptions cote API), parce que personne ne
+   * demande a etre envoye sur un chemin de terre.
+   */
+  autoroute: boolean;
 };
 
-const DEFAULT_ROUTE_PREFS: RoutePrefs = {
-  avoidTolls: false,
-  avoidUnpaved: false,
-  preferHighways: false,
-};
+/* Par defaut, l'autoroute. C'est l'itineraire le plus rapide entre deux grandes villes
+ * algeriennes, et celui que choisit quelqu'un qui ne choisit rien. */
+const DEFAULT_ROUTE_PREFS: RoutePrefs = { autoroute: true };
+
+/**
+ * Reglage relu depuis le telephone, en se mefiant de ce qu'on y trouve : les appareils deja
+ * installes portent l'ANCIEN enregistrement, celui des trois boutons. Sans ce controle,
+ * `routePrefs.autoroute` y vaudrait `undefined` — ni vrai ni faux — et le calcul d'itineraire
+ * partirait sur une valeur qui n'en est pas une.
+ */
+function lireRoutePrefs(): RoutePrefs {
+  const brut = readJson<Partial<RoutePrefs>>(StorageKeys.routePrefs, DEFAULT_ROUTE_PREFS);
+  return { autoroute: typeof brut.autoroute === 'boolean' ? brut.autoroute : true };
+}
 
 type Session = {
   deviceId: string | null;
@@ -60,7 +76,7 @@ type Session = {
   /** Interrupteur jour/nuit, comme `applyNight(!nightMode)` en v83. */
   toggleNightMode: () => void;
   toggleVoiceGuidance: () => void;
-  toggleRoutePref: (key: keyof RoutePrefs) => void;
+  setAutoroute: (on: boolean) => void;
 };
 
 export const useSession = create<Session>((set, get) => ({
@@ -72,7 +88,7 @@ export const useSession = create<Session>((set, get) => ({
   // consulte — le site ne le consulte pas non plus, et les deux doivent coincider.
   themeOverride: 'auto',
   voiceGuidanceEnabled: storage.getString(StorageKeys.voiceEnabled) !== '0',
-  routePrefs: readJson<RoutePrefs>(StorageKeys.routePrefs, DEFAULT_ROUTE_PREFS),
+  routePrefs: lireRoutePrefs(),
   ready: false,
 
   bootstrap: async () => {
@@ -116,8 +132,8 @@ export const useSession = create<Session>((set, get) => ({
     set({ voiceGuidanceEnabled: next });
   },
 
-  toggleRoutePref: (key) => {
-    const next = { ...get().routePrefs, [key]: !get().routePrefs[key] };
+  setAutoroute: (on) => {
+    const next: RoutePrefs = { autoroute: on };
     writeJson(StorageKeys.routePrefs, next);
     set({ routePrefs: next });
   },

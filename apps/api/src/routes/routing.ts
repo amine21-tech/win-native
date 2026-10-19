@@ -18,11 +18,16 @@ const routeRequest = z.object({
    */
   heading: z.number().min(0).max(360).optional(),
 
-  /* Preferences du conducteur (document 143, point 2). Elles comptent particulierement en
-   * Algerie, ou la qualite des routes varie beaucoup d'un axe a l'autre. */
-  avoidTolls: z.boolean().default(false),
-  avoidUnpaved: z.boolean().default(false),
-  preferHighways: z.boolean().default(false),
+  /**
+   * Passer par l'autoroute, ou l'eviter. Remplace les trois preferences precedentes
+   * (peage, piste, grands axes) — voir RoutePrefs dans l'application.
+   *
+   * `default(true)` fait aussi office de compatibilite : une version plus ancienne de
+   * l'application envoie encore les trois anciens champs, que ce schema ignore. Elle obtient
+   * alors un itineraire par l'autoroute, c'est-a-dire ce que son reglage par defaut donnait
+   * deja.
+   */
+  autoroute: z.boolean().default(true),
 
   /**
    * Recalcul en roulant : le conducteur attend, la voiture avance. On raccourcit l'attente et
@@ -45,51 +50,66 @@ const routeRequest = z.object({
 /**
  * Reglages de cout transmis a Valhalla.
  *
- * La vitesse de marche est celle du site (4,5 km/h au lieu de 5,1). Les peages, en revanche,
- * reviennent a la valeur NEUTRE de Valhalla.
+ * DEUX ITINERAIRES EN VOITURE, PAS TROIS REGLAGES. `use_highways` est le curseur de Valhalla
+ * pour les grands axes : 1 les privilegie, 0 les fuit. Le peage suit le meme choix, et ce n'est
+ * pas un raccourci — le seul peage d'Algerie est sur l'autoroute Est-Ouest. Choisir
+ * l'autoroute, c'est accepter son peage ; la refuser, c'est l'eviter aussi.
  *
- * Le site envoie 0,3, ce qui ne veut pas dire « un peu moins de peages » mais « evite-les
- * autant que possible » : mesure faite sur notre propre moteur, un Paris-Lyon passe de 4 h
- * (239 min) a 5 h 40 (340 min) entre 1 et 0, et 0,3 donne le meme resultat que 0. Ce reglage
- * est inoffensif en Algerie, qui n'a quasiment pas de peages — il est tres couteux en France.
+ * (Ne pas revenir a 0,3 pour `use_tolls` : ce n'est pas << un peu moins de peages >> mais
+ * << evite-les autant que possible >>. Mesure sur notre propre moteur, un Paris-Lyon passe de
+ * 4 h a 5 h 40 entre 1 et 0, et 0,3 donne exactement le meme resultat que 0.)
  *
- * Il avait de plus un effet pervers depuis que l'application expose un bouton « Sans peage » :
- * le trajet les evitant deja, le bouton ne pouvait rien changer. La valeur par defaut est donc
- * 0,5, celle de Valhalla, et le bouton descend a 0. Le choix de l'utilisateur redevient visible.
- *
- * Les preferences ne font que deplacer ces curseurs : zero pour refuser, un pour privilegier.
- * `exclude_unpaved` accompagne `use_tracks` car les deux ne visent pas la meme chose — l'un
- * ecarte les chemins de terre, l'autre les pistes forestieres et agricoles.
+ * A PIED, LE CHEMIN LE PLUS COURT, SANS RESTRICTION (point 17 du client). Les reglages par
+ * defaut de Valhalla sont ceux d'un promeneur prudent : il paie une penalite pour emprunter une
+ * ruelle (`alley_factor` 2) et surtout une allee privee (`driveway_factor` 5), evite les
+ * marches, et optimise le TEMPS. Un pieton algerien qui coupe par une ruelle ne fait rien
+ * d'autre que marcher droit : on ramene ces facteurs a 1, on retire la penalite de marche et on
+ * demande explicitement la plus courte distance. Les sens interdits, eux, n'ont jamais concerne
+ * le pieton — Valhalla ne les lui applique deja pas.
  */
-function costingOptions(input: {
-  mode: 'auto' | 'pedestrian';
-  avoidTolls: boolean;
-  avoidUnpaved: boolean;
-  preferHighways: boolean;
-}) {
-  if (input.mode === 'pedestrian') return { pedestrian: { walking_speed: 4.5 } };
+function costingOptions(input: { mode: 'auto' | 'pedestrian'; autoroute: boolean }) {
+  if (input.mode === 'pedestrian') {
+    return {
+      pedestrian: {
+        // 4,5 km/h : la vitesse du site, un peu en dessous des 5,1 de Valhalla.
+        walking_speed: 4.5,
+        // `shortest` : on classe par DISTANCE et non par duree. A pied, c'est la meme chose
+        // pour le marcheur, et cela ecarte les grands contournements bien plats.
+        shortest: true,
+        // Ruelles, allees et voies de desserte : plus aucune penalite. Ce sont precisement les
+        // raccourcis que le client demande, en ville comme en dehors.
+        alley_factor: 1,
+        driveway_factor: 1,
+        service_penalty: 0,
+        service_factor: 1,
+        // Un trottoir ou un sentier plutot que le bord d'une route a voitures.
+        walkway_factor: 0.9,
+        step_penalty: 0,
+      },
+    };
+  }
   return {
     auto: {
-      use_highways: input.preferHighways ? 1 : 0.5,
-      use_tolls: input.avoidTolls ? 0 : 0.5,
+      use_highways: input.autoroute ? 1 : 0,
+      use_tolls: input.autoroute ? 0.5 : 0,
 
-      /* « Routes carrossables uniquement » (point 5D du client).
+      /* « Routes carrossables uniquement » — desormais une regle, plus une case a cocher.
        *
        * Valhalla ne propose jamais de chemin pietonnier a une voiture : ce point-la est acquis.
        * En revanche il accepte volontiers les PISTES (`track` : chemins agricoles, forestiers)
        * et les voies de desserte (`service` : parkings, allees) pour gagner quelques minutes.
        * En Algerie, le raccourci ainsi propose est souvent une piste de terre qu'une berline ne
-       * passe pas — et le conducteur, lui, decouvre le probleme sur place.
+       * passe pas — et le conducteur, lui, decouvre le probleme sur place. Le client le redemande
+       * au point 9 pour le recalcul : ce n'est donc plus un choix, c'est le comportement.
        *
        * 0,1 et non 0 : a zero, Valhalla s'interdirait aussi d'ARRIVER chez quelqu'un dont la
        * maison est au bout d'une piste. Le penaliser fortement laisse le moteur l'emprunter
        * quand il n'existe aucune autre facon d'atteindre la destination, et jamais pour gagner
        * du temps. Meme raisonnement pour la penalite de desserte, en secondes de detour fictif.
        */
-      use_tracks: input.avoidUnpaved ? 0 : 0.1,
+      use_tracks: 0.1,
       service_penalty: 120,
       service_factor: 1.3,
-      ...(input.avoidUnpaved ? { exclude_unpaved: true } : {}),
     },
   };
 }

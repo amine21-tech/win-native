@@ -378,9 +378,8 @@
     "late": "{{minutes}} دقيقة زيادة على لي كان متوقع.",
     "early": "{{minutes}} دقيقة أقل من لي كان متوقع.",
     "close": "سالي",
-    "avoidTolls": "بلا بيّاج",
-    "avoidUnpaved": "بلا بيست",
-    "preferHighways": "الطرقات الكبار"
+    "motorway": "لوتوروت",
+    "noMotorway": "بلا لوتوروت"
   },
   "correction": {
     "title": "بلّغ على غلطة",

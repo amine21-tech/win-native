@@ -7,8 +7,8 @@ type Coords = { lat: number; lon: number };
 
 /** Apercu d'itineraire affiche dans la fiche du lieu, avant de demarrer la navigation. */
 export function useRoutePreview(from: Coords | null, to: Coords | null, mode: RouteMode, lang: Language) {
-  // Les preferences entrent dans la CLE : changer « eviter les peages » doit relancer le calcul,
-  // sans quoi la fiche continuerait d'afficher l'itineraire precedent.
+  // La preference entre dans la CLE : basculer « Autoroute » / « Sans autoroute » doit
+  // relancer le calcul, sans quoi la fiche continuerait d'afficher l'itineraire precedent.
   const prefs = useSession((s) => s.routePrefs);
   return useQuery({
     queryKey: [
@@ -19,9 +19,7 @@ export function useRoutePreview(from: Coords | null, to: Coords | null, mode: Ro
       to?.lon,
       mode,
       lang,
-      prefs.avoidTolls,
-      prefs.avoidUnpaved,
-      prefs.preferHighways,
+      prefs.autoroute,
     ],
     enabled: !!from && !!to,
     staleTime: 60_000,

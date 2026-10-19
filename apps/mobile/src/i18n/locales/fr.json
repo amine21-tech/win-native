@@ -378,9 +378,8 @@
     "late": "{{minutes}} min de plus que prévu.",
     "early": "{{minutes}} min de moins que prévu.",
     "close": "Terminer",
-    "avoidTolls": "Sans péage",
-    "avoidUnpaved": "Sans piste",
-    "preferHighways": "Grands axes"
+    "motorway": "Autoroute",
+    "noMotorway": "Sans autoroute"
   },
   "correction": {
     "title": "Signaler une erreur",

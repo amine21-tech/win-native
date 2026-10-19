@@ -70,7 +70,13 @@ import { useNavigationSession } from '../src/navigation/useNavigationSession';
 import { useSmoothCamera, type SnappedPoint } from '../src/navigation/useSmoothCamera';
 import { useSpeedLimit } from '../src/navigation/useSpeedLimit';
 import { useRoutePreview } from '../src/navigation/useRoutePreview';
-import { locateOnRoute, pointOnRoute, type Route, type RouteMode } from '../src/navigation/routing';
+import {
+  locateOnRoute,
+  pointOnRoute,
+  traveledMeters,
+  type Route,
+  type RouteMode,
+} from '../src/navigation/routing';
 import type { LiveFix } from '../src/navigation/useLiveLocation';
 import type { GeocodedResult } from '../src/search/geocode';
 import { usePlaceSearch } from '../src/search/usePlaceSearch';
@@ -140,6 +146,106 @@ type LineWidth = NonNullable<React.ComponentProps<typeof Layer>['paint']> extend
 function ROUTE_WIDTH(widths: [number, number, number, number, number]): LineWidth {
   return ['interpolate', ['linear'], ['zoom'], 7, widths[0], 10, widths[1], 13, widths[2], 15, widths[3], 18, widths[4]];
 }
+
+/* ------------------------------------------------------------------------- */
+/* La traine de comete                                                        */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * LONGUEUR DE LA TRAINE, EN METRES.
+ *
+ * Le client demande deux choses a la fois, en citant deux applications : Google Maps, ou la
+ * part parcourue reste << gris marque, tres lisible >>, et Waze, qui << efface progressivement >>.
+ * Quatre cents metres concilient les deux, et ce n'est pas un compromis mou : au zoom de
+ * conduite on voit environ deux cents metres derriere soi, donc toute la portion visible est
+ * encore franchement grise, avec un affaiblissement qui donne le sens de la marche ; des qu'on
+ * prend du recul pour embrasser le trajet, ces quatre cents metres ne pesent plus rien et tout
+ * le parcours accompli se lit d'un trait gris continu.
+ */
+const TRAINE_M = 400;
+
+/** Largeur, en fraction du trajet, du passage du gris au vert. Juste assez pour que la coupure
+ * ne soit pas un escalier de pixels, jamais assez pour qu'on voie un degrade a cet endroit. */
+const COUPURE = 0.0008;
+
+type LineGradient = NonNullable<React.ComponentProps<typeof Layer>['paint']> extends infer P
+  ? P extends { 'line-gradient'?: infer G }
+    ? G
+    : never
+  : never;
+
+/** Couleur hexadecimale rendue transparente. MapLibre n'accepte pas de teinter une couleur
+ * dans une expression : il faut donc lui donner la couleur deja diluee. */
+function rgba(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+/**
+ * LE TRACE NE SE COUPE PLUS EN DEUX : IL SE TEINTE.
+ *
+ * Jusqu'ici, la portion parcourue et la portion restante etaient deux lignes distinctes,
+ * recoupees a chaque point GPS. Cela marchait, mais cela voulait dire reconstruire et renvoyer
+ * a la carte TOUTE la geometrie du trajet une fois par seconde — plusieurs milliers de points
+ * sur un Alger-Oran. C'est precisement le genre de travail qui produit les saccades que le
+ * client releve au point 10.
+ *
+ * `line-gradient` fait la meme chose sans toucher a la geometrie : on envoie le trace UNE fois,
+ * et chaque seconde on ne met a jour qu'une poignee de nombres disant ou en est le vehicule le
+ * long de la ligne. La carte, elle, n'a plus rien a recharger.
+ *
+ * Les trois couches de l'itineraire — le lisere clair, la bordure sombre et le trace lui-meme —
+ * recoivent le MEME degrade. Sans cela, la traine s'effacerait en laissant derriere elle un
+ * lisere blanc intact, c'est-a-dire le fantome du chemin parcouru.
+ */
+function degradeDeProgression(
+  arriereLoin: string,
+  arriereProche: string,
+  avant: string,
+  fait: number,
+  traine: number,
+): LineGradient {
+  const paliers: (number | string)[] = [];
+  let dernier = -1;
+  const poser = (position: number, couleur: string) => {
+    const x = Math.min(1, Math.max(0, position));
+    // Les paliers d'une interpolation doivent croitre STRICTEMENT : aux deux extremites du
+    // trajet, plusieurs d'entre eux retombent sur la meme valeur et il faut les ecarter.
+    if (x <= dernier) return;
+    dernier = x;
+    paliers.push(x, couleur);
+  };
+
+  poser(0, fait <= 0 ? avant : arriereLoin);
+  if (fait > 0) {
+    poser(fait - traine, arriereLoin);
+    poser(fait, arriereProche);
+    poser(fait + COUPURE, avant);
+  }
+  poser(1, avant);
+
+  return ['interpolate', ['linear'], ['line-progress'], ...paliers] as LineGradient;
+}
+
+/** Point du trace situe a `metres` du depart, mesure LE LONG de la route et non a vol
+ * d'oiseau. Sert a poser l'etiquette au milieu de ce qui reste a parcourir. */
+function pointAtDistance(route: Route, metres: number): [number, number] | null {
+  const { cumulativeM, geometry } = route;
+  if (geometry.length < 2) return null;
+  const total = cumulativeM[cumulativeM.length - 1] ?? 0;
+  const cible = Math.max(0, Math.min(metres, total));
+  let i = 1;
+  while (i < cumulativeM.length - 1 && cumulativeM[i]! < cible) i += 1;
+  const avant = cumulativeM[i - 1]!;
+  const apres = cumulativeM[i]!;
+  const t = apres === avant ? 0 : (cible - avant) / (apres - avant);
+  const a = geometry[i - 1]!;
+  const b = geometry[i]!;
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+}
+
+/** Gris de la portion parcourue — le `#b9c4bf` de v83. */
+const GRIS_PARCOURU = '#B9C4BF';
 
 /* L'epingle de destination, dessinee par le moteur de la carte.
  *
@@ -592,54 +698,20 @@ export default function MapScreen() {
   const routeLinesGeoJson = useMemo<GeoJSON.FeatureCollection>(() => {
     if (navigating) {
       if (!nav.route) return { type: 'FeatureCollection', features: [] };
-      const geometry = nav.route.geometry;
-      /* Ce qui RESTE a parcourir, porte par le trace lui-meme.
+      /* LE TRACE ENTIER, POSE UNE FOIS POUR TOUT LE TRAJET.
        *
-       * Le client dezoome en cours de route pour embrasser le trajet entier, et le trace ne
-       * disait alors plus rien : il fallait revenir au cadre du bas pour savoir ou l'on en
-       * etait. L'etiquette reprend les deux valeurs qui comptent a cet instant — le temps et
-       * la distance qui restent, jamais ceux du depart — et suit la progression, puisque
-       * `nav.remaining` est recalcule a chaque point GPS (7 h au depart, 3 h 30 a mi-chemin). */
-      const remainingLabel = nav.remaining
-        ? `${formatDuration(nav.remaining.durationS)} · ${formatDistance(nav.remaining.distanceM)}`
-        : undefined;
-
-      // Le trace est coupe en deux au point ou l'on se trouve : la portion deja parcourue
-      // passe en gris, celle qui reste garde la couleur vive. C'est le repere le plus
-      // immediat qu'offre une carte de navigation — on voit d'un coup d'oeil quelle part du
-      // trajet est derriere soi, sans lire un chiffre.
-      if (nav.progress) {
-        const snap = pointOnRoute(nav.route, nav.progress);
-        const cut = Math.min(Math.max(nav.progress.segmentIndex, 0), geometry.length - 2);
-        const traveled = [...geometry.slice(0, cut + 1), snap];
-        const ahead = [snap, ...geometry.slice(cut + 1)];
-        const features: GeoJSON.Feature[] = [];
-        // La portion parcourue se termine sur le point PROJETE, jamais sur la position GPS
-        // brute : sinon une branche part du trace vers le vehicule (v83, updateTraveledPath).
-        if (traveled.length >= 2) {
-          features.push({
-            type: 'Feature',
-            properties: { kind: 'traveled' },
-            geometry: { type: 'LineString', coordinates: traveled },
-          });
-        }
-        if (ahead.length >= 2) {
-          features.push({
-            type: 'Feature',
-            properties: { kind: 'primary', durationLabel: remainingLabel },
-            geometry: { type: 'LineString', coordinates: ahead },
-          });
-        }
-        return { type: 'FeatureCollection', features };
-      }
-
+       * Il etait jusqu'ici recoupe en deux a chaque point GPS — le parcouru d'un cote, le
+       * restant de l'autre — ce qui obligeait a renvoyer toute la geometrie a la carte une
+       * fois par seconde. La distinction entre les deux se fait desormais par la couleur,
+       * calculee le long de la ligne (voir degradeDeProgression). Cette liste-ci ne change
+       * donc plus qu'au changement d'itineraire, c'est-a-dire presque jamais. */
       return {
         type: 'FeatureCollection',
         features: [
           {
             type: 'Feature',
-            properties: { kind: 'primary', durationLabel: remainingLabel },
-            geometry: { type: 'LineString', coordinates: geometry },
+            properties: { kind: 'primary' },
+            geometry: { type: 'LineString', coordinates: nav.route.geometry },
           },
         ],
       };
@@ -674,7 +746,31 @@ export default function MapScreen() {
         };
       }),
     };
-  }, [navigating, nav.route, nav.progress, nav.remaining, previewRoutes, selectedRouteIndex, t]);
+  }, [navigating, nav.route, previewRoutes, selectedRouteIndex, t]);
+
+  /**
+   * Part du trajet deja parcourue, de 0 a 1 — la seule chose qui bouge pendant le guidage.
+   *
+   * C'est elle qui place la limite entre le gris et le vert sur le trace, et elle ne coute
+   * qu'une division : la distance parcourue le long de la route est deja calculee par la
+   * session de navigation, la longueur totale est le dernier element du tableau de distances
+   * cumulees, prepare une seule fois a la reception de l'itineraire.
+   */
+  const avanceFraction = useMemo(() => {
+    if (!navigating || !nav.route || !nav.progress) return 0;
+    const cumul = nav.route.cumulativeM;
+    const total = cumul[cumul.length - 1] ?? 0;
+    if (total <= 0) return 0;
+    return Math.min(1, Math.max(0, traveledMeters(nav.route, nav.progress) / total));
+  }, [navigating, nav.route, nav.progress]);
+
+  /** Longueur de la traine, ramenee a une fraction du trajet : quatre cents metres ne
+   * representent pas la meme chose sur cinq kilometres et sur quatre cents. */
+  const traineFraction = useMemo(() => {
+    const cumul = nav.route?.cumulativeM;
+    const total = cumul?.[cumul.length - 1] ?? 0;
+    return total > 0 ? Math.min(1, TRAINE_M / total) : 1;
+  }, [nav.route]);
 
   /**
    * Pastilles de duree, posees a mi-parcours de chaque trace.
@@ -686,6 +782,38 @@ export default function MapScreen() {
    * Google Maps, sans rien changer au calcul des libelles eux-memes.
    */
   const routeLabelsGeoJson = useMemo<GeoJSON.FeatureCollection>(() => {
+    /* EN GUIDAGE, L'ETIQUETTE SE POSE AU MILIEU DE CE QUI RESTE.
+     *
+     * Le client dezoome en cours de route pour embrasser le trajet entier, et le trace ne
+     * disait alors plus rien : il fallait revenir au cadre du bas pour savoir ou l'on en
+     * etait. L'etiquette reprend les deux valeurs qui comptent a cet instant — le temps et la
+     * distance qui RESTENT, jamais ceux du depart — et suit la progression.
+     *
+     * Elle se calculait autrefois a partir du trace deja recoupe ; celui-ci ne l'etant plus,
+     * on cherche directement le point situe a mi-chemin de ce qui reste. C'est le meme endroit,
+     * pour une fraction du travail. */
+    if (navigating) {
+      const route = nav.route;
+      if (!route || !nav.remaining) return { type: 'FeatureCollection', features: [] };
+      const cumul = route.cumulativeM;
+      const total = cumul[cumul.length - 1] ?? 0;
+      const faite = nav.progress ? traveledMeters(route, nav.progress) : 0;
+      const at = pointAtDistance(route, (faite + total) / 2);
+      if (!at) return { type: 'FeatureCollection', features: [] };
+      return {
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            properties: {
+              label: `${formatDuration(nav.remaining.durationS)} · ${formatDistance(nav.remaining.distanceM)}`,
+            },
+            geometry: { type: 'Point', coordinates: at },
+          },
+        ],
+      };
+    }
+
     const features: GeoJSON.Feature[] = [];
     for (const f of routeLinesGeoJson.features) {
       const label = (f.properties as { durationLabel?: string } | null)?.durationLabel;
@@ -695,7 +823,7 @@ export default function MapScreen() {
       features.push({ type: 'Feature', properties: { label }, geometry: { type: 'Point', coordinates: at } });
     }
     return { type: 'FeatureCollection', features };
-  }, [routeLinesGeoJson]);
+  }, [navigating, nav.route, nav.progress, nav.remaining, routeLinesGeoJson]);
 
   /**
    * « Ma position ».
@@ -1537,7 +1665,17 @@ export default function MapScreen() {
             moment ou le style corrige arrive. Sans elle, les couches d'itineraire resteraient
             posees la ou elles ont ete creees : au-dessus des panneaux, qu'on vient justement
             de degager. */}
-        <GeoJSONSource key={routeAnchorId ?? 'dessus'} id="route" data={routeLinesGeoJson}>
+        {/* `lineMetrics` : la carte mesure la position de chaque pixel LE LONG de la ligne,
+            ce qui est la condition pour y peindre un degrade. Il n'est demande que pendant le
+            guidage — c'est un calcul de plus a l'arrivee du trace, inutile sur un apercu.
+            La cle porte donc aussi ce mode : passer de l'apercu au guidage refait les couches
+            proprement plutot que de changer leur nature en place. */}
+        <GeoJSONSource
+          key={`${routeAnchorId ?? 'dessus'}-${navigating ? 'guidage' : 'apercu'}`}
+          id="route"
+          data={routeLinesGeoJson}
+          lineMetrics={navigating}
+        >
           {/* Couleurs choisies ici une fois pour les quatre couches ci-dessous. */}
           {/* Alternative(s) estompee(s) sous le trace choisi — memes codes que l'apercu Google Maps.
               Traits epaissis (doc 110 #2) : trop fins auparavant, surtout dezoome sur un long trajet. */}
@@ -1566,11 +1704,24 @@ export default function MapScreen() {
             beforeId={routeAnchorId}
             filter={['!=', ['get', 'kind'], 'alt']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{
-              'line-color': routeColors.halo,
-              'line-width': ROUTE_WIDTH([3.5, 5.5, 11, 15, 20]),
-              'line-opacity': 0.95,
-            }}
+            paint={
+              navigating
+                ? {
+                    'line-gradient': degradeDeProgression(
+                      rgba(routeColors.halo, 0.1),
+                      rgba(routeColors.halo, 0.7),
+                      rgba(routeColors.halo, 0.95),
+                      avanceFraction,
+                      traineFraction,
+                    ),
+                    'line-width': ROUTE_WIDTH([3.5, 5.5, 11, 15, 20]),
+                  }
+                : {
+                    'line-color': routeColors.halo,
+                    'line-width': ROUTE_WIDTH([3.5, 5.5, 11, 15, 20]),
+                    'line-opacity': 0.95,
+                  }
+            }
           />
           {/* Bordure sombre demandee par le client (point 2) : quatre points de plus que le
               trace, dans une teinte plus foncee. C'est elle qui donne l'arete nette des cartes
@@ -1583,27 +1734,29 @@ export default function MapScreen() {
             beforeId={routeAnchorId}
             filter={['!=', ['get', 'kind'], 'alt']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{
-              'line-color': routeColors.casing,
-              'line-width': ROUTE_WIDTH([2.5, 4, 8.5, 12, 16.5]),
-            }}
+            paint={
+              navigating
+                ? {
+                    'line-gradient': degradeDeProgression(
+                      rgba(routeColors.casing, 0.08),
+                      rgba(routeColors.casing, 0.5),
+                      routeColors.casing,
+                      avanceFraction,
+                      traineFraction,
+                    ),
+                    'line-width': ROUTE_WIDTH([2.5, 4, 8.5, 12, 16.5]),
+                  }
+                : {
+                    'line-color': routeColors.casing,
+                    'line-width': ROUTE_WIDTH([2.5, 4, 8.5, 12, 16.5]),
+                  }
+            }
           />
-          {/* Portion deja parcourue, en gris — meme teinte que le `#b9c4bf` de v83. Bout coupe
-              net (`line-cap: butt`) et non arrondi : arrondi, elle depasserait du point de
-              coupure et laisserait un bourrelet gris devant le vehicule. */}
-          <Layer
-            id="route-traveled"
-            type="line"
-            source="route"
-            beforeId={routeAnchorId}
-            filter={['==', ['get', 'kind'], 'traveled']}
-            layout={{ 'line-cap': 'butt', 'line-join': 'round' }}
-            paint={{
-              'line-color': '#B9C4BF',
-              'line-width': ROUTE_WIDTH([1.5, 2.5, 6, 9, 13]),
-              'line-opacity': 0.9,
-            }}
-          />
+          {/* LA TRAINE DE COMETE (point 13 du client).
+              Devant le vehicule, le vert vif de la route a parcourir ; derriere, le gris de
+              v83 qui s'affaiblit puis s'efface sur quatre cents metres. Ce n'est plus une
+              seconde ligne posee par-dessus mais la MEME ligne, teintee selon l'avancement :
+              il n'y a donc ni raccord ni bourrelet a l'endroit du vehicule. */}
           <Layer
             id="route-primary"
             type="line"
@@ -1611,7 +1764,20 @@ export default function MapScreen() {
             beforeId={routeAnchorId}
             filter={['==', ['get', 'kind'], 'primary']}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{ 'line-color': routeColors.main, 'line-width': ROUTE_WIDTH([1.5, 2.5, 6, 9, 13]) }}
+            paint={
+              navigating
+                ? {
+                    'line-gradient': degradeDeProgression(
+                      rgba(GRIS_PARCOURU, 0.12),
+                      rgba(GRIS_PARCOURU, 0.92),
+                      routeColors.main,
+                      avanceFraction,
+                      traineFraction,
+                    ),
+                    'line-width': ROUTE_WIDTH([1.5, 2.5, 6, 9, 13]),
+                  }
+                : { 'line-color': routeColors.main, 'line-width': ROUTE_WIDTH([1.5, 2.5, 6, 9, 13]) }
+            }
           />
         </GeoJSONSource>
 

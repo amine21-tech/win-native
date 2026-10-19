@@ -157,8 +157,8 @@ export async function fetchRoute(opts: {
   alternates?: number;
   /** Cap du vehicule au depart : evite qu'un recalcul ne commence par un demi-tour. */
   heading?: number;
-  /** Preferences du conducteur — peages, pistes, grands axes (voir store/session). */
-  prefs?: { avoidTolls: boolean; avoidUnpaved: boolean; preferHighways: boolean };
+  /** Preference du conducteur : passer par l'autoroute, ou l'eviter (voir store/session). */
+  prefs?: { autoroute: boolean };
   /** Recalcul en roulant : attente courte et une reprise, plutot qu'une longue attente. */
   quick?: boolean;
   /** Barrages et routes coupees signales par les utilisateurs, a contourner. */
@@ -173,9 +173,7 @@ export async function fetchRoute(opts: {
       language: opts.narrationLanguage,
       alternates: opts.alternates ?? 2,
       heading: opts.heading,
-      avoidTolls: opts.prefs?.avoidTolls ?? false,
-      avoidUnpaved: opts.prefs?.avoidUnpaved ?? false,
-      preferHighways: opts.prefs?.preferHighways ?? false,
+      autoroute: opts.prefs?.autoroute ?? true,
       quick: opts.quick ?? false,
       avoid: opts.avoid ?? [],
     },

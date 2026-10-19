@@ -378,9 +378,8 @@
     "late": "{{minutes}} دقيقة أكثر من المتوقع.",
     "early": "{{minutes}} دقيقة أقل من المتوقع.",
     "close": "إنهاء",
-    "avoidTolls": "بدون رسوم",
-    "avoidUnpaved": "بدون مسالك",
-    "preferHighways": "الطرق الكبرى"
+    "motorway": "الطريق السيار",
+    "noMotorway": "بدون طريق سيار"
   },
   "correction": {
     "title": "الإبلاغ عن خطأ",

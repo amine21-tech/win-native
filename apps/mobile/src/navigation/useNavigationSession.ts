@@ -383,8 +383,23 @@ export function useNavigationSession(params: {
     if (Math.abs(located.distanceM - offRouteDistanceRef.current) < RUNAWAY_SENSITIVITY_M) return;
     offRouteDistanceRef.current = located.distanceM;
 
+    /* UN ECART FRANC NE SE COMPTE PLUS, IL SE CONSTATE.
+     *
+     * Le comptage par points sert a ne pas recalculer pour du bruit GPS. Mais au-dela de cent
+     * vingt metres du trace il n'y a plus de doute a lever : aucune derive de signal ne fait
+     * cela, et le conducteur a bel et bien pris une autre route. Attendre une deuxieme mesure
+     * pour en etre sur lui coutait une seconde de plus a un moment ou chaque seconde compte —
+     * c'est exactement ce que le client demande de supprimer.
+     *
+     * Le temps de confirmation, lui, reste : il est d'une seconde a vitesse d'autoroute, et
+     * c'est le delai minimal pour que deux mesures successives disent la meme chose. En
+     * dessous de ce seuil, rien ne change — c'est la que le bruit se produit. */
     offRouteScoreRef.current +=
-      located.distanceM > OFF_ROUTE_CERTAIN_M ? 3 : speedMps >= MIN_SPEED_FOR_REBUILD_MPS ? 2 : 1;
+      located.distanceM > OFF_ROUTE_CERTAIN_M
+        ? OFF_ROUTE_SCORE_TO_RECALC
+        : speedMps >= MIN_SPEED_FOR_REBUILD_MPS
+          ? 2
+          : 1;
 
     const confirmed = now - offRouteSinceRef.current >= band.confirmMs;
     if (offRouteScoreRef.current >= OFF_ROUTE_SCORE_TO_RECALC && confirmed && cooledDown) {
