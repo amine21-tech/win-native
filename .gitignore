@@ -13,3 +13,6 @@ apps/mobile/ios/
 
 # Ancien depot Git de apps/mobile (1 commit "lot 0"), mis de cote le 16/09/2026
 apps/mobile/.git-lot0-sauvegarde/
+
+# Documents commerciaux : le depot est PUBLIC, les prix ne doivent pas y figurer.
+docs/devis/
