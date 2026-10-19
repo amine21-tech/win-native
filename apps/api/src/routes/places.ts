@@ -130,20 +130,6 @@ const contributorCodeMatches = (code: string) => codeMatches(code, env.CONTRIBUT
  * en une requete, une adresse non. Un code a quatre chiffres ne resiste pas a un essai
  * systematique ; cette limite le rend simplement tres long.
  */
-/**
- * Cet appareil a-t-il le droit d'ecrire sur la carte ?
- *
- * Lu a chaque geste, et jamais mis en cache : c'est ce qui permet de RETIRER un droit et que
- * cela prenne effet a la seconde suivante, sans attendre qu'un telephone veuille bien se
- * rafraichir. Un contributeur qui abuse doit pouvoir etre arrete tout de suite.
- */
-async function estContributeur(deviceId: string): Promise<boolean> {
-  const rows = (await db.execute(sql`
-    SELECT is_contributor AS "isContributor" FROM devices WHERE id = ${deviceId}
-  `)) as unknown as { isContributor: boolean }[];
-  return rows[0]?.isContributor === true;
-}
-
 /** La fiche a-t-elle ete creee depuis cet appareil ? */
 async function estAuteur(placeId: string, deviceId: string): Promise<boolean> {
   const rows = (await db.execute(sql`
@@ -485,22 +471,24 @@ const routes: FastifyPluginAsync = async (app) => {
     async (req) => {
       const input = parse(updatePlaceInput, req.body);
 
-      /* Le droit de corriger la fiche d'un AUTRE appartient aux contributeurs.
+      /* CORRIGER UNE FICHE EST OUVERT A TOUS — decision du client, 19 octobre 2026.
        *
-       * Un contributeur qui passe devant une adresse fausse ne pouvait, jusqu'ici, que la
-       * signaler et attendre : la carte restait fausse entre-temps. C'est le choix du client,
-       * et c'est celui de toutes les cartes communautaires.
+       * Le droit etait reserve aux contributeurs designes. Le client l'a tranche autrement :
+       * << n'importe quel utilisateur peut faire cette action >>. C'est le fonctionnement des
+       * cartes communautaires, et c'est ce qui permet a une adresse fausse d'etre reparee par
+       * la premiere personne qui passe devant, au lieu d'attendre qu'un contributeur la voie.
        *
-       * Ce que cela change : un contributeur qui abuse n'abime plus seulement son propre
-       * travail, mais celui de tout le monde. Deux choses le rendent rattrapable — l'etat
-       * precedent de la fiche est garde dans le journal (`before`), et le droit se retire a la
-       * seconde pres (voir estContributeur). */
+       * Ce que cela coute, et qui a ete dit avant d'etre decide : n'importe qui peut aussi
+       * abimer le travail de n'importe qui. Deux choses le rendent rattrapable, et elles ne
+       * sont pas facultatives — l'etat PRECEDENT de la fiche part dans le journal a chaque
+       * geste, et la suppression reste logique, donc reversible.
+       */
       const surAutrui = !(await estAuteur(req.params.id, req.deviceId!));
-      if (surAutrui && !(await estContributeur(req.deviceId!))) throw notFound();
 
-      // L'etat d'avant, garde AVANT d'ecrire : c'est lui qui permet de revenir en arriere sans
-      // avoir a deviner ce qui a ete change.
-      const avant = surAutrui ? await etatFiche(req.params.id) : null;
+      /* L'etat d'avant est garde MEME quand on corrige sa propre fiche. Il ne l'etait que pour
+       * les fiches d'autrui, du temps ou ce cas etait l'exception ; il est desormais la regle,
+       * et un auteur peut aussi bien effacer par megarde ce qu'il avait saisi correctement. */
+      const avant = await etatFiche(req.params.id);
 
       const rows = (await db.execute(sql`
         UPDATE places SET
@@ -561,7 +549,7 @@ const routes: FastifyPluginAsync = async (app) => {
         VALUES (
           'place',
           ${req.params.id},
-          ${surAutrui ? 'contributor_update' : 'author_update'},
+          ${surAutrui ? 'user_update' : 'author_update'},
           ${avant ? JSON.stringify(avant) : null}::jsonb,
           ${JSON.stringify(input)}::jsonb,
           ${req.deviceId!}
@@ -572,22 +560,36 @@ const routes: FastifyPluginAsync = async (app) => {
   );
 
   /**
-   * Retrait par l'auteur. Suppression LOGIQUE, comme celle des moderateurs : une fiche
+   * Retrait d'une fiche. Suppression LOGIQUE, comme celle des moderateurs : une fiche
    * effacee par erreur doit pouvoir etre retrouvee, et le journal garde la trace de qui a
-   * fait quoi.
+   * fait quoi. L'adresse de la route garde son suffixe `/mine` pour ne pas casser les
+   * versions de l'application deja installees ; elle ne designe plus << les miennes >>.
    */
   app.delete<{ Params: { id: string } }>(
     '/places/:id/mine',
     { preHandler: [app.requireDevice] },
     async (req) => {
+      /* RETIRER UNE FICHE EST OUVERT A TOUS — meme decision que pour la correction ci-dessus.
+       *
+       * La suppression est LOGIQUE (`deleted_at`), jamais destructive : la fiche disparait de
+       * la carte, ses donnees restent. C'est ce qui rend la decision tenable — un retrait abusif
+       * se defait depuis le journal de moderation. */
       const surAutrui = !(await estAuteur(req.params.id, req.deviceId!));
-      if (surAutrui && !(await estContributeur(req.deviceId!))) throw notFound();
-      const avant = surAutrui ? await etatFiche(req.params.id) : null;
+      const avant = await etatFiche(req.params.id);
 
-      /* Une fiche PARTENAIRE echappe au retrait par un contributeur, et c'est la seule
-       * exception. Elle a ete payee : la supprimer coute de l'argent a quelqu'un, et le geste
-       * ne se repare pas par un simple << oups >>. Son auteur et l'equipe peuvent toujours le
-       * faire, un contributeur de passage non. */
+      /* Une fiche PARTENAIRE reste la seule exception, et elle le reste meme maintenant que
+       * tout le monde peut supprimer. Elle a ete payee : la retirer coute de l'argent a
+       * quelqu'un, et le geste ne se repare pas par un simple << oups >>. Son auteur et
+       * l'equipe peuvent toujours le faire, un passant non. */
+      const partenaire = (avant as { is_partner?: boolean } | null)?.is_partner === true;
+      if (partenaire && surAutrui) {
+        throw new HttpError(
+          403,
+          'fiche_partenaire',
+          "Cette adresse appartient a un partenaire WIN : son retrait passe par l'equipe.",
+        );
+      }
+
       const rows = (await db.execute(sql`
         UPDATE places SET deleted_at = now()
         WHERE id = ${req.params.id}
@@ -602,7 +604,7 @@ const routes: FastifyPluginAsync = async (app) => {
         VALUES (
           'place',
           ${req.params.id},
-          ${surAutrui ? 'contributor_delete' : 'author_delete'},
+          ${surAutrui ? 'user_delete' : 'author_delete'},
           ${avant ? JSON.stringify(avant) : null}::jsonb,
           ${req.deviceId!}
         )

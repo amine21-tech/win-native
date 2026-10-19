@@ -174,9 +174,17 @@ const routes: FastifyPluginAsync = async (app) => {
     '/admin/moderation-log/:id/restore',
     { preHandler: [app.requireAdmin] },
     async (req) => {
+      /* TOUTES les suppressions se restaurent, pas seulement celles des moderateurs.
+       *
+       * Ce filtre ne retenait que `action = 'delete'`, le retrait fait depuis l'administration.
+       * Les retraits faits depuis l'application portaient deja un autre nom et n'etaient donc
+       * PAS restaurables — un angle mort sans gravite tant que seul l'auteur pouvait supprimer,
+       * et qui devient le filet de securite principal depuis que tout le monde le peut. */
       const rows = (await db.execute(sql`
         SELECT entity_type AS "entityType", entity_id AS "entityId"
-        FROM moderation_log WHERE id = ${req.params.id} AND action = 'delete'
+        FROM moderation_log
+        WHERE id = ${req.params.id}
+          AND action IN ('delete', 'author_delete', 'user_delete', 'contributor_delete')
       `)) as unknown as { entityType: string; entityId: string }[];
 
       const entry = rows[0];

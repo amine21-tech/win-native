@@ -155,15 +155,15 @@
     "editPlaceSub": "Correct the name, address or category",
     "deletePlaceTitle": "Delete this place",
     "deletePlaceSub": "Place does not exist or has closed for good",
-    "editOtherSub": "Someone else’s place — your correction is logged",
-    "deleteOtherSub": "Someone else’s place — the removal is logged and reversible",
+    "editOtherSub": "Someone else's listing — your correction is logged",
+    "deleteOtherSub": "Someone else's listing — removal is logged and reversible",
     "gpsCoords": "GPS coordinates",
     "copy": "Copy",
     "copied": "Copied",
     "changePhoto": "Change photo",
     "addPhoto": "Add a photo",
-    "contributorNeededTitle": "Contributors only",
-    "contributorNeededBody": "Editing or removing a record requires a contributor code, issued by the WIN team. You can enter it in your profile. In the meantime, report the problem — we are notified straight away."
+    "partnerProtectedTitle": "Partner listing",
+    "partnerProtectedBody": "This address belongs to a WIN partner: removing it goes through the team. You can report a problem — we are notified straight away."
   },
   "categories": {
     "groups": {

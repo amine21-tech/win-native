@@ -3,19 +3,19 @@ import { api } from '../api/client';
 import { storage, StorageKeys } from '../store/storage';
 
 /**
- * Cet appareil a-t-il le droit d'enregistrer des lieux ?
+ * Cet appareil est-il reconnu comme contributeur ?
  *
- * L'enregistrement n'est pas ouvert a tous : une fiche mal nommee, mal orthographiee ou mal
- * placee reste des mois sur la carte et se voit par tout le monde. Le droit se donne a des
- * contributeurs designes, par un code que l'equipe remet.
+ * ATTENTION A CE QUE CE CROCHET NE DIT PLUS. Il commandait autrefois deux droits : enregistrer
+ * un lieu, puis corriger et retirer celui d'un autre. Le client a ouvert les deux, a deux mois
+ * d'intervalle — l'enregistrement le 15 octobre 2026, la correction et le retrait le 19. Plus
+ * aucun geste de la carte n'en depend.
  *
- * Le serveur fait foi — il refuse la creation a un appareil sans droit, meme si l'application
- * est modifiee. Ce crochet ne sert qu'a l'AFFICHAGE : un utilisateur ordinaire ne doit pas voir
- * apparaitre un formulaire qu'il n'a pas le droit de valider, ni meme deviner qu'il existe.
+ * Ce qu'il reste : un STATUT, affiche dans le profil avec le nombre de lieux enregistres et le
+ * score. Le code remis par l'equipe sert a le revendiquer. C'est une reconnaissance, pas une
+ * permission — et il ne faut pas le remettre a garder une porte sans y repenser.
  *
- * La reponse est gardee localement pour que l'interface soit juste des le premier rendu, avant
- * meme que le reseau ne reponde : sans cela, le formulaire clignoterait a chaque ouverture chez
- * les contributeurs, et apparaitrait une fraction de seconde chez les autres.
+ * La reponse est gardee localement pour que le profil soit juste des le premier rendu, avant
+ * meme que le reseau ne reponde.
  */
 export function useContributor(): { isContributor: boolean; refresh: () => void } {
   const connuLocalement = storage.getString(StorageKeys.contributor) === '1';

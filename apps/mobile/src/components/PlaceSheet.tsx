@@ -5,7 +5,6 @@ import { egsaForAirport, isAirport, isTrainStation, SNTF_URL } from '../reports/
 import type { Route, RouteMode } from '../navigation/routing';
 import type { GeocodedResult } from '../search/geocode';
 import { formatDistance } from '../shared';
-import { useContributor } from '../place/useContributor';
 import { useAdminSession } from '../store/admin';
 import { lookupPlacePhoto, photoSource } from '../place/placePhoto';
 import { localPhotoUri } from '../place/photoCache';
@@ -121,18 +120,28 @@ export function PlaceSheet({
   const [manageOpen, setManageOpen] = useState(false);
   const [photoReportOpen, setPhotoReportOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const { isContributor } = useContributor();
   if (!place) return null;
 
   const isContributed = place.source === 'win';
   const isMine = !!place.placeId && myPlaceIds.has(place.placeId);
-  /* Corriger et retirer ne sont plus reserves a l'auteur : un contributeur designe peut agir
-   * sur n'importe quelle fiche WIN. Un contributeur qui passe devant une adresse fausse ne
-   * pouvait, auparavant, que la signaler et attendre — la carte restait fausse entre-temps.
+  /* CORRIGER ET RETIRER SONT OUVERTS A TOUS — decision du client, 19 octobre 2026.
    *
-   * Le serveur verifie le droit a chaque geste ; ceci n'est que l'affichage. Et il garde l'etat
-   * precedent de la fiche, pour qu'une erreur de contributeur se repare. */
-  const peutGerer = isMine || isContributor;
+   * Il y avait ici `isMine || isContributor` : seul l'auteur de la fiche, ou un contributeur
+   * designe, pouvait agir. Le client l'a tranche autrement, apres que le risque lui a ete
+   * expose : n'importe quel utilisateur peut corriger ou retirer n'importe quelle adresse.
+   * C'est le fonctionnement des cartes communautaires — une adresse fausse est reparee par la
+   * premiere personne qui passe devant, au lieu d'attendre qu'un contributeur la voie.
+   *
+   * Il reste une seule condition, et ce n'est pas un droit : la fiche doit exister CHEZ NOUS.
+   * Un resultat brut d'OpenStreetMap n'a rien a modifier ni a retirer de notre cote.
+   *
+   * Le serveur decide, ceci n'est que l'affichage — et il garde l'etat precedent de chaque
+   * fiche pour que tout geste se repare. */
+  const peutGerer = Boolean(place.placeId);
+
+  /* La seule exception qui subsiste : une fiche PARTENAIRE a ete payee. Son auteur et l'equipe
+   * peuvent la retirer, un passant non. Le serveur refuse aussi, avec le meme motif. */
+  const peutSupprimer = peutGerer && (isMine || !place.isPartner);
   /**
    * FICHE COMPACTE pour une adresse enregistree par un utilisateur WIN (point 12 du client).
    *
@@ -152,10 +161,10 @@ export function PlaceSheet({
 
   /* La confirmation est obligatoire et le dit clairement : la suppression efface la photo, les
    * coordonnees et tout ce qui est rattache au lieu, sans retour possible cote utilisateur. */
-  /* Quelqu'un sans le droit appuie sur Modifier ou Supprimer. On ne lui dit pas seulement
-   * non : on lui dit ce qui manque, ou l'obtenir, et ce qu'il peut faire tout de suite. */
+  /* Refuser le retrait d'une fiche partenaire sans laisser l'utilisateur devant un mur : on
+   * dit pourquoi, et on propose le geste qui reste possible. */
   const expliquerDroit = () => {
-    Alert.alert(t('place.contributorNeededTitle'), t('place.contributorNeededBody'), [
+    Alert.alert(t('place.partnerProtectedTitle'), t('place.partnerProtectedBody'), [
       { text: t('addPlace.cancel'), style: 'cancel' },
       {
         text: t('place.reportIssueTitle'),
@@ -463,6 +472,7 @@ export function PlaceSheet({
         adresse={place.displayName}
         contribuee={isContributed}
         peutGerer={peutGerer}
+        peutSupprimer={peutSupprimer}
         estLaMienne={isMine}
         onReport={() => {
           setManageOpen(false);

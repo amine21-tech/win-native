@@ -11,8 +11,10 @@ type Props = {
   adresse: string;
   /** Vrai pour une fiche enregistree par un utilisateur WIN — l'etiquette du haut. */
   contribuee: boolean;
-  /** Cet appareil a-t-il le droit de corriger et de retirer ? */
+  /** La fiche existe-t-elle chez nous ? Vrai pour toute fiche WIN — corriger est ouvert a tous. */
   peutGerer: boolean;
+  /** Faux pour une fiche partenaire qui n'est pas la sienne : elle a ete payee. */
+  peutSupprimer: boolean;
   /** Cette fiche a-t-elle ete enregistree depuis CET appareil ? Faux quand un contributeur
    * agit sur le travail de quelqu'un d'autre — ce qui doit se savoir avant d'appuyer. */
   estLaMienne: boolean;
@@ -38,13 +40,16 @@ type Props = {
  * grave demande desormais deux appuis au lieu d'un — avec, entre les deux, le nom du lieu
  * rappele en toutes lettres. On sait sur quoi on agit avant d'agir.
  *
- * LE BOUTON D'ENTREE EST VISIBLE PAR TOUT LE MONDE, et c'est voulu : « signaler un probleme »
- * est le geste d'un utilisateur ordinaire, celui qui passe devant l'adresse et constate qu'elle
- * est fausse. Le cacher derriere un droit revenait a ne jamais recevoir ces signalements.
+ * LES TROIS GESTES SONT OUVERTS A TOUT LE MONDE — decision du client du 19 octobre 2026.
+ * Signaler, corriger, retirer : n'importe quel utilisateur peut faire les trois sur n'importe
+ * quelle adresse de WIN. C'est le fonctionnement des cartes communautaires, et c'est ce qui
+ * permet a une adresse fausse d'etre reparee par la premiere personne qui passe devant.
  *
- * Corriger et retirer, eux, restent soumis au droit de contributeur — decision du client. Les
- * lignes s'affichent quand meme, marquees d'un cadenas : une fonction qu'on ne voit pas ne se
- * demande pas, et c'est par la que quelqu'un apprend que ce droit existe.
+ * Une seule ligne peut encore porter un cadenas : la suppression d'une fiche PARTENAIRE qui
+ * n'est pas la sienne. Celle-la a ete payee. L'appui explique pourquoi et propose de signaler.
+ *
+ * Quand on agit sur la fiche de QUELQU'UN D'AUTRE, la ligne le dit avant qu'on appuie. Ce
+ * n'est pas un avertissement de confort : c'est la contrepartie d'un droit ouvert a tous.
  */
 export function ManagePlaceSheet({
   visible,
@@ -53,6 +58,7 @@ export function ManagePlaceSheet({
   adresse,
   contribuee,
   peutGerer,
+  peutSupprimer,
   estLaMienne,
   onReport,
   onEdit,
@@ -107,9 +113,8 @@ export function ManagePlaceSheet({
             teinte={colors.accent + '1f'}
             titre={t('place.editPlaceTitle')}
             detail={t('place.editPlaceSub')}
-            note={peutGerer && !estLaMienne ? t('place.editOtherSub') : undefined}
-            verrouille={!peutGerer}
-            onPress={peutGerer ? onEdit : onSansDroit}
+            note={!estLaMienne ? t('place.editOtherSub') : undefined}
+            onPress={onEdit}
             colors={colors}
           />
           <Ligne
@@ -117,11 +122,11 @@ export function ManagePlaceSheet({
             teinte={colors.danger + '1f'}
             titre={t('place.deletePlaceTitle')}
             detail={t('place.deletePlaceSub')}
-            note={peutGerer && !estLaMienne ? t('place.deleteOtherSub') : undefined}
-            verrouille={!peutGerer}
+            note={peutSupprimer && !estLaMienne ? t('place.deleteOtherSub') : undefined}
+            verrouille={!peutSupprimer}
             danger
             disabled={suppressionEnCours}
-            onPress={peutGerer ? onDelete : onSansDroit}
+            onPress={peutSupprimer ? onDelete : onSansDroit}
             colors={colors}
           />
 

@@ -162,8 +162,8 @@
     "copied": "Copié",
     "changePhoto": "Changer la photo",
     "addPhoto": "Ajouter une photo",
-    "contributorNeededTitle": "Réservé aux contributeurs",
-    "contributorNeededBody": "Corriger ou retirer une fiche demande un code de contributeur, que l'équipe WIN remet. Vous pouvez le saisir dans votre profil. En attendant, signalez le problème : nous sommes prévenus tout de suite."
+    "partnerProtectedTitle": "Fiche partenaire",
+    "partnerProtectedBody": "Cette adresse appartient a un partenaire WIN : son retrait passe par l'equipe. Vous pouvez signaler un probleme, nous sommes prevenus tout de suite."
   },
   "categories": {
     "groups": {
