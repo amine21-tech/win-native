@@ -2,10 +2,6 @@
   "app": {
     "name": "WIN",
     "tagline": "Trouvez chaque adresse en Algérie",
-    "rtlRestartTitle": "Redémarrage nécessaire",
-    "rtlRestartBody": "Le sens de lecture change avec cette langue : redémarrez l'app pour l'appliquer entièrement.",
-    "restartLater": "Plus tard",
-    "restartNow": "Redémarrer",
     "soon": "Bientôt",
     "soonBody": "Le tamazight arrive. Les textes de l'application sont en cours de traduction."
   },

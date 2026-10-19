@@ -205,8 +205,27 @@ export function QiblaPanel({ visible, onClose, position }: Props) {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable onPress={(e) => e.stopPropagation()} style={[styles.boxWrap, { maxWidth: BOX_MAX_WIDTH }]}>
+      <View style={styles.backdrop}>
+        {/* LE FOND EST UN VOISIN, PLUS UN PARENT — et c'est ce qui debloque le defilement.
+
+            L'encadre etait jusqu'ici enveloppe dans deux `Pressable` imbriques : celui du fond,
+            pour fermer d'un appui a cote, et un second qui arretait la propagation. Or sur
+            Android un `Pressable` parent revendique le geste des le premier contact, pendant que
+            la liste, elle, ne decide d'attraper le doigt qu'au MOUVEMENT. Les deux se disputaient
+            le meme glissement, et la liste ne gagnait qu'a l'endroit ou le parent ne couvrait
+            presque rien : le bas du cadre — exactement ce que decrit le client.
+
+            Le fond devient donc une surface posee DERRIERE le contenu : il ferme toujours quand
+            on appuie a cote, mais il n'est plus sur le chemin du doigt. Plus aucun `Pressable`
+            au-dessus de la liste, donc plus de dispute : on fait defiler en posant le doigt
+            n'importe ou, la boussole comprise. */}
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t('addPlace.cancel')}
+        />
+        <View style={[styles.boxWrap, { maxWidth: BOX_MAX_WIDTH }]}>
           <LinearGradient colors={[BOX_TOP, BOX_BOTTOM]} start={{ x: 0.15, y: 0 }} end={{ x: 0.85, y: 1 }} style={styles.box}>
             {/* Le defilement ne marchait pas : l'encadre ne pouvait pas rapetisser (flexShrink
                 valant zero par defaut), il gardait donc la hauteur de son contenu, la liste
@@ -322,8 +341,8 @@ export function QiblaPanel({ visible, onClose, position }: Props) {
               <QuranSection />
             </ScrollView>
           </LinearGradient>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

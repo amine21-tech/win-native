@@ -159,10 +159,29 @@ export function PlaceSheet({
     void Linking.openURL(`https://wa.me/${n.replace(/[^0-9]/g, '')}${text ? `?text=${encodeURIComponent(text)}` : ''}`);
   const email = (addr: string) => void Linking.openURL(`mailto:${addr}`);
 
+  /* LA CROIX ET LE COEUR NE DOIVENT JAMAIS SE TOUCHER.
+   *
+   * La croix flotte en haut a droite de la fiche ; le coeur, lui, est au bout de la ligne du
+   * nom. Quand la fiche s'ouvre sur une photo, un badge de partenaire ou l'encadre de gestion,
+   * cette ligne commence assez bas et les deux se croisent de loin. Sans rien de tout cela,
+   * elle commence a vingt-neuf points du haut — la croix en occupe quarante-huit — et les deux
+   * boutons se chevauchaient, au point qu'aucun des deux n'etait sur a toucher.
+   *
+   * On reserve donc la bande de la croix quand rien d'autre ne la reserve. La mesure est dans
+   * `styles.sousLaCroix`, et elle ne s'applique qu'a ce cas-la : ailleurs, elle creerait un
+   * blanc au-dessus de la photo. */
+  const entetePleine =
+    Boolean(adminToken && place.source === 'win') ||
+    place.isPartner ||
+    Boolean(mainPhoto && photoState !== 'failed');
+
   return (
     <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
       <View style={[styles.grip, { backgroundColor: colors.border }]} />
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={entetePleine ? undefined : styles.sousLaCroix}
+      >
         {/* Encadre dore, en tete de fiche — le bouton de gestion admin de v83 etait un lien
             discret tout en bas, facile a manquer (doc "22 chantiers" #17). Reserve aux fiches
             WIN (source='win') : rien a gerer sur un resultat OpenStreetMap brut. */}
@@ -606,6 +625,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -6 },
   },
   grip: { width: 42, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: spacing.md },
+  /* De quoi passer SOUS la croix : elle s'arrete a quarante-huit points du haut de la fiche,
+   * le contenu en commencait vingt-neuf. Vingt-six de plus mettent le coeur a six points
+   * au-dessous d'elle — assez pour que l'oeil comme le pouce les separent. */
+  sousLaCroix: { paddingTop: 26 },
   badge: {
     ...typography.caption,
     alignSelf: 'flex-start',

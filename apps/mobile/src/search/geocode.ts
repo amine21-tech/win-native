@@ -105,6 +105,17 @@ function mapPhotonFeature(f: PhotonFeature, lang: Language): GeocodedResult | nu
   const country = (p.country || p.countrycode || '').toLowerCase();
   if (!ALLOWED_COUNTRIES.has(country)) return null;
 
+  /* ARRETS DE BUS ECARTES, OU QU'ILS VIENNENT (demande du client).
+   *
+   * Le filtre est pose ICI, a l'entree, et non dans une rubrique : un arret de bus remonte
+   * aussi d'une recherche par NOM (« Agha » en renvoyait un avant la gare elle-meme). Le
+   * retirer de la seule rubrique aurait laisse la moitie du probleme.
+   *
+   * `highway=bus_stop` designe le poteau au bord de la route. La GARE ROUTIERE
+   * (`amenity=bus_station`) n'est pas concernee : c'est un lieu bati, et elle reste
+   * cherchable. */
+  if (p.osm_key === 'highway' && p.osm_value === 'bus_stop') return null;
+
   const pays = countryLabel({ countryCode: p.countrycode, country: p.country }, accLang(lang));
   const isDZ = (p.countrycode || '').toUpperCase() === 'DZ' || /alger|جزائر/i.test(p.country || '');
   const locality = p.city || p.town || p.village || '';

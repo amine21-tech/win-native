@@ -32,7 +32,6 @@ export const CATEGORY_OSM: Record<string, string> = {
   airport: 'aeroway=aerodrome',
   'train station': 'railway=station',
   'bus station': 'amenity=bus_station',
-  'bus stop': 'highway=bus_stop',
   fuel: 'amenity=fuel',
   'gas station': 'amenity=fuel',
   bank: 'amenity=bank',
@@ -89,7 +88,6 @@ export const CATEGORY_SEARCH_TERM: Record<string, string> = {
   airport: 'Aéroport',
   'train station': 'Gare',
   'bus station': 'Gare routière',
-  'bus stop': 'Arrêt de bus',
   parking: 'Parking',
   'car repair': 'Dépannage auto',
   'car repair workshop': 'Mécanicien',
@@ -122,11 +120,8 @@ export const CATEGORY_LABEL_TO_KEY: Record<string, string> = {
   airports: 'airport',
   ambassades: 'embassy ambassade',
   'apc / mairie': 'townhall APC commune algerie',
-  'arrêt de bus': 'bus stop',
-  'arrêt bus': 'bus stop',
   aéroports: 'airport',
   'bus station': 'bus station',
-  'bus stop': 'bus stop',
   cafés: 'cafe',
   'car market': 'car market souk el outo marche automobile voitures occasion',
   casnos: 'CASNOS securite sociale non salaries algerie',
@@ -188,6 +183,14 @@ export const CATEGORY_LABEL_TO_KEY: Record<string, string> = {
 
 /** Categories dont plusieurs etiquettes OSM designent la meme realite. */
 export const CATEGORY_OSM_ALT: Record<string, [string, string][]> = {
+  /* Le reseau SNTF ne tient pas dans une seule etiquette. OpenStreetMap distingue la GARE
+   * (`railway=station`, avec batiment et guichet) de la HALTE (`railway=halt`, un simple
+   * arret) — et les lignes de banlieue algeriennes en comptent beaucoup. Ne demander que les
+   * gares revenait a ignorer la moitie des points d'arret reels. */
+  'train station': [
+    ['railway', 'station'],
+    ['railway', 'halt'],
+  ],
   'car repair': [
     ['shop', 'car_repair'],
     ['shop', 'car'],

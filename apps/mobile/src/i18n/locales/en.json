@@ -2,10 +2,6 @@
   "app": {
     "name": "WIN",
     "tagline": "Find every address in Algeria",
-    "rtlRestartTitle": "Restart required",
-    "rtlRestartBody": "Text direction changes with this language: restart the app to apply it fully.",
-    "restartLater": "Later",
-    "restartNow": "Restart",
     "soon": "Coming soon",
     "soonBody": "Tamazight is on the way. The app is being translated."
   },

@@ -25,12 +25,13 @@ export const CATEGORY_GROUPS: CategoryGroup[] = [
       { dataQ: 'parking', labelKey: 'parking' },
     ],
   },
-  {
-    key: 'transport',
-    emoji: '🚌',
-    labelKey: 'g_transport',
-    items: [{ dataQ: 'bus stop', labelKey: 'busstop' }],
-  },
+  /* La rubrique « Transport public (Arret) » a ete RETIREE a la demande du client.
+   *
+   * Elle ne contenait que les arrets de bus, et les arrets de bus algeriens sont, dans
+   * OpenStreetMap, soit absents soit poses au hasard : la rubrique rendait donc un resultat
+   * faux a quelqu'un qui attendait son bus. Le client fournira les coordonnees officielles ;
+   * la rubrique reviendra avec elles, et pas avant. Les GARES ROUTIERES, elles, restent dans
+   * « Gares & aeroports » : ce sont des lieux batis, correctement cartographies. */
   {
     key: 'urgences',
     emoji: '🆘',

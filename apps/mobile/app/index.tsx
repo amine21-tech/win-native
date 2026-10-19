@@ -54,6 +54,7 @@ import { NavDestinationPicker } from '../src/components/NavDestinationPicker';
 import { DetourSheet } from '../src/components/DetourSheet';
 import { NavSearchMenu } from '../src/components/NavSearchMenu';
 import { MeMarker } from '../src/map/MeMarker';
+import { NavMarker } from '../src/map/NavMarker';
 import { COUNTRY_VIEWS, INITIAL_VIEW_STATE, MAP_STYLES, REPORT_COLORS, type CountryView } from '../src/map/style';
 import { useMapStyle } from '../src/map/useMapStyle';
 import { usePoiLayer } from '../src/map/usePoiLayer';
@@ -80,8 +81,13 @@ import { HIT_SIZE, palette, radius, spacing, typography } from '../src/theme';
 
 type Position = { lat: number; lon: number };
 
-/** Hauteur visuelle du bandeau de marque (Header), sous l'encoche/la barre de statut. */
-const HEADER_HEIGHT = 64;
+/** Hauteur visuelle du bandeau de marque (Header), sous l'encoche/la barre de statut.
+ *
+ * 92 depuis que les langues occupent leur propre ligne (cinq au lieu de quatre). La colonne de
+ * boutons se recalcule a partir de cette valeur : sur un grand telephone elle avait de la marge
+ * et les boutons gardent leur taille pleine ; sur un ecran court ils etaient deja a leur
+ * plancher de 38 points, que ces 28 points de plus ne franchissent pas. */
+const HEADER_HEIGHT = 92;
 
 /* Couleurs du trace, reprises de `routeColors()` en v83.
  *
@@ -388,6 +394,11 @@ export default function MapScreen() {
   // suit la position et le cap du conducteur ; fausse des que la vue d'ensemble est ouverte, le
   // temps que "Recentrer" reprenne la main.
   const [followMode, setFollowMode] = useState(true);
+  /* Cap du vehicule, lu au moment du rendu plutot que conserve dans un etat : le flux de
+   * positions tourne a soixante images par seconde et en faire un etat declencherait autant de
+   * rendus de tout l'ecran. Ce rendu-ci, lui, a deja lieu a chaque point GPS — `position` en est
+   * un etat — et la fleche de deviation n'a pas besoin d'etre plus rapide que cela. */
+  const capVehicule = getFix()?.heading ?? null;
   /** Bilan affiche a l'arrivee. */
   const [tripSummary, setTripSummary] = useState<Trip | null>(null);
   const [stepsOpen, setStepsOpen] = useState(false);
@@ -1787,8 +1798,19 @@ export default function MapScreen() {
             En navigation suivie il cede la place au marqueur fixe dessine hors carte, au point
             focal de la camera : sinon on aurait deux marqueurs, dont un decale de la route.
             L'etiquette disparait des le demarrage du guidage, comme en v83. */}
-        {position && !(navigating && followMode) ? (
-          <MeMarker lat={position.lat} lon={position.lon} labelLang={navigating ? null : lang} />
+        {position && !navigating ? (
+          <MeMarker lat={position.lat} lon={position.lon} labelLang={lang} />
+        ) : null}
+        {/* Guidage en cours, mais camera laissee de cote : la fleche revient sur la carte, a la
+            position reelle et tournee dans le sens du deplacement. C'est le cas de la deviation,
+            ou l'on deplace la carte du doigt pour designer un point — voir NavMarker. */}
+        {position && navigating && !followMode ? (
+          <NavMarker
+            lat={position.lat}
+            lon={position.lon}
+            heading={capVehicule}
+            night={scheme === 'dark'}
+          />
         ) : null}
       </Map>
 

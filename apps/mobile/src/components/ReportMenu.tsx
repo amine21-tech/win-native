@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ReportKind } from '../shared';
 import { FORCES, menuEmoji, REPORT_FAMILLE, REPORT_MENU_ORDER } from '../reports/kinds';
 import { RadarIcon } from './RadarIcon';
@@ -24,9 +25,19 @@ type Props = {
 const FOND_CARTE = '#F7F8F9';
 const BORDURE_CARTE = '#E4E6E8';
 
+/* Vert WIN, epaisseur et marges : les trois valeurs sont celles du client, au point pres.
+ *
+ * Sans bordure, le panneau collait aux quatre bords de l'ecran et ressemblait a n'importe quel
+ * panneau d'Android. Detache de quelques points, cercle de vert, il redevient UN OBJET DE WIN
+ * pose sur la carte — c'est exactement ce que dit la maquette, et la raison qu'elle en donne. */
+const VERT_WIN = '#1A6B45';
+const BORDURE_PANNEAU = 2.5;
+const MARGE_PANNEAU = 14;
+
 /** Menu de signalement : grille 2 colonnes, heritee de `.alert-menu`/`.am-grid` en v83. */
 export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   /* Quelle force tient le barrage : le choix se fait DANS la carte, sans la quitter. Un seul
    * appui suffit a qui sait deja, deux a qui hesite. */
   const [force, setForce] = useState<ReportKind>('police');
@@ -38,10 +49,33 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={[styles.card, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+        <Pressable
+          style={[
+            styles.card,
+            { backgroundColor: colors.surface, marginBottom: MARGE_PANNEAU + insets.bottom },
+          ]}
+          onPress={(e) => e.stopPropagation()}
+        >
           <View style={styles.poignee} />
-          <Text style={[typography.heading, { color: colors.text }]}>{t('report.menuTitle')}</Text>
-          <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.md }]}>
+
+          {/* La croix remplace le bouton « Annuler » du bas. Elle est a sa place habituelle —
+              en haut a droite — donc la ou le pouce la cherche, et elle rend au panneau la
+              hauteur que prenait un bouton entier pour ne rien faire d'autre que fermer. */}
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t('addPlace.cancel')}
+            style={({ pressed }) => [
+              styles.fermer,
+              { backgroundColor: pressed ? BORDURE_CARTE : FOND_CARTE },
+            ]}
+          >
+            <Text style={[styles.fermerGlyphe, { color: colors.textMuted }]}>✕</Text>
+          </Pressable>
+
+          <Text style={[typography.heading, styles.titre, { color: colors.text }]}>{t('report.menuTitle')}</Text>
+          <Text style={[typography.caption, styles.sousTitre, { color: colors.textMuted }]}>
             {t('report.menuSub')}
           </Text>
 
@@ -107,10 +141,6 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
               })}
             </View>
           </ScrollView>
-
-          <Pressable onPress={onClose} style={[styles.annuler, { backgroundColor: FOND_CARTE }]}>
-            <Text style={[typography.body, { color: colors.textMuted }]}>{t('addPlace.cancel')}</Text>
-          </Pressable>
         </Pressable>
       </Pressable>
     </Modal>
@@ -124,11 +154,14 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   card: {
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    // Detache des bords : le panneau redevient une carte posee sur la carte.
+    marginHorizontal: MARGE_PANNEAU,
+    borderRadius: radius.lg,
+    borderWidth: BORDURE_PANNEAU,
+    borderColor: VERT_WIN,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.lg,
     maxHeight: '86%',
   },
   poignee: {
@@ -177,10 +210,19 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   badgeText: { color: '#fff', fontSize: 9, fontWeight: '800' as const },
-  annuler: {
-    marginTop: spacing.sm,
-    borderRadius: 14,
-    paddingVertical: spacing.md,
+  // Le titre s'arrete avant la croix : sinon un libelle long passerait dessous.
+  titre: { paddingRight: 40 },
+  sousTitre: { paddingRight: 40, marginBottom: spacing.md },
+  fermer: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.md,
+    zIndex: 5,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
   },
+  fermerGlyphe: { fontSize: 15, lineHeight: 17, fontWeight: '700' as const },
 });

@@ -2,7 +2,7 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { I18nManager } from 'react-native';
 import * as Localization from 'expo-localization';
-import { DEFAULT_LANGUAGE, LANGUAGES, RTL_LANGUAGES, type Language } from '../shared';
+import { DEFAULT_LANGUAGE, LANGUAGES, type Language } from '../shared';
 import { useSession } from '../store/session';
 import { storage, StorageKeys } from '../store/storage';
 import ar from './locales/ar.json';
@@ -23,16 +23,28 @@ function resolveLanguage(): Language {
 const language = resolveLanguage();
 
 /**
- * Sens de lecture.
+ * SENS DE LECTURE : POURQUOI L'APPLICATION N'INVERSE PLUS SA MISE EN PAGE.
  *
- * En React Native, l'inversion est appliquee par le systeme et exige un
- * redemarrage de l'application : c'est plus propre que le CSS `direction` de
- * la version web, qui laissait quelques panneaux a l'envers.
+ * Le client demande un changement de langue instantane, sans fenetre de confirmation et sans
+ * redemarrage « d'aucune sorte ». Une seule chose, ici, exigeait ce redemarrage :
+ * `I18nManager.forceRTL`. Ce reglage n'est pas du CSS — il est applique par Android au moment
+ * ou les vues sont creees, et les vues deja a l'ecran ne s'inversent pas. D'ou la fenetre
+ * « redemarrez l'app » : elle n'etait pas un choix de confort, c'etait l'aveu d'une limite.
+ *
+ * On enleve donc la limite plutot que de la faire porter a l'utilisateur. L'inversion de la
+ * mise en page n'etait de toute facon utilisee NULLE PART dans l'interface : rien, dans tout
+ * le code de WIN, ne lisait `isRTL` pour se positionner. L'arabe et le darija s'affichaient
+ * correctement par le seul rendu bidirectionnel du texte, que ce reglage ne touche pas — et
+ * la colonne de boutons, la carte et les panneaux ont une place voulue, pas une place miroir.
+ *
+ * Reste a reparer les telephones ou l'ancienne version a laisse le drapeau arme : Android le
+ * garde d'un lancement a l'autre. On le desarme donc une fois au demarrage. Ces telephones
+ * verront leur mise en page revenir a l'endroit au prochain lancement — c'est le dernier
+ * redemarrage, et il n'est demande a personne.
  */
-export const isRTL = RTL_LANGUAGES.includes(language);
-if (I18nManager.isRTL !== isRTL) {
-  I18nManager.allowRTL(isRTL);
-  I18nManager.forceRTL(isRTL);
+if (I18nManager.isRTL) {
+  I18nManager.allowRTL(false);
+  I18nManager.forceRTL(false);
 }
 
 void i18n.use(initReactI18next).init({
@@ -49,20 +61,15 @@ void i18n.use(initReactI18next).init({
 });
 
 /**
- * Change la langue active. Le texte bascule immediatement partout (i18next),
- * mais le sens de lecture (RTL) est impose par le systeme d'exploitation : le
- * changer exige un redemarrage de l'app, contrairement au `direction` CSS de
- * la version web qui basculait a la volee. Retourne `true` quand ce
- * redemarrage est necessaire, pour que l'appelant puisse le proposer.
+ * Change la langue active, tout de suite et sans rien demander.
+ *
+ * Deux lignes, et c'est tout ce qu'il faut : i18next previent tous les composants, le texte
+ * bascule a l'image suivante, et le choix est memorise pour le prochain lancement. Voir
+ * ci-dessus pour ce qui a disparu — et pourquoi la fenetre de redemarrage avec.
  */
-export function changeLanguage(next: Language): boolean {
+export function changeLanguage(next: Language): void {
   useSession.getState().setLanguage(next);
   void i18n.changeLanguage(next);
-  const nextIsRTL = RTL_LANGUAGES.includes(next);
-  if (nextIsRTL === I18nManager.isRTL) return false;
-  I18nManager.allowRTL(nextIsRTL);
-  I18nManager.forceRTL(nextIsRTL);
-  return true;
 }
 
 export default i18n;

@@ -83,8 +83,15 @@ export function isAirport(info: { osmKey?: string; osmValue?: string; type?: str
   return /a[ée]roport|airport|مطار|aerodrome/i.test(info.name ?? '');
 }
 
+/**
+ * Ce lieu est-il un point d'arret du reseau ferroviaire ? C'est lui qui fait apparaitre le lien
+ * « Horaires des trains SNTF » dans la fiche, comme le lien EGSA pour un aeroport.
+ *
+ * La HALTE compte autant que la gare : sur les lignes de banlieue algeriennes, la plupart des
+ * arrets sont des `railway=halt`, et leur fiche n'offrait aucun lien vers les horaires.
+ */
 export function isTrainStation(info: { osmKey?: string; osmValue?: string; type?: string }): boolean {
-  return info.osmKey === 'railway' && info.osmValue === 'station';
+  return info.osmKey === 'railway' && (info.osmValue === 'station' || info.osmValue === 'halt');
 }
 
 export const SNTF_URL = 'https://www.sntf.dz';

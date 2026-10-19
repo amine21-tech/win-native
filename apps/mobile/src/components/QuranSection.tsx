@@ -72,7 +72,22 @@ export function QuranSection() {
     lecteur.play();
   };
 
-  useEffect(() => () => lecteur.remove(), [lecteur]);
+  /* LA CROIX DE LA QIBLA RENDAIT UN ECRAN BLANC FIGE, et c'est cette ligne-la qui le faisait.
+   *
+   * Il y avait ici `useEffect(() => () => lecteur.remove(), [lecteur])` — liberer le lecteur
+   * en quittant l'ecran. L'intention etait bonne, le geste etait en trop : `useAudioPlayer`
+   * libere DEJA son lecteur au demontage (expo-audio le construit avec
+   * `useReleasingSharedObject`). L'appel manuel arrivait donc apres, sur un objet natif qui
+   * n'existait plus, et levait une exception.
+   *
+   * Le reste s'enchaine mecaniquement : un `Modal` de React Native rend `null` des que
+   * `visible` passe a faux, donc fermer la Qibla DEMONTE cette section. L'exception tombait
+   * ainsi au milieu du demontage du panneau ; la fenetre native du Modal restait a l'ecran
+   * sans contenu — l'ecran blanc — et l'application ne pouvait plus repartir de cet etat.
+   *
+   * Il n'y a donc rien a remettre a la place : la lecture s'arrete bien a la fermeture,
+   * puisque c'est precisement ce que fait la liberation automatique.
+   */
 
   return (
     <View style={styles.bloc}>

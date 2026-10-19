@@ -64,7 +64,8 @@ const TERMES_FREQUENTS = [
 const CACHE_TTL_MS = 3 * 60 * 1000;
 /** Un partenaire au-dela de cette distance n'est plus mis en avant (reste trouvable par son nom). */
 const VIP_RADIUS_M = 60_000;
-const BUS_STOP_RADIUS_M = 5_000;
+/** Rayon interroge pour une rubrique. 50 km couvre une wilaya entiere. */
+const RUBRIQUE_RAYON_KM = 50;
 
 /**
  * Cache memoire, module-scope : partage entre tous les usages de l'ecran de
@@ -144,14 +145,42 @@ function mapPlace(p: Place, lang: Language): GeocodedResult {
   };
 }
 
-async function fetchWinPlaces(q: string, here: Coords | null, lang: Language): Promise<GeocodedResult[]> {
-  try {
+/**
+ * NOS PROPRES FICHES — et le soin particulier qu'elles demandent.
+ *
+ * Le client decrit une fiche qu'il a lui-meme enregistree et qui « n'apparait pas de facon
+ * stable » : presente, puis absente, puis presente. La cause n'est pas le classement, c'est
+ * cet appel-la. Il etait enveloppe dans un `catch` qui rendait une liste VIDE sans rien dire :
+ * un creux de reseau d'une seconde — ordinaire sur un reseau mobile algerien — et la recherche
+ * s'affichait complete alors qu'il n'y manquait que l'essentiel, les lieux de WIN.
+ *
+ * Deux changements, et ils comptent autant l'un que l'autre :
+ *
+ *   1. UNE REPRISE. Notre serveur, lui, est a nous : il merite un second essai, immediat.
+ *   2. ON DIT QUAND C'EST INCOMPLET. L'echec est remonte a l'appelant, qui refuse alors de
+ *      METTRE EN CACHE le resultat. Sans cela, une liste amputee restait affichee trois
+ *      minutes, et chaque nouvelle frappe la ressortait telle quelle : la fiche manquante
+ *      semblait avoir disparu pour de bon.
+ */
+async function fetchWinPlaces(
+  q: string,
+  here: Coords | null,
+  lang: Language,
+): Promise<{ items: GeocodedResult[]; ok: boolean }> {
+  const demander = async () => {
     const { items } = await api<{ items: Place[] }>('/places/search', {
       query: { q, lat: here?.lat, lon: here?.lon, limit: 15 },
     });
-    return items.map((p) => mapPlace(p, lang));
+    return items.map((item) => mapPlace(item, lang));
+  };
+  try {
+    return { items: await demander(), ok: true };
   } catch {
-    return [];
+    try {
+      return { items: await demander(), ok: true };
+    } catch {
+      return { items: [], ok: false };
+    }
   }
 }
 
@@ -197,6 +226,25 @@ function dedupe(results: GeocodedResult[]): GeocodedResult[] {
   return gardes;
 }
 
+/**
+ * RECHERCHE PAR RUBRIQUE — et la correction qui n'avait jamais ete branchee.
+ *
+ * « SNTF (Gare train) » rendait « Aucun resultat » a cote d'une gare visible depuis la rue. La
+ * raison est que cette fonction posait la mauvaise question : elle envoyait un TEXTE
+ * (<< Gare >>) a Photon et triait la reponse apres coup. Or la gare d'Agha, a 1,6 km du centre
+ * d'Alger, ne s'appelle pas << Gare >> : elle s'appelle << Agha >>. Mesure sur le service reel,
+ * cette voie-la ramene UNE gare sur vingt resultats, le reste etant des chantiers, un terminal
+ * de ferry et un arret de bus.
+ *
+ * `fetchPhotonNearby` pose l'autre question — << qu'y a-t-il de ce type autour de moi >> — et en
+ * ramene quarante, deja triees par distance. Cette fonction avait ete ecrite a la session
+ * precedente, verifiee contre le service en direct... et jamais appelee : l'import etait la, pas
+ * l'appel. La rubrique est donc restee vide, et le client a eu raison de le redire.
+ *
+ * On garde MALGRE TOUT la voie par texte, en parallele : certains lieux portent le bon nom sans
+ * porter la bonne etiquette OSM, et les deux listes se completent. Le dedoublonnage les fond
+ * ensuite en une seule, ou nos propres fiches gagnent toujours.
+ */
 async function runCategorySearch(
   key: string,
   extraText: string,
@@ -206,13 +254,16 @@ async function runCategorySearch(
 ): Promise<SearchOutcome> {
   const osmTag = CATEGORY_OSM[key]!;
   const term = (CATEGORY_SEARCH_TERM[key] ?? q) + (extraText ? ` ${extraText}` : '');
+  const [cle, valeur] = osmTag.split('=') as [string, string];
+  const tags: [string, string][] = CATEGORY_OSM_ALT[key] ?? [[cle, valeur]];
 
-  const [winResults, photonResults] = await Promise.all([
+  const [win, autour, parTexte] = await Promise.all([
     fetchWinPlaces(CATEGORY_SEARCH_TERM[key] ?? q, here, lang),
+    fetchPhotonNearby(tags, here, lang, RUBRIQUE_RAYON_KM).catch(() => []),
     fetchPhotonCategory(term, osmTag, CATEGORY_OSM_ALT[key], here, lang).catch(() => []),
   ]);
 
-  const raw: GeocodedResult[] = [...winResults, ...photonResults];
+  const raw: GeocodedResult[] = [...win.items, ...autour, ...parTexte];
 
   if (key === 'airport') {
     raw.push(...mergeCurated(CURATED_AIRPORTS, raw, here).map((c) => toGeocoded(c, 'curated')));
@@ -221,18 +272,19 @@ async function runCategorySearch(
     raw.push(...mergeCurated(CURATED_PORTS, raw, here).map((c) => toGeocoded(c, 'curated')));
   }
 
-  let ranked = rankByDistance(raw, here).slice(0, 40);
-
-  if (key === 'bus stop') {
-    ranked = ranked.filter((r) => r.distanceM <= BUS_STOP_RADIUS_M);
-  }
+  // Le dedoublonnage manquait ici, et c'est l'autre moitie de la fiche « qui apparait sans sa
+  // photo » : la meme salle de sport arrivait deux fois, une fois de chez nous avec sa photo,
+  // une fois d'OpenStreetMap sans rien, et c'est l'une ou l'autre qui se presentait en
+  // premier selon l'ordre de reponse des serveurs. Une seule survit desormais, et c'est la
+  // notre.
+  const ranked = rankByDistance(dedupe(raw), here).slice(0, 40);
 
   // Une recherche par RUBRIQUE repond a « lequel est le plus pres de moi ». On ne remonte
   // donc aucun partenaire en tete : la liste suit strictement la distance, et les
   // partenaires y gardent leur etoile a leur vraie place. Remonter un partenaire situe a
   // 40 km au-dessus d'un mecanicien a 500 m rendait la rubrique inutilisable.
   // La recherche par NOM, elle, conserve la mise en avant (voir runTextSearch).
-  return { partners: [], results: ranked };
+  return { partners: [], results: ranked, complet: win.ok };
 }
 
 function toGeocoded(c: { name: string; lat: number; lon: number }, source: GeocodedResult['source']): GeocodedResult {
@@ -259,24 +311,34 @@ function haversineM(a: Coords, b: Coords): number {
 }
 
 /** Separe les partenaires VIP (mis en avant) du reste, comme le fait renderResults() en v83. */
-function partition(results: (GeocodedResult & { distanceM?: number })[]): SearchOutcome {
+function partition(results: (GeocodedResult & { distanceM?: number })[], complet: boolean): SearchOutcome {
   const partners = results.filter((r) => r.isPartner && (r.distanceM == null || r.distanceM <= VIP_RADIUS_M));
   const others = results.filter((r) => !partners.includes(r));
-  return { partners, results: others };
+  return { partners, results: others, complet };
 }
 
-export type SearchOutcome = { partners: GeocodedResult[]; results: GeocodedResult[] };
+export type SearchOutcome = {
+  partners: GeocodedResult[];
+  results: GeocodedResult[];
+  /**
+   * Toutes les sources ont-elles repondu ? Faux quand NOS fiches ont manque a l'appel. Une
+   * liste incomplete s'affiche quand meme — mieux vaut OpenStreetMap que rien — mais elle
+   * n'est pas mise en cache, pour que la frappe suivante retente au lieu de resservir un
+   * resultat ampute pendant trois minutes.
+   */
+  complet: boolean;
+};
 
 async function runTextSearch(qRaw: string, here: Coords | null, lang: Language): Promise<SearchOutcome> {
   const alias = CITY_ALIASES[normalizeCity(qRaw)];
   const q = alias ?? qRaw;
 
-  const [winResults, photonResults] = await Promise.all([
+  const [win, photonResults] = await Promise.all([
     fetchWinPlaces(q, here, lang),
     fetchPhoton(q, { here, lang }).catch(() => []),
   ]);
 
-  let combined = dedupe([...winResults, ...photonResults]);
+  const combined = dedupe([...win.items, ...photonResults]);
   let ranked = rankSearchResults(combined, q, here);
 
   if (ranked.length === 0) {
@@ -284,7 +346,7 @@ async function runTextSearch(qRaw: string, here: Coords | null, lang: Language):
     ranked = rankSearchResults(dedupe(nominatimResults), q, here);
   }
 
-  return partition(hoistOwnPlaces(ranked, q));
+  return partition(hoistOwnPlaces(ranked, q), win.ok);
 }
 
 /**
@@ -349,7 +411,8 @@ export function prechaufferRecherches(here: Coords | null, lang: Language, inter
       const cle = cleCache(terme, here, lang);
       if (cache.has(cle)) continue;
       try {
-        cacheSet(cle, await search(terme, here, lang));
+        const avance = await search(terme, here, lang);
+        if (avance.complet) cacheSet(cle, avance);
       } catch {
         // Hors ligne au demarrage : on reessaiera a la prochaine ouverture.
       }
@@ -365,7 +428,7 @@ export function usePlaceSearch(here: Coords | null, lang: Language) {
   // ("pharmacy"), qui seule est reconnue par resolveCategoryQuery dans les 4 langues.
   const [displayValue, setDisplayValue] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [outcome, setOutcome] = useState<SearchOutcome>({ partners: [], results: [] });
+  const [outcome, setOutcome] = useState<SearchOutcome>({ partners: [], results: [], complet: true });
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestId = useRef(0);
@@ -428,13 +491,15 @@ export function usePlaceSearch(here: Coords | null, lang: Language) {
       }
 
       const id = ++requestId.current;
+
       // Pas de voile d'attente quand une liste est deja affichee : elle clignoterait a chaque
       // frappe alors que des resultats utilisables sont sous les yeux.
       if (!cached) setLoading(true);
       try {
         const value = await search(q, here, lang);
         if (id !== requestId.current) return; // une frappe plus recente a devance cette reponse
-        cacheSet(cacheKey, value);
+        // Une liste dont NOS fiches manquent n'entre pas en cache : voir fetchWinPlaces.
+        if (value.complet) cacheSet(cacheKey, value);
         setOutcome(value);
       } finally {
         if (id === requestId.current) setLoading(false);
@@ -447,7 +512,7 @@ export function usePlaceSearch(here: Coords | null, lang: Language) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const trimmed = searchTerm.trim();
     if (trimmed.length < 2) {
-      setOutcome({ partners: [], results: [] });
+      setOutcome({ partners: [], results: [], complet: true });
       setLoading(false);
       return;
     }
