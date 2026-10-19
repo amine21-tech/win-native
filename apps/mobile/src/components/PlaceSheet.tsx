@@ -18,6 +18,7 @@ import { fonts, radius, spacing, typography, type Palette } from '../theme';
 import { AdminEditPlaceSheet } from './AdminEditPlaceSheet';
 import { CorrectionSheet } from './CorrectionSheet';
 import { TripCard } from './TripCard';
+import { WinPlaceCard } from './WinPlaceCard';
 
 export type SelectedPlace = GeocodedResult & { distanceM?: number };
 
@@ -126,6 +127,19 @@ export function PlaceSheet({
    * Le serveur verifie le droit a chaque geste ; ceci n'est que l'affichage. Et il garde l'etat
    * precedent de la fiche, pour qu'une erreur de contributeur se repare. */
   const peutGerer = isMine || isContributor;
+  /**
+   * FICHE COMPACTE pour une adresse enregistree par un utilisateur WIN (point 12 du client).
+   *
+   * Elle ne remplace pas la fiche generale, elle vient a cote — voir WinPlaceCard pour ce qui
+   * justifie les deux. Le partage se fait sur une seule question : y a-t-il quelque chose a
+   * comparer ? Devant un lieu d'OpenStreetMap, oui (duree, variantes, horaires). Devant une
+   * adresse qu'on a soi-meme saisie, non : on sait ou l'on va.
+   *
+   * Les fiches PARTENAIRES restent sur la fiche generale, bien qu'elles viennent aussi de chez
+   * nous : elles portent un telephone, un WhatsApp, une promotion — tout ce pour quoi elles ont
+   * ete payees, et que resumer reviendrait a retirer.
+   */
+  const compacte = isContributed && !place.isPartner && Boolean(place.placeId);
   /* Seules les photos de contributeurs se signalent : une illustration Wikimedia ne nous
    * appartient pas, et il n'y a rien a moderer chez nous la concernant. */
   const currentPhotoId = place.photos?.find((ph) => ph.url === mainPhoto)?.id ?? null;
@@ -170,10 +184,10 @@ export function PlaceSheet({
    * On reserve donc la bande de la croix quand rien d'autre ne la reserve. La mesure est dans
    * `styles.sousLaCroix`, et elle ne s'applique qu'a ce cas-la : ailleurs, elle creerait un
    * blanc au-dessus de la photo. */
-  const entetePleine =
-    Boolean(adminToken && place.source === 'win') ||
-    place.isPartner ||
-    Boolean(mainPhoto && photoState !== 'failed');
+  const blocPhoto = Boolean(mainPhoto && photoState !== 'failed');
+  const entetePleine = compacte
+    ? blocPhoto || peutGerer
+    : Boolean(adminToken && place.source === 'win') || place.isPartner || blocPhoto;
 
   return (
     <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
@@ -182,6 +196,26 @@ export function PlaceSheet({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={entetePleine ? undefined : styles.sousLaCroix}
       >
+        {compacte ? (
+          <WinPlaceCard
+            place={place}
+            colors={colors}
+            photo={mainPhoto}
+            photoState={photoState}
+            onPhotoLoad={() => setPhotoState('ok')}
+            onPhotoError={() => setPhotoState('failed')}
+            isFavorite={isFavorite}
+            onToggleFavorite={onToggleFavorite}
+            peutGerer={peutGerer}
+            hasUserPosition={hasUserPosition}
+            onStart={onStartNavigation}
+            onEdit={() => setMyEditOpen(true)}
+            onDelete={askDelete}
+            onReport={() => setCorrectionOpen(true)}
+            deleting={deleting}
+          />
+        ) : (
+        <>
         {/* Encadre dore, en tete de fiche — le bouton de gestion admin de v83 etait un lien
             discret tout en bas, facile a manquer (doc "22 chantiers" #17). Reserve aux fiches
             WIN (source='win') : rien a gerer sur un resultat OpenStreetMap brut. */}
@@ -410,6 +444,8 @@ export function PlaceSheet({
             <Text style={[typography.caption, { color: colors.textMuted }]}>{t('place.reportIssue')}</Text>
           </Pressable>
         )}
+        </>
+        )}
       </ScrollView>
 
       <Pressable
@@ -439,6 +475,7 @@ export function PlaceSheet({
       />
 
       <MyPlaceSheet
+        photoUrl={mainPhoto}
         visible={myEditOpen}
         place={
           peutGerer && place.placeId

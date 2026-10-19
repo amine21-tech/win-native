@@ -526,6 +526,36 @@ const routes: FastifyPluginAsync = async (app) => {
       `)) as unknown as unknown[];
       if (rows.length === 0) throw notFound();
 
+      /* CHANGER LA PHOTO D'UNE FICHE (point 12 du client).
+       *
+       * Les photos ne pouvaient etre attachees qu'a la CREATION : corriger l'image d'un lieu
+       * demandait donc de supprimer la fiche et de tout ressaisir. Un contributeur qui repasse
+       * devant une adresse avec une meilleure photo ne devrait pas avoir a faire cela.
+       *
+       * `photoIds` absent ne touche a rien — les champs de cette route sont tous facultatifs et
+       * une correction de nom ne doit pas effacer l'image. Present, il REMPLACE : les photos
+       * actuelles sont detachees, les nouvelles prennent leur place. Detachees et non
+       * supprimees : le fichier reste sur le disque, et le journal ci-dessous garde la trace du
+       * geste. Une photo retiree par erreur se rattache donc, alors qu'elle ne se ressusciterait
+       * pas.
+       */
+      if (input.photoIds?.length) {
+        // Liste explicite plutot que `= ANY($1::uuid[])` : le modele `sql` de drizzle ETALE un
+        // tableau JavaScript en parametres separes, et Postgres recevait une seule chaine la ou
+        // il attendait un tableau (meme piege qu'a la creation).
+        const ids = sql.join(
+          input.photoIds.map((id) => sql`${id}::uuid`),
+          sql`, `,
+        );
+        await db.execute(sql`
+          UPDATE place_photos SET place_id = NULL WHERE place_id = ${req.params.id}
+        `);
+        await db.execute(sql`
+          UPDATE place_photos SET place_id = ${req.params.id}
+          WHERE id IN (${ids}) AND place_id IS NULL
+        `);
+      }
+
       await db.execute(sql`
         INSERT INTO moderation_log (entity_type, entity_id, action, before, after, device_id)
         VALUES (

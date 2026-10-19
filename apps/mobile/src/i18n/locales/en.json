@@ -156,7 +156,15 @@
     "deletePlaceTitle": "Delete this place",
     "deletePlaceSub": "Permanently remove the place and its photo",
     "editOtherSub": "Someone else’s place — your correction is logged",
-    "deleteOtherSub": "Someone else’s place — the removal is logged and reversible"
+    "deleteOtherSub": "Someone else’s place — the removal is logged and reversible",
+    "gpsCoords": "GPS coordinates",
+    "copy": "Copy",
+    "copied": "Copied",
+    "wrongAddress": "Wrong address? Contact the WIN team",
+    "editThisAddress": "Edit this address",
+    "deleteThisAddress": "Delete this address",
+    "changePhoto": "Change photo",
+    "addPhoto": "Add a photo"
   },
   "categories": {
     "groups": {

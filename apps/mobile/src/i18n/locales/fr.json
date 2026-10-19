@@ -156,7 +156,15 @@
     "deletePlaceTitle": "Supprimer cette fiche",
     "deletePlaceSub": "Supprimer le lieu et sa photo définitivement",
     "editOtherSub": "Fiche d'un autre utilisateur — votre correction est tracée",
-    "deleteOtherSub": "Fiche d'un autre utilisateur — le retrait est tracé et réversible"
+    "deleteOtherSub": "Fiche d'un autre utilisateur — le retrait est tracé et réversible",
+    "gpsCoords": "Coordonnées GPS",
+    "copy": "Copier",
+    "copied": "Copié",
+    "wrongAddress": "Adresse incorrecte ? Contactez l'équipe WIN",
+    "editThisAddress": "Modifier cette adresse",
+    "deleteThisAddress": "Supprimer cette adresse",
+    "changePhoto": "Changer la photo",
+    "addPhoto": "Ajouter une photo"
   },
   "categories": {
     "groups": {

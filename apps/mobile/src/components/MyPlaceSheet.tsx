@@ -1,7 +1,10 @@
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { api, ApiError } from '../api/client';
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { api, ApiError, uploadPhoto } from '../api/client';
+import { photoSource } from '../place/placePhoto';
 import { clearSearchCache } from '../search/usePlaceSearch';
 import { PLACE_CATEGORIES, type PlaceCategory } from '../shared';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,8 +22,15 @@ import { radius, spacing, typography, type Palette } from '../theme';
  * qu'a la creation, et le statut partenaire reste hors de portee : c'est un engagement
  * commercial, pas une information saisie par le contributeur.
  */
+/** Largeur d'envoi, comme a la creation : le serveur re-limite de toute facon a 1600 px, et
+ * reduire AVANT d'afficher la vignette evite de decoder deux fois une image de 12 megapixels —
+ * c'est ce qui faisait fermer l'application au moment de l'enregistrement. */
+const UPLOAD_WIDTH = 1600;
+
 type Props = {
   visible: boolean;
+  /** Photo actuelle de la fiche, pour la montrer avant de la remplacer. */
+  photoUrl?: string | null;
   place: {
     id: string;
     name: string;
@@ -41,7 +51,7 @@ type Props = {
   colors: Palette;
 };
 
-export function MyPlaceSheet({ visible, place, onClose, onSaved, onDeleted, colors }: Props) {
+export function MyPlaceSheet({ visible, photoUrl, place, onClose, onSaved, onDeleted, colors }: Props) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
@@ -58,6 +68,10 @@ export function MyPlaceSheet({ visible, place, onClose, onSaved, onDeleted, colo
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /* Photo choisie pendant cette modification, pas encore envoyee. Tant qu'elle vaut `null`,
+   * la fiche garde la sienne : on ne REMPLACE que si l'utilisateur en a designe une autre. */
+  const [nouvellePhoto, setNouvellePhoto] = useState<string | null>(null);
+  const [preparePhoto, setPreparePhoto] = useState(false);
 
   useEffect(() => {
     if (!place) return;
@@ -69,8 +83,40 @@ export function MyPlaceSheet({ visible, place, onClose, onSaved, onDeleted, colo
     setStreet(place.street ?? '');
     setCity(place.city ?? '');
     setPostalCode(place.postalCode ?? '');
+    setNouvellePhoto(null);
     setError(null);
   }, [place]);
+
+  const choisirPhoto = async (depuis: 'camera' | 'galerie') => {
+    const perm =
+      depuis === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      setError(t(depuis === 'camera' ? 'addPlace.cameraDenied' : 'addPlace.galleryDenied'));
+      return;
+    }
+    const result =
+      depuis === 'camera'
+        ? await ImagePicker.launchCameraAsync({ quality: 0.7, exif: false })
+        : await ImagePicker.launchImageLibraryAsync({ quality: 0.7, exif: false });
+    const prise = result.canceled ? null : result.assets?.[0]?.uri;
+    if (!prise) return;
+    setPreparePhoto(true);
+    try {
+      const reduite = await manipulateAsync(prise, [{ resize: { width: UPLOAD_WIDTH } }], {
+        compress: 0.7,
+        format: SaveFormat.JPEG,
+      });
+      setNouvellePhoto(reduite.uri);
+    } catch {
+      // La reduction a echoue : on garde l'originale plutot que de perdre la photo. Le serveur
+      // la redimensionnera de son cote, l'envoi sera seulement plus long.
+      setNouvellePhoto(prise);
+    } finally {
+      setPreparePhoto(false);
+    }
+  };
 
   const typedLat = Number(lat.replace(',', '.'));
   const typedLon = Number(lon.replace(',', '.'));
@@ -90,9 +136,24 @@ export function MyPlaceSheet({ visible, place, onClose, onSaved, onDeleted, colo
     setSaving(true);
     setError(null);
     try {
+      /* La photo part AVANT la fiche, et son echec n'empeche pas la correction.
+       *
+       * Meme raisonnement qu'a la creation : ce qui a de la valeur pour la carte, c'est le lieu
+       * et son adresse. Perdre une correction de nom parce qu'une image n'a pas pu etre envoyee
+       * serait la mauvaise priorite — on previent, et le reste est enregistre. */
+      let photoIds: string[] | undefined;
+      if (nouvellePhoto) {
+        try {
+          photoIds = [(await uploadPhoto(nouvellePhoto)).id];
+        } catch {
+          setError(t('addPlace.savedWithoutPhoto'));
+        }
+      }
+
       await api(`/places/${place.id}/mine`, {
         method: 'PATCH',
         body: {
+          ...(photoIds ? { photoIds } : {}),
           name: name.trim(),
           category,
           lat: typedLat,
@@ -152,7 +213,53 @@ export function MyPlaceSheet({ visible, place, onClose, onSaved, onDeleted, colo
           </View>
 
           <ScrollView keyboardShouldPersistTaps="handled">
-            <Text style={[typography.caption, { color: colors.textMuted }]}>{t('addPlace.name')}</Text>
+            {/* LA PHOTO EN PREMIER : c'est ce qu'on vient le plus souvent corriger apres coup,
+                parce qu'on enregistre un lieu en passant et qu'on y revient avec une meilleure
+                image. Elle n'etait modifiable nulle part — il fallait supprimer la fiche et la
+                refaire. */}
+            <Text style={[typography.caption, { color: colors.textMuted }]}>{t('addPlace.photo')}</Text>
+            <View style={styles.photoRow}>
+              {nouvellePhoto || photoUrl ? (
+                <Image
+                  source={nouvellePhoto ? { uri: nouvellePhoto } : photoSource(photoUrl!)}
+                  style={[styles.photo, { borderColor: colors.border }]}
+                  resizeMethod="resize"
+                />
+              ) : (
+                <View style={[styles.photo, styles.photoVide, { borderColor: colors.border }]}>
+                  <Text style={{ fontSize: 20 }}>📷</Text>
+                </View>
+              )}
+              <View style={styles.photoBtns}>
+                <Pressable
+                  disabled={preparePhoto}
+                  onPress={() => void choisirPhoto('camera')}
+                  style={[styles.photoBtn, { borderColor: colors.accent }]}
+                >
+                  <Text style={[styles.photoBtnText, { color: colors.accent }]}>
+                    📸 {t('addPlace.camera')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  disabled={preparePhoto}
+                  onPress={() => void choisirPhoto('galerie')}
+                  style={[styles.photoBtn, { borderColor: colors.accent }]}
+                >
+                  <Text style={[styles.photoBtnText, { color: colors.accent }]}>
+                    🖼 {t('addPlace.gallery')}
+                  </Text>
+                </Pressable>
+                {preparePhoto ? (
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>
+                    {t('addPlace.preparingPhoto')}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+
+            <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.sm }]}>
+              {t('addPlace.name')}
+            </Text>
             <TextInput
               value={name}
               onChangeText={setName}
@@ -287,6 +394,12 @@ const styles = StyleSheet.create({
   box: { borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.lg, maxHeight: '86%' },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
   input: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 8, marginTop: 4 },
+  photoRow: { flexDirection: 'row', gap: spacing.sm, marginTop: 6, alignItems: 'center' },
+  photo: { width: 84, height: 64, borderRadius: radius.sm, borderWidth: 1 },
+  photoVide: { alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed' },
+  photoBtns: { flex: 1, gap: 6 },
+  photoBtn: { borderWidth: 1.5, borderRadius: radius.pill, paddingVertical: 6, alignItems: 'center' },
+  photoBtnText: { fontSize: 12, fontWeight: '800' as const },
   cats: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   cat: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
   row2: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
