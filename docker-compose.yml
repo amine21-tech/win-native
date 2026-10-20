@@ -61,6 +61,12 @@ services:
       # Second moteur, dedie a l'Europe (France) : renseigne seulement quand le conteneur
       # correspondant tourne. Sans lui, tout passe par le moteur ci-dessus.
       VALHALLA_EU_URL: ${VALHALLA_EU_URL:-}
+      # Moteur de recherche d'adresses local, meme mecanique que Valhalla ci-dessus : le
+      # conteneur n'ecoute que sur 127.0.0.1 de l'hote, on l'appelle donc par son nom une fois
+      # rattache a ce reseau. Renseigne par deploy/photon-local.sh ; vide, le service public
+      # est utilise. Sans cette ligne, la variable restait dans le .env de la racine sans
+      # jamais atteindre l'API — c'est ce qui a fait echouer la premiere bascule.
+      PHOTON_URL: ${PHOTON_URL:-}
       # Le code du service VIP (VIP_CODE) se renseigne dans apps/api/.env, jamais ici : une
       # variable declaree dans ce bloc ECRASE celle du fichier, et `${VIP_CODE:-}` transmettrait
       # une valeur VIDE des que la racine ne la definit pas — l'API refuserait alors de demarrer.

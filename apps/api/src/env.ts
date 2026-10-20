@@ -20,6 +20,23 @@ if (existsSync('.env')) {
  * perdait en silence. Ici, une variable manquante arrete le serveur avec un
  * message explicite plutot que de le laisser demarrer a moitie configure.
  */
+/**
+ * UNE VARIABLE LAISSEE VIDE VAUT ABSENTE.
+ *
+ * Docker Compose remplace `${TRUC:-}` par une chaine VIDE quand la variable n'est pas definie,
+ * et non par rien du tout : l'API recoit alors `TRUC=''`. Or une chaine vide n'est pas
+ * `undefined` — `z.string().url().optional()` la refuse, la configuration est declaree
+ * invalide, et le serveur s'arrete au demarrage.
+ *
+ * Le piege etait latent : il ne s'est jamais declenche parce que le serveur de production
+ * definit toutes ces variables. Il se serait declenche a la premiere installation ailleurs, ou
+ * a la premiere qu'on laisse vide — ce qui est precisement l'usage prevu pour PHOTON_URL.
+ */
+const urlFacultative = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  z.string().url().optional(),
+);
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
@@ -46,7 +63,7 @@ const schema = z.object({
    * public reste branche en secours, parce que l'index local date de juillet 2025 et ne
    * connait pas ce qui a ete cartographie depuis.
    */
-  PHOTON_URL: z.string().url().optional(),
+  PHOTON_URL: urlFacultative,
 
   /** Base Valhalla. Le conteneur existant reste inchange. */
   VALHALLA_URL: z.string().url().default('http://127.0.0.1:8002'),
@@ -55,7 +72,7 @@ const schema = z.object({
    * Second moteur Valhalla, dedie a l'Europe (France). Facultatif : sans lui, tout passe par
    * le moteur historique, exactement comme avant. Voir routes/routing.ts.
    */
-  VALHALLA_EU_URL: z.string().url().optional(),
+  VALHALLA_EU_URL: urlFacultative,
 
   /**
    * Code du service VIP (ajout d'un lieu comme partenaire VIP). Modifiable sur le serveur sans
