@@ -5,6 +5,7 @@ import {
   CATEGORY_OSM_ALT,
   CATEGORY_SEARCH_TERM,
   CITY_ALIASES,
+  corrigerLieu,
   CURATED_AIRPORTS,
   CURATED_PORTS,
   countryFromCoords,
@@ -346,8 +347,17 @@ export type SearchOutcome = {
 };
 
 async function runTextSearch(qRaw: string, here: Coords | null, lang: Language): Promise<SearchOutcome> {
-  const alias = CITY_ALIASES[normalizeCity(qRaw)];
-  const q = alias ?? qRaw;
+  /* LA SAISIE EST REMISE D'APLOMB AVANT D'ETRE CHERCHEE.
+   *
+   * Deux passes, dans cet ordre. La liste ecrite a la main d'abord : elle est sure, c'est nous
+   * qui l'avons remplie. La correction automatique ensuite, pour tout ce qu'on n'a pas pense a
+   * y mettre — << tizi uzou >>, << boumerdas >>, << wahran >>. Voir corrigerLieu : elle ne
+   * touche que la partie du texte qui designe un lieu, jamais le nom du commerce cherche, et
+   * elle s'abstient des qu'elle n'est pas sure.
+   *
+   * Le texte corrige part vers LES DEUX sources : notre base comme le geocodage. Corriger d'un
+   * cote seulement reviendrait a les faire chercher deux choses differentes. */
+  const q = corrigerLieu(CITY_ALIASES[normalizeCity(qRaw)] ?? qRaw);
 
   const [win, dehors] = await Promise.all([
     fetchWinPlaces(q, here, lang),

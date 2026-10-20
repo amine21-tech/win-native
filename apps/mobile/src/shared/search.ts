@@ -515,3 +515,176 @@ export function rankSearchResults<T extends RankableResult>(
   return filtered;
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Fautes de frappe et transcriptions                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * POURQUOI UNE SIMPLE LISTE D'ALIAS NE SUFFISAIT PAS.
+ *
+ * `CITY_ALIASES` ci-dessus est une liste ecrite a la main : elle corrige ce qu'on a pense a y
+ * mettre, et rien d'autre. Or un nom algerien transcrit en caracteres latins n'a pas UNE
+ * orthographe, il en a plusieurs, toutes legitimes — << Tizi Ouzou >>, << Tizi Uzou >>,
+ * << Tizi-Wezzu >> designent la meme ville, et personne ne se trompe en ecrivant l'une des
+ * trois. S'y ajoutent les fautes de frappe ordinaires.
+ *
+ * On ne peut pas les enumerer. En revanche on peut les RAMENER A LA MEME FORME, en effacant
+ * ce qui varie d'une transcription a l'autre : le << ou >> francais et le << u >> anglais, le
+ * << dj >> et le << j >>, le << ch >> et le << sh >>, les consonnes doublees, le << e >> final
+ * muet. Deux ecritures d'un meme nom donnent alors la meme cle, et il ne reste a mesurer que
+ * les vraies fautes de frappe.
+ */
+export function phoneticKey(s: string): string {
+  let k = normalizeCity(s).replace(/[^a-z0-9]/g, '');
+  k = k.replace(/ph/g, 'f');
+  // << sh >> ramene a << ch >>, pas l'inverse : la transcription francaise est la plus
+  // repandue en Algerie, et c'est celle de nos noms de reference.
+  k = k.replace(/sh/g, 'ch');
+  k = k.replace(/dj/g, 'j');
+  k = k.replace(/ou/g, 'u');
+  k = k.replace(/w/g, 'u');
+  k = k.replace(/y/g, 'i');
+  // Consonnes et voyelles doublees : << Abbes >> et << Abes >>, << Naama >> et << Nama >>.
+  k = k.replace(/(.)\1+/g, '$1');
+  // << e >> final muet : << Boumerdes >> et << Boumerd >> se rejoignent.
+  k = k.replace(/e$/, '');
+  return k;
+}
+
+/**
+ * Distance d'edition, bornee. On s'arrete des que l'ecart depasse `max` : il n'y a aucune
+ * raison de calculer la distance exacte entre deux mots qui n'ont manifestement rien a voir,
+ * et cette fonction tourne a chaque frappe contre soixante noms.
+ */
+function editDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let precedent = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i += 1) {
+    const courant = [i];
+    let minLigne = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cout = a[i - 1] === b[j - 1] ? 0 : 1;
+      const v = Math.min(courant[j - 1]! + 1, precedent[j]! + 1, precedent[j - 1]! + cout);
+      courant.push(v);
+      if (v < minLigne) minLigne = v;
+    }
+    if (minLigne > max) return max + 1;
+    precedent = courant;
+  }
+  return precedent[b.length]!;
+}
+
+/**
+ * Noms de reference : les 58 wilayas, dans l'orthographe que WIN affiche.
+ *
+ * Ce sont eux que l'on cherche a retrouver derriere une saisie approximative. La liste est
+ * volontairement limitee aux wilayas : ce sont les noms que l'on tape pour situer une
+ * recherche (<< pharmacie tizi ouzou >>), et plus la liste est longue, plus le risque de
+ * corriger a tort un nom de commerce qui ressemble a une ville.
+ */
+export const DZ_WILAYA_NAMES: readonly string[] = [
+  'Adrar', 'Chlef', 'Laghouat', 'Oum El Bouaghi', 'Batna', 'Béjaïa', 'Biskra', 'Béchar',
+  'Blida', 'Bouira', 'Tamanrasset', 'Tébessa', 'Tlemcen', 'Tiaret', 'Tizi Ouzou', 'Alger',
+  'Djelfa', 'Jijel', 'Sétif', 'Saïda', 'Skikda', 'Sidi Bel Abbès', 'Annaba', 'Guelma',
+  'Constantine', 'Médéa', 'Mostaganem', "M'Sila", 'Mascara', 'Ouargla', 'Oran', 'El Bayadh',
+  'Illizi', 'Bordj Bou Arréridj', 'Boumerdès', 'El Tarf', 'Tindouf', 'Tissemsilt', 'El Oued',
+  'Khenchela', 'Souk Ahras', 'Tipaza', 'Mila', 'Aïn Defla', 'Naâma', 'Aïn Témouchent',
+  'Ghardaïa', 'Relizane', 'Timimoun', 'Bordj Badji Mokhtar', 'Ouled Djellal', 'Béni Abbès',
+  'In Salah', 'In Guezzam', 'Touggourt', 'Djanet', "El M'Ghair", 'El Meniaa',
+];
+
+/**
+ * AUTRES NOMS DE LA MEME VILLE — et pourquoi ils ne relevent pas de la distance d'edition.
+ *
+ * << Bgayet >> n'est pas une faute pour << Bejaia >> : c'est le nom kabyle de la ville, et
+ * celui que beaucoup tapent. << Wahran >> pour Oran, << Qacentina >> pour Constantine,
+ * << Dzair >> pour Alger : ce sont des noms, pas des coquilles. Les mesurer en nombre de
+ * lettres a changer n'a aucun sens — ils en partagent a peine la moitie.
+ *
+ * Ils se declarent donc, un par un. La cle est leur forme phonetique, pour que les variantes
+ * d'ecriture de l'autre nom marchent aussi (<< Vgayet >> comme << Bgayet >>).
+ */
+const AUTRES_NOMS: Record<string, string> = {
+  [phoneticKey('Bgayet')]: 'Béjaïa',
+  [phoneticKey('Vgayet')]: 'Béjaïa',
+  [phoneticKey('Bgaia')]: 'Béjaïa',
+  [phoneticKey('Wahran')]: 'Oran',
+  [phoneticKey('Qacentina')]: 'Constantine',
+  [phoneticKey('Ksentina')]: 'Constantine',
+  [phoneticKey('Dzair')]: 'Alger',
+  [phoneticKey('El Djazair')]: 'Alger',
+  [phoneticKey('Alger Centre')]: 'Alger',
+  [phoneticKey('Tiziwezzu')]: 'Tizi Ouzou',
+  [phoneticKey('Tamanghasset')]: 'Tamanrasset',
+  [phoneticKey('Taghzut')]: 'Tizi Ouzou',
+  [phoneticKey('Annaba Bone')]: 'Annaba',
+  [phoneticKey('Bone')]: 'Annaba',
+  [phoneticKey('Philippeville')]: 'Skikda',
+  [phoneticKey('Setif Stif')]: 'Sétif',
+};
+
+/**
+ * Mots courants qui ne designent jamais une ville. Sans eux, une saisie comme << poste >> ou
+ * << plage >> finirait par etre << corrigee >> vers la wilaya la plus proche a une faute pres,
+ * ce qui est exactement le contraire du service rendu.
+ */
+const MOTS_NON_LIEUX = new Set([
+  'poste', 'hotel', 'hopital', 'clinique', 'pharmacie', 'banque', 'gare', 'plage', 'cafe',
+  'ecole', 'lycee', 'mosquee', 'marche', 'souk', 'stade', 'parking', 'station', 'bureau',
+  'centre', 'place', 'rue', 'avenue', 'boulevard', 'cite', 'residence', 'salle', 'magasin',
+  'restaurant', 'taxi', 'police', 'mairie', 'airport', 'aeroport', 'port', 'universite',
+]);
+
+/** Le nom de wilaya cache derriere une saisie, ou `null` si aucune ne colle. */
+function wilayaProche(texte: string): string | null {
+  const brut = normalizeCity(texte);
+  if (MOTS_NON_LIEUX.has(brut)) return null;
+
+  const cle = phoneticKey(texte);
+  // En dessous de quatre caracteres, deux noms sans rapport se ressemblent trop.
+  if (cle.length < 4) return null;
+
+  // Un AUTRE NOM de la meme ville se reconnait avant toute mesure d'ecart : il n'y a rien a
+  // mesurer entre << Wahran >> et << Oran >>.
+  const autre = AUTRES_NOMS[cle];
+  if (autre) return autre;
+
+  // Une faute toleree sur un nom court, deux sur un nom long : un ecart de deux lettres sur
+  // << Mila >> en ferait un autre mot, sur << Bordj Bou Arreridj >> c'est une coquille.
+  const max = cle.length >= 8 ? 2 : 1;
+
+  let meilleur: { nom: string; d: number } | null = null;
+  for (const nom of DZ_WILAYA_NAMES) {
+    const k = phoneticKey(nom);
+    if (k === cle) return nom;
+    const d = editDistance(k, cle, max);
+    if (d <= max && (meilleur === null || d < meilleur.d)) meilleur = { nom, d };
+  }
+  return meilleur ? meilleur.nom : null;
+}
+
+/**
+ * Remet d'aplomb la partie << lieu >> d'une recherche, et elle seule.
+ *
+ * << pharmacie tizi uzou >> devient << pharmacie Tizi Ouzou >> : le commerce cherche n'est pas
+ * touche, seule la ville est corrigee. On essaie les groupes de mots les plus LONGS d'abord,
+ * sans quoi << sidi bel abbes >> serait reconnu par son dernier mot et corrige de travers.
+ *
+ * Quand rien ne correspond, la saisie repart telle quelle : ne pas corriger vaut toujours
+ * mieux que corriger a tort.
+ */
+export function corrigerLieu(saisie: string): string {
+  const mots = saisie.trim().split(/\s+/).filter(Boolean);
+  if (mots.length === 0) return saisie;
+
+  for (let taille = Math.min(3, mots.length); taille >= 1; taille -= 1) {
+    const debut = mots.length - taille;
+    const canonique = wilayaProche(mots.slice(debut).join(' '));
+    if (canonique) {
+      const avant = mots.slice(0, debut).join(' ');
+      return avant ? `${avant} ${canonique}` : canonique;
+    }
+  }
+  return saisie;
+}

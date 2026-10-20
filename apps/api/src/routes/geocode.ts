@@ -106,6 +106,21 @@ function ecrireCache(cle: string, valeur: unknown, ttlS: number): void {
   void r.set(cle, JSON.stringify(valeur), 'EX', ttlS).catch(() => undefined);
 }
 
+/**
+ * Les moteurs a interroger, dans l'ordre, pour une recherche par texte.
+ *
+ * Le moteur LOCAL d'abord quand il existe : il repond en dizaines de millisecondes et ne
+ * depend de personne. Le service public ensuite — pas par principe de precaution, mais parce
+ * que l'index local date de juillet 2025 : une rue cartographiee depuis n'y est pas, et le
+ * public, lui, la connait. Les deux ensemble couvrent donc plus que chacun seul.
+ */
+function moteursPhoton(): { nom: string; base: string }[] {
+  const liste: { nom: string; base: string }[] = [];
+  if (env.PHOTON_URL) liste.push({ nom: 'photon-local', base: env.PHOTON_URL.replace(/\/$/, '') });
+  liste.push({ nom: 'photon', base: 'https://photon.komoot.io' });
+  return liste;
+}
+
 async function demander(url: string): Promise<unknown> {
   const reponse = await fetch(url, {
     headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
@@ -191,20 +206,22 @@ const routes: FastifyPluginAsync = async (app) => {
       photon.set('bbox', '-8.67,18.97,12.00,37.09');
     }
 
-    try {
-      const data = (await demander(`https://photon.komoot.io/api/?${photon.toString()}`)) as {
-        features?: unknown[];
-      };
-      const resultat = { source: 'photon', features: data.features ?? [] };
-      // On ne garde que ce qui a du contenu : mettre une liste vide en cache pour vingt-quatre
-      // heures reviendrait a graver un echec passager. Et une reponse vide n'est pas une
-      // reponse : on laisse sa chance a Nominatim juste en dessous.
-      if (resultat.features.length > 0) {
-        ecrireCache(cle, resultat, TTL_RECHERCHE_S);
-        return resultat;
+    for (const moteur of moteursPhoton()) {
+      try {
+        const data = (await demander(`${moteur.base}/api/?${photon.toString()}`)) as {
+          features?: unknown[];
+        };
+        const resultat = { source: moteur.nom, features: data.features ?? [] };
+        // On ne garde que ce qui a du contenu : mettre une liste vide en cache pour
+        // vingt-quatre heures reviendrait a graver un echec passager. Et une reponse vide
+        // n'est pas une reponse : on laisse sa chance au moteur suivant.
+        if (resultat.features.length > 0) {
+          ecrireCache(cle, resultat, TTL_RECHERCHE_S);
+          return resultat;
+        }
+      } catch {
+        /* Ce moteur-la est muet : on passe au suivant, sans rien dire a l'utilisateur. */
       }
-    } catch {
-      /* Photon muet : on passe au suivant, sans rien dire a l'utilisateur. */
     }
 
     const nominatim = new URLSearchParams({
@@ -268,17 +285,22 @@ const routes: FastifyPluginAsync = async (app) => {
     });
     for (const t of etiquettes) params.append('osm_tag', t);
 
-    try {
-      const data = (await demander(`https://photon.komoot.io/reverse?${params.toString()}`)) as {
-        features?: unknown[];
-      };
-      const resultat = { source: 'photon', features: data.features ?? [] };
-      if (resultat.features.length > 0) ecrireCache(cle, resultat, TTL_RECHERCHE_S);
-      return resultat;
-    } catch {
-      void reply.code(503);
-      return { source: 'aucune', indisponible: true, features: [] };
+    for (const moteur of moteursPhoton()) {
+      try {
+        const data = (await demander(`${moteur.base}/reverse?${params.toString()}`)) as {
+          features?: unknown[];
+        };
+        const resultat = { source: moteur.nom, features: data.features ?? [] };
+        if (resultat.features.length > 0) {
+          ecrireCache(cle, resultat, TTL_RECHERCHE_S);
+          return resultat;
+        }
+      } catch {
+        /* moteur suivant */
+      }
     }
+    void reply.code(503);
+    return { source: 'aucune', indisponible: true, features: [] };
   });
 
   /** Nom d'un point a partir de ses coordonnees — pour la fiche de deviation en navigation. */

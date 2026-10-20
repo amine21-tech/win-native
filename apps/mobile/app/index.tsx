@@ -1362,7 +1362,18 @@ export default function MapScreen() {
 
   const voice = useVoiceSearch({
     lang,
-    onPartial: (text) => search.setQuery(text),
+    /* LA LISTE SE CONSTRUIT PENDANT QU'ON PARLE, ELLE N'ATTEND PAS LA FIN DE LA PHRASE.
+     *
+     * La recherche partait deja sur chaque bout de phrase entendu — mais le panneau de
+     * resultats, lui, ne s'ouvrait qu'au relachement du micro. L'utilisateur parlait donc
+     * devant un ecran vide, puis attendait encore une fois sa phrase terminee, alors que la
+     * reponse etait souvent deja arrivee. Il voit desormais la liste se remplir a mesure, et
+     * au moment ou il relache, elle est la. C'est la latence RESSENTIE que demande le client,
+     * et c'est la seule qu'il puisse constater. */
+    onPartial: (text) => {
+      search.setQuery(text);
+      setResultsOpen(true);
+    },
     onFinal: (text) => {
       search.setQuery(text);
       setSearchFocused(false);

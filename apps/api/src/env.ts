@@ -38,6 +38,16 @@ const schema = z.object({
   UPLOAD_DIR: z.string().default('./data/uploads'),
   UPLOAD_MAX_BYTES: z.coerce.number().int().default(8 * 1024 * 1024),
 
+  /**
+   * Moteur de recherche d'adresses local, quand il existe (voir deploy/photon-local.sh).
+   *
+   * Vide par defaut : on interroge alors le service public photon.komoot.io, qui repond en
+   * trois a quinze secondes. Renseigne, toutes les recherches deviennent locales. Le service
+   * public reste branche en secours, parce que l'index local date de juillet 2025 et ne
+   * connait pas ce qui a ete cartographie depuis.
+   */
+  PHOTON_URL: z.string().url().optional(),
+
   /** Base Valhalla. Le conteneur existant reste inchange. */
   VALHALLA_URL: z.string().url().default('http://127.0.0.1:8002'),
 
