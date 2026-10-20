@@ -17,7 +17,6 @@ import {
   type Place,
 } from '../shared';
 import {
-  fetchNominatim,
   fetchPhoton,
   fetchPhotonCategory,
   fetchPhotonNearby,
@@ -27,40 +26,23 @@ import {
 
 const DEBOUNCE_MS = 150;
 
-/**
- * Les mots que tout le monde tape.
+/* LE PRECHAUFFAGE A ETE RETIRE, ET IL FAUT DIRE POURQUOI.
  *
- * Charges en fond des l'ouverture de l'application, pendant que l'utilisateur regarde encore la
- * carte. Quand il tape enfin << aeroport >>, la reponse est deja la : zero milliseconde de
- * reseau. C'est la seule facon d'obtenir l'instantaneite que le client reclame — aucun reglage
- * de delai ne rattrape un aller-retour vers un serveur allemand depuis un telephone algerien.
+ * Il y avait ici vingt recherches lancees au demarrage, une toutes les 400 ms, sur les mots
+ * les plus tapes : << aeroport >>, << hopital >>, << pharmacie >>... L'idee etait bonne sur le
+ * papier — quand l'utilisateur tape enfin, la reponse est deja la. Mesure le 20 octobre 2026,
+ * la rafale reproduite a l'identique : les vingt requetes sont restees sans reponse, et le
+ * service a continue de nous ignorer pendant plus d'une minute.
  *
- * Le chargement se fait UN PAR UN et non tous ensemble : vingt requetes simultanees au
- * demarrage retarderaient la premiere vraie recherche de l'utilisateur, qui est justement celle
- * qui compte. Elles s'arretent des qu'il tape quelque chose.
+ * Autrement dit, la fonction censee rendre la recherche instantanee la rendait INUTILISABLE
+ * pour la minute suivante — et comme un geocodeur muet laisse une liste reduite a nos seules
+ * fiches, c'est exactement le defaut que le client a signale.
+ *
+ * La vitesse ne se gagne pas en demandant plus souvent. Elle se gagne en ne redemandant pas :
+ * c'est ce que fait desormais le cache partage du serveur, ou une recherche faite par
+ * quelqu'un d'autre repond en quelques millisecondes (voir apps/api/src/routes/geocode.ts).
  */
-const TERMES_FREQUENTS = [
-  'aéroport',
-  'hôpital',
-  'pharmacie',
-  'mosquée',
-  'gare',
-  'hôtel',
-  'restaurant',
-  'station-service',
-  'banque',
-  'parking',
-  'école',
-  'mairie',
-  'police',
-  'poste',
-  'supermarché',
-  'café',
-  'plage',
-  'université',
-  'clinique',
-  'marché',
-];
+
 const CACHE_TTL_MS = 3 * 60 * 1000;
 /** Un partenaire au-dela de cette distance n'est plus mis en avant (reste trouvable par son nom). */
 const VIP_RADIUS_M = 60_000;
@@ -184,6 +166,27 @@ async function fetchWinPlaces(
   }
 }
 
+/**
+ * Interroge le geocodage et dit s'il a REPONDU, pas seulement ce qu'il a trouve.
+ *
+ * La difference entre << rien ne correspond >> et << je n'ai pas pu demander >> est toute la
+ * question du defaut signale par le client. L'ancien code les confondait : un
+ * `.catch(() => [])` transformait une panne en liste vide, la liste vide se melangeait a nos
+ * fiches, et l'ensemble partait en cache pour trois minutes comme un resultat complet. Chaque
+ * nouvelle frappe ressortait alors cette liste sans la moindre adresse d'OpenStreetMap.
+ */
+async function chercherDehors(
+  q: string,
+  here: Coords | null,
+  lang: Language,
+): Promise<{ items: GeocodedResult[]; ok: boolean }> {
+  try {
+    return { items: await fetchPhoton(q, { here, lang }), ok: true };
+  } catch {
+    return { items: [], ok: false };
+  }
+}
+
 /** Deux fiches a moins de cette distance, portant le meme nom, designent le meme lieu. */
 const MEME_LIEU_M = 120;
 
@@ -257,10 +260,23 @@ async function runCategorySearch(
   const [cle, valeur] = osmTag.split('=') as [string, string];
   const tags: [string, string][] = CATEGORY_OSM_ALT[key] ?? [[cle, valeur]];
 
+  /* Les deux voies vers OpenStreetMap sont suivies separement : si l'une repond, la rubrique
+   * n'est pas vide, et c'est ce qui compte pour decider de mettre en cache. */
+  let dehorsOk = false;
   const [win, autour, parTexte] = await Promise.all([
     fetchWinPlaces(CATEGORY_SEARCH_TERM[key] ?? q, here, lang),
-    fetchPhotonNearby(tags, here, lang, RUBRIQUE_RAYON_KM).catch(() => []),
-    fetchPhotonCategory(term, osmTag, CATEGORY_OSM_ALT[key], here, lang).catch(() => []),
+    fetchPhotonNearby(tags, here, lang, RUBRIQUE_RAYON_KM)
+      .then((r) => {
+        dehorsOk = true;
+        return r;
+      })
+      .catch(() => [] as GeocodedResult[]),
+    fetchPhotonCategory(term, osmTag, CATEGORY_OSM_ALT[key], here, lang)
+      .then((r) => {
+        dehorsOk = true;
+        return r;
+      })
+      .catch(() => [] as GeocodedResult[]),
   ]);
 
   const raw: GeocodedResult[] = [...win.items, ...autour, ...parTexte];
@@ -284,7 +300,7 @@ async function runCategorySearch(
   // partenaires y gardent leur etoile a leur vraie place. Remonter un partenaire situe a
   // 40 km au-dessus d'un mecanicien a 500 m rendait la rubrique inutilisable.
   // La recherche par NOM, elle, conserve la mise en avant (voir runTextSearch).
-  return { partners: [], results: ranked, complet: win.ok };
+  return { partners: [], results: ranked, complet: win.ok && dehorsOk };
 }
 
 function toGeocoded(c: { name: string; lat: number; lon: number }, source: GeocodedResult['source']): GeocodedResult {
@@ -333,20 +349,21 @@ async function runTextSearch(qRaw: string, here: Coords | null, lang: Language):
   const alias = CITY_ALIASES[normalizeCity(qRaw)];
   const q = alias ?? qRaw;
 
-  const [win, photonResults] = await Promise.all([
+  const [win, dehors] = await Promise.all([
     fetchWinPlaces(q, here, lang),
-    fetchPhoton(q, { here, lang }).catch(() => []),
+    chercherDehors(q, here, lang),
   ]);
 
-  const combined = dedupe([...win.items, ...photonResults]);
-  let ranked = rankSearchResults(combined, q, here);
+  const combined = dedupe([...win.items, ...dehors.items]);
+  const ranked = rankSearchResults(combined, q, here);
 
-  if (ranked.length === 0) {
-    const nominatimResults = await fetchNominatim(q, { here, lang }).catch(() => []);
-    ranked = rankSearchResults(dedupe(nominatimResults), q, here);
-  }
+  /* Le repli vers Nominatim a quitte ce fichier : le serveur y bascule lui-meme des que Photon
+   * se tait, avant meme de nous repondre. Il etait de toute facon mal place ici — il ne se
+   * declenchait que si la liste finale etait VIDE, donc jamais des qu'une seule de nos fiches
+   * correspondait. C'est precisement le cas ou l'utilisateur ne voyait plus que des fiches WIN. */
 
-  return partition(hoistOwnPlaces(ranked, q), win.ok);
+  // Une liste n'est complete que si LES DEUX sources ont repondu.
+  return partition(hoistOwnPlaces(ranked, q), win.ok && dehors.ok);
 }
 
 /**
@@ -390,37 +407,6 @@ async function search(qRaw: string, here: Coords | null, lang: Language): Promis
  * categorie/texte-libre que doSearch() en v83. `here` peut changer sans
  * relancer la recherche courante : seule une nouvelle frappe la relance.
  */
-/**
- * Charge en fond les recherches les plus frequentes, des l'ouverture de l'application.
- *
- * Un par un, avec une pause entre chacune : il s'agit d'occuper le temps mort pendant lequel
- * l'utilisateur regarde la carte, surtout pas de saturer le reseau au moment ou il va s'en
- * servir. Tout s'arrete des qu'il tape quelque chose — sa recherche a toujours la priorite.
- *
- * Les echecs sont silencieux : ce n'est qu'une avance prise, jamais une fonction.
- */
-let prechauffageLance = false;
-
-export function prechaufferRecherches(here: Coords | null, lang: Language, interrompu: () => boolean) {
-  if (prechauffageLance) return;
-  prechauffageLance = true;
-
-  void (async () => {
-    for (const terme of TERMES_FREQUENTS) {
-      if (interrompu()) return;
-      const cle = cleCache(terme, here, lang);
-      if (cache.has(cle)) continue;
-      try {
-        const avance = await search(terme, here, lang);
-        if (avance.complet) cacheSet(cle, avance);
-      } catch {
-        // Hors ligne au demarrage : on reessaiera a la prochaine ouverture.
-      }
-      await new Promise((r) => setTimeout(r, 400));
-    }
-  })();
-}
-
 export function usePlaceSearch(here: Coords | null, lang: Language) {
   // `displayValue` est ce que montre la barre de recherche ; `searchTerm` est ce qui pilote
   // reellement la recherche. Un appui sur une puce de categorie les decouple exprès : la barre
@@ -451,18 +437,6 @@ export function usePlaceSearch(here: Coords | null, lang: Language) {
   // nouvelle frappe relance la recherche ».
   const hereRef = useRef(here);
   hereRef.current = here;
-
-  /* Le prechauffage part une fois, a la premiere position connue, et se tait des que
-   * l'utilisateur tape : sa recherche a toujours la priorite sur une avance qu'on prenait
-   * pour lui. */
-  const termeRef = useRef(searchTerm);
-  termeRef.current = searchTerm;
-  useEffect(() => {
-    if (!here) return;
-    prechaufferRecherches(here, lang, () => termeRef.current.trim().length > 0);
-    // Volontairement une seule fois : la liste prechauffee ne depend pas du quartier exact.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [here !== null]);
 
   const runSearch = useCallback(
     async (q: string) => {

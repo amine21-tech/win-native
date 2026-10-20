@@ -1,3 +1,4 @@
+import { api } from '../api/client';
 import type { Language, PlaceCategory } from '../shared';
 import { countryLabel, normalizeCity, WILAYA_POSTCODE, type RankableResult } from '../shared';
 
@@ -31,41 +32,80 @@ export type GeocodedResult = RankableResult & {
 };
 
 /**
- * Delai au-dela duquel on renonce a interroger un service de geocodage.
+ * LE TELEPHONE NE PARLE PLUS AUX SERVICES PUBLICS : IL PARLE A NOTRE SERVEUR.
  *
- * Photon et Nominatim sont des services publics gratuits : ils repondent en general en moins
- * d'une seconde, parfois en dix, et parfois jamais — surtout depuis une connexion mobile
- * algerienne. Sans ce garde-fou, une requete restee suspendue laissait la recherche « en
- * chargement » indefiniment : la roue tournait, et plus aucune frappe ne relancait rien
- * puisque la promesse precedente ne se terminait jamais.
- */
-const GEOCODER_TIMEOUT_MS = 6000;
-
-/** Nominatim exige une identification distincte dans ses conditions d'utilisation, et bloque
- * les requetes anonymes. Photon, lui, l'accepte sans s'en servir. */
-const GEOCODER_USER_AGENT = 'WIN-DZ/1.0 (application de navigation, Algerie)';
-
-/**
- * Appel a un service de geocodage externe : delai borne, code HTTP verifie.
+ * Ce fichier interrogeait photon.komoot.io et nominatim.openstreetmap.org directement, avec un
+ * abandon a six secondes. Mesure le 20 octobre 2026 sur cinq appels consecutifs a Photon :
+ * 7,2 s — 3,2 s — 3,8 s — 14,8 s — aucune reponse. Trois sur cinq etaient donc abandonnes
+ * AVANT d'avoir repondu, et il ne restait alors que nos propres fiches a l'ecran. C'est le
+ * defaut signale par le client : << le moteur n'affiche plus que les adresses ajoutees par des
+ * utilisateurs WIN >>.
  *
- * Un 429 ou un 503 de Photon renvoie une page HTML, pas du JSON. Sans la verification du code,
- * `response.json()` levait une erreur de syntaxe illisible la ou un simple « service
- * indisponible » suffisait — et l'appelant, qui rattrape tout, se contentait de n'afficher
- * aucun resultat sans qu'on sache jamais pourquoi.
+ * Notre serveur fait desormais ces appels a notre place, les garde en cache et bascule sur
+ * Nominatim quand Photon se tait (voir apps/api/src/routes/geocode.ts). Ce qui change ici :
+ *
+ *   — une recherche deja faite par quelqu'un d'autre revient en quelques millisecondes ;
+ *   — le basculement de secours ne depend plus de ce que le telephone a reussi a joindre ;
+ *   — un service muet se traduit par une ERREUR et non par une liste vide, ce qui permet a
+ *     l'appelant de ne pas mettre ce vide-la en cache (voir usePlaceSearch).
+ *
+ * Le delai reste court ICI : derriere, le serveur patiente quinze secondes pour nous, mais
+ * l'utilisateur, lui, ne doit pas attendre si c'est notre propre API qui ne repond pas.
  */
-async function fetchGeocoder<T>(url: string): Promise<T> {
+const GEOCODER_TIMEOUT_MS = 8000;
+
+/** Appel a notre passe-plat de geocodage. Les erreurs remontent : elles ont un sens. */
+async function fetchGeocoder<T>(chemin: string, query: Record<string, string | number>): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GEOCODER_TIMEOUT_MS);
   try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: { Accept: 'application/json', 'User-Agent': GEOCODER_USER_AGENT },
-    });
-    if (!response.ok) throw new Error(`geocodeur indisponible (${response.status})`);
-    return (await response.json()) as T;
+    return await api<T>(chemin, { query, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Reponse de notre passe-plat : Photon (features GeoJSON) ou Nominatim (lignes). */
+type GeocodeResponse = {
+  source: 'photon' | 'nominatim' | 'aucune';
+  features?: PhotonFeature[];
+  rows?: NominatimRow[];
+  indisponible?: boolean;
+};
+
+type NominatimRow = {
+  name?: string;
+  display_name?: string;
+  lat?: string;
+  lon?: string;
+  addresstype?: string;
+  type?: string;
+};
+
+function mapNominatimRow(r: NominatimRow): GeocodedResult | null {
+  const lat = r.lat ? parseFloat(r.lat) : NaN;
+  const lon = r.lon ? parseFloat(r.lon) : NaN;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const name = r.name || (r.display_name || '').split(',')[0] || '';
+  if (!name) return null;
+  return {
+    name,
+    displayName: r.display_name || name,
+    lat,
+    lon,
+    type: r.addresstype || r.type,
+    source: 'nominatim',
+  };
+}
+
+/** Transforme la reponse du passe-plat, quelle que soit sa source, en resultats de WIN. */
+function mapGeocodeResponse(data: GeocodeResponse, lang: Language): GeocodedResult[] {
+  if (data.rows) {
+    return data.rows.map(mapNominatimRow).filter((r): r is GeocodedResult => r !== null);
+  }
+  return (data.features ?? [])
+    .map((f) => mapPhotonFeature(f, lang))
+    .filter((r): r is GeocodedResult => r !== null && !r.name.includes(';'));
 }
 
 /** Code Photon/Nominatim pour la langue active. Photon ne comprend que fr/en (ar retombe sur fr). */
@@ -135,26 +175,26 @@ function mapPhotonFeature(f: PhotonFeature, lang: Language): GeocodedResult | nu
   };
 }
 
-/** Recherche texte generale (doSearch en v83) : biaisee vers la position quand elle est connue. */
+/**
+ * Recherche texte generale (doSearch en v83) : biaisee vers la position quand elle est connue.
+ *
+ * Le nom reste `fetchPhoton` parce que c'est ce que l'appelant demande — des lieux par leur
+ * nom — mais le serveur choisit desormais lui-meme entre Photon et Nominatim. Une erreur
+ * remonte : elle signifie << je n'ai pas pu demander >>, ce qui n'est pas << rien ne
+ * correspond >>, et l'appelant doit traiter les deux differemment.
+ */
 export async function fetchPhoton(
   query: string,
   opts: { here?: Coords | null; lang: Language; limit?: number },
 ): Promise<GeocodedResult[]> {
-  const acc = accLang(opts.lang);
-  const params = new URLSearchParams({ q: query, limit: String(opts.limit ?? 12), lang: acc });
-  if (opts.here) {
-    params.set('lat', String(opts.here.lat));
-    params.set('lon', String(opts.here.lon));
-  } else {
-    // Algerie + Tunisie + marge : evite de renvoyer des resultats hors zone sans position connue.
-    params.set('bbox', '-8.67,18.97,12.00,37.09');
-  }
-  const data = await fetchGeocoder<{ features?: PhotonFeature[] }>(
-    `https://photon.komoot.io/api/?${params.toString()}`,
-  );
-  return (data.features ?? [])
-    .map((f) => mapPhotonFeature(f, opts.lang))
-    .filter((r): r is GeocodedResult => r !== null);
+  const data = await fetchGeocoder<GeocodeResponse>('/geocode/search', {
+    q: query,
+    limit: opts.limit ?? 12,
+    lang: accLang(opts.lang),
+    ...(opts.here ? { lat: opts.here.lat, lon: opts.here.lon } : {}),
+  });
+  if (data.indisponible) throw new Error('geocodeur indisponible');
+  return mapGeocodeResponse(data, opts.lang);
 }
 
 /**
@@ -174,17 +214,20 @@ export async function fetchPhotonCategory(
   lang: Language,
 ): Promise<GeocodedResult[]> {
   const [expectedKey, expectedValue] = osmTag.split('=');
-  const acc = accLang(lang);
-  const params = new URLSearchParams({
+  const data = await fetchGeocoder<GeocodeResponse>('/geocode/search', {
     q: term,
-    limit: '20',
-    lang: acc,
-    lat: String(here.lat),
-    lon: String(here.lon),
+    limit: 20,
+    lang: accLang(lang),
+    lat: here.lat,
+    lon: here.lon,
   });
-  const data = await fetchGeocoder<{ features?: PhotonFeature[] }>(
-    `https://photon.komoot.io/api/?${params.toString()}`,
-  );
+  if (data.indisponible) throw new Error('geocodeur indisponible');
+
+  /* Le filtrage par etiquette ne s'applique qu'aux reponses de Photon : Nominatim ne rend pas
+   * `osm_key`/`osm_value`, et tout ecarter faute de les trouver reviendrait a rendre la
+   * rubrique vide precisement le jour ou Photon est tombe. Dans ce cas on garde la liste
+   * telle quelle — le classement par distance fera le tri. */
+  if (data.rows) return mapGeocodeResponse(data, lang);
 
   return (data.features ?? [])
     .filter((f) => {
@@ -218,76 +261,23 @@ export async function fetchPhotonNearby(
   lang: Language,
   radiusKm = 50,
 ): Promise<GeocodedResult[]> {
-  const params = new URLSearchParams({
-    lat: String(here.lat),
-    lon: String(here.lon),
-    radius: String(radiusKm),
-    limit: '40',
+  const data = await fetchGeocoder<GeocodeResponse>('/geocode/nearby', {
+    lat: here.lat,
+    lon: here.lon,
+    radius: radiusKm,
+    limit: 40,
     lang: accLang(lang),
+    tags: tags.map(([cle, valeur]) => `${cle}:${valeur}`).join(','),
   });
-  for (const [cle, valeur] of tags) params.append('osm_tag', `${cle}:${valeur}`);
-
-  const data = await fetchGeocoder<{ features?: PhotonFeature[] }>(
-    `https://photon.komoot.io/reverse?${params.toString()}`,
-  );
-  return (data.features ?? [])
-    .map((f) => mapPhotonFeature(f, lang))
-    .filter((r): r is GeocodedResult => r !== null && !r.name.includes(';'));
+  if (data.indisponible) throw new Error('geocodeur indisponible');
+  return mapGeocodeResponse(data, lang);
 }
 
-/** Repli Nominatim, utilise quand Photon ne renvoie rien. */
-export async function fetchNominatim(
-  query: string,
-  opts: { here?: Coords | null; lang: Language },
-): Promise<GeocodedResult[]> {
-  const acc = accLang(opts.lang);
-  const params = new URLSearchParams({
-    format: 'jsonv2',
-    countrycodes: 'dz,tn,fr',
-    addressdetails: '1',
-    limit: '10',
-    'accept-language': acc,
-    q: query,
-  });
-  if (opts.here) {
-    const d = 0.45; // ~50 km autour de la position, priorite aux resultats proches
-    params.set(
-      'viewbox',
-      [opts.here.lon - d, opts.here.lat - d, opts.here.lon + d, opts.here.lat + d].join(','),
-    );
-    params.set('bounded', '0');
-  }
-  const data = await fetchGeocoder<
-    {
-    name?: string;
-    display_name?: string;
-    lat?: string;
-    lon?: string;
-    addresstype?: string;
-    type?: string;
-    }[]
-  >(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
-
-  const mapRow = (r: (typeof data)[number]): GeocodedResult | null => {
-    const lat = r.lat ? parseFloat(r.lat) : NaN;
-    const lon = r.lon ? parseFloat(r.lon) : NaN;
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    const name = r.name || (r.display_name || '').split(',')[0] || '';
-    if (!name) return null;
-    return {
-      name,
-      displayName: r.display_name || name,
-      lat,
-      lon,
-      type: r.addresstype || r.type,
-      source: 'nominatim',
-    };
-  };
-
-  return (Array.isArray(data) ? data : [])
-    .map(mapRow)
-    .filter((r): r is GeocodedResult => r !== null);
-}
+/* `fetchNominatim` a disparu de ce fichier. Le repli vers Nominatim n'est plus une decision
+ * du telephone : le serveur bascule tout seul des que Photon se tait, et il le fait AVANT de
+ * repondre (voir /geocode/search). L'ancien repli, lui, ne se declenchait que si la liste
+ * finale etait vide — donc jamais des qu'une seule de nos fiches correspondait, ce qui est
+ * precisement le cas ou le client ne voyait plus que les fiches WIN. */
 
 /**
  * Nom d'un point a partir de ses coordonnees — l'operation inverse de la recherche.
@@ -306,15 +296,14 @@ export async function reverseGeocode(
   lon: number,
   lang: Language,
 ): Promise<{ name: string; displayName: string } | null> {
-  const langue = lang === 'dz' ? 'ar' : lang;
   try {
     const d = await fetchGeocoder<{
       name?: string;
       display_name?: string;
       address?: Record<string, string>;
-    }>(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&accept-language=${langue}`,
-    );
+      indisponible?: boolean;
+    }>('/geocode/reverse', { lat, lon, lang: accLang(lang) });
+    if (d.indisponible) return null;
     const a = d.address ?? {};
     const name =
       d.name ||
