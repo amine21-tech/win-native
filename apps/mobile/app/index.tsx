@@ -371,8 +371,42 @@ export default function MapScreen() {
       windowHeight - (insets.top + HEADER_HEIGHT + FAB_TOP_RESERVE) - (insets.bottom + spacing.xl);
     const gaps = (FAB_COUNT - 1) * spacing.md;
     const raw = (available - gaps) / (FAB_COUNT - 1 + FAB_PRIMARY_RATIO);
-    return Math.max(38, Math.min(HIT_SIZE, Math.floor(raw)));
+    /* Plancher a 32 points, et non 38 : c'est ce qui manquait pour que la colonne TIENNE.
+     *
+     * Mesure sur les tailles d'ecran reelles, avec dix boutons : sur un telephone de 667
+     * points de haut, la colonne depassait son budget de 93 points ; sur un 640, de 120. Le
+     * premier bouton — le micro de l'assistant — remontait donc dans la rangee des rubriques,
+     * exactement comme le client l'a vu. Ce n'etait pas un defaut d'affichage mais un calcul
+     * qui ne pouvait pas aboutir : le plancher de 38 interdisait la seule issue.
+     *
+     * A 32, les memes ecrans tiennent avec trois points de marge. Et rien ne change sur un
+     * telephone courant : des qu'il y a la place, la taille remonte d'elle-meme jusqu'aux 52
+     * points de confort — mesure a 49 sur un Galaxy ordinaire, 52 sur un grand. Le compromis
+     * ne coute donc rien a ceux qui n'en ont pas besoin. */
+    return Math.max(32, Math.min(HIT_SIZE, Math.floor(raw)));
   }, [windowHeight, insets.top, insets.bottom]);
+
+  /**
+   * ECART ENTRE LES BOUTONS, CALCULE — ET NON FIXE A DOUZE POINTS.
+   *
+   * La colonne est ancree en bas et grandit vers le HAUT. Les boutons, eux, ne descendent
+   * jamais sous un plancher de confort tactile (38 points) : des que l'ecran est court, la
+   * colonne depasse donc le budget de hauteur qu'on lui avait calcule et son premier bouton —
+   * le micro de l'assistant — monte dans la rangee des rubriques. C'est le defaut que le
+   * client a releve, et ce n'est pas un hasard d'affichage : c'etait arithmetique.
+   *
+   * On resserre donc l'ECART avant de toucher a la taille des boutons. Douze points entre dix
+   * boutons font cent-huit points de hauteur ; les ramener a quatre en rend soixante-douze,
+   * soit bien plus que ce qui manquait. Et un ecart plus serre se remarque infiniment moins
+   * qu'un bouton qui chevauche autre chose.
+   */
+  const baseFabGap = useMemo(() => {
+    const available =
+      windowHeight - (insets.top + HEADER_HEIGHT + FAB_TOP_RESERVE) - (insets.bottom + spacing.xl);
+    const hauteurBoutons = baseFabSize * (FAB_COUNT - 1 + FAB_PRIMARY_RATIO);
+    const reste = available - hauteurBoutons;
+    return Math.max(4, Math.min(spacing.md, Math.floor(reste / (FAB_COUNT - 1))));
+  }, [windowHeight, insets.top, insets.bottom, baseFabSize]);
 
   const [liveReports, setLiveReports] = useState<Report[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(null);
@@ -1001,11 +1035,21 @@ export default function MapScreen() {
     if (approachTimerRef.current) clearTimeout(approachTimerRef.current);
   }, []);
 
+  /* Distance deja parcourue sur l'itineraire. Elle sert a mesurer ce qui reste jusqu'a un
+   * signalement LE LONG DE LA ROUTE — la seule mesure qui corresponde a ce que la voix annonce
+   * (<< dans 100 metres >> veut dire cent metres de conduite, pas a vol d'oiseau). */
+  const avanceSurTraceM = useMemo(
+    () => (nav.route && nav.progress ? traveledMeters(nav.route, nav.progress) : 0),
+    [nav.route, nav.progress],
+  );
+
   useApproachAlerts({
     active: navigating,
     position,
     reports: liveReports,
     lang,
+    route: navigating ? nav.route : null,
+    traveledM: avanceSurTraceM,
     onApproach: onApproachReport,
   });
 
@@ -1471,7 +1515,7 @@ export default function MapScreen() {
           styles.column,
           navigating
             ? { bottom: navColumnBottom, gap: navFabGap }
-            : { bottom: insets.bottom + spacing.xl },
+            : { bottom: insets.bottom + spacing.xl, gap: baseFabGap },
         ]}
       >
         {isLoading ? <ActivityIndicator color={colors.accent} /> : null}

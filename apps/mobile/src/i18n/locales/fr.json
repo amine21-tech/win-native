@@ -63,7 +63,10 @@
     "sub_pothole": "Nid-de-poule",
     "sub_flood": "Route submergée",
     "sub_fire": "Feu visible depuis la route",
-    "menuSub": "Aidez la communauté WIN à éviter les problèmes"
+    "menuSub": "Aidez la communauté WIN à éviter les problèmes",
+    "voice_police": "Barrage de police",
+    "voice_gendarmerie": "Barrage de gendarmerie",
+    "voice_armee": "Barrage de l'armée"
   },
   "nav": {
     "start": "C'est parti",
@@ -434,7 +437,10 @@
     "reject": "Refuser"
   },
   "approach": {
-    "prefix": "Attention,"
+    "prefix": "Attention,",
+    "announce_m": "{{label}} signalé dans {{metres}} mètres",
+    "announce_f": "{{label}} signalée dans {{metres}} mètres",
+    "announce_pl": "{{label}} signalés dans {{metres}} mètres"
   },
   "assistant": {
     "title": "Assistant vocal",

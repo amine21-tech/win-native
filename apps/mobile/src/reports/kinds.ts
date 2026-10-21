@@ -30,6 +30,24 @@ export const REPORT_MENU_ORDER: ReportKind[] = [
   'fire',
 ];
 
+/**
+ * GENRE ET NOMBRE DE CHAQUE TYPE, pour que la voix parle francais.
+ *
+ * On dit << travaux signalES >>, << inondation signalEE >>, << accident signalE >>. Sans cette
+ * table, l'annonce aurait ete fautive une fois sur quatre — dite a voix haute, en boucle, a des
+ * conducteurs. C'est la seule raison d'etre de ce tableau : il ne sert a rien d'autre qu'a
+ * l'accord du participe.
+ *
+ * Les types ABSENTS sont masculins singuliers, qui est le cas le plus courant. Un type ajoute
+ * demain sera donc annonce correctement sans qu'on y pense, et il suffit de l'inscrire ici le
+ * jour ou son libelle est feminin ou pluriel. Voir phraseAnnonce dans useApproachAlerts.
+ */
+export const REPORT_GENRE: Partial<Record<ReportKind, 'm' | 'f' | 'pl'>> = {
+  flood: 'f', // « Inondation »
+  block: 'f', // « Route bloquee »
+  works: 'pl', // « Travaux »
+};
+
 /** Les trois forces, dans l'ordre de la maquette, avec leur couleur institutionnelle. */
 export const FORCES: { kind: ReportKind; court: string; couleur: string }[] = [
   { kind: 'police', court: 'POLICE', couleur: '#2F6FE0' },

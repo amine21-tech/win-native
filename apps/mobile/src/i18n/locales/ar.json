@@ -63,7 +63,10 @@
     "sub_pothole": "حفرة",
     "sub_flood": "طريق مغمور",
     "sub_fire": "حريق مرئي من الطريق",
-    "menuSub": "ساعد مجتمع WIN على تفادي المشاكل"
+    "menuSub": "ساعد مجتمع WIN على تفادي المشاكل",
+    "voice_police": "حاجز شرطة",
+    "voice_gendarmerie": "حاجز درك",
+    "voice_armee": "حاجز عسكري"
   },
   "nav": {
     "start": "انطلق",
@@ -434,7 +437,10 @@
     "reject": "رفض"
   },
   "approach": {
-    "prefix": "انتبه،"
+    "prefix": "انتبه،",
+    "announce_m": "{{label}} على بُعد {{metres}} متر",
+    "announce_f": "{{label}} على بُعد {{metres}} متر",
+    "announce_pl": "{{label}} على بُعد {{metres}} متر"
   },
   "assistant": {
     "title": "المساعد الصوتي",

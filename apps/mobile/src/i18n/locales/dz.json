@@ -63,7 +63,10 @@
     "sub_pothole": "حفرة",
     "sub_flood": "الطريق غرقانة",
     "sub_fire": "عافية تبان من الطريق",
-    "menuSub": "عاون مجتمع WIN باش يتفادى المشاكل"
+    "menuSub": "عاون مجتمع WIN باش يتفادى المشاكل",
+    "voice_police": "حاجز بوليس",
+    "voice_gendarmerie": "حاجز دارك",
+    "voice_armee": "حاجز عسكري"
   },
   "nav": {
     "start": "يالله نروحو",
@@ -434,7 +437,10 @@
     "reject": "رفض"
   },
   "approach": {
-    "prefix": "رد بالك،"
+    "prefix": "رد بالك،",
+    "announce_m": "{{label}} على بعد {{metres}} متر",
+    "announce_f": "{{label}} على بعد {{metres}} متر",
+    "announce_pl": "{{label}} على بعد {{metres}} متر"
   },
   "assistant": {
     "title": "المساعد الصوتي",

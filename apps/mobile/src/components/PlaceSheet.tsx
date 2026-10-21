@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { egsaForAirport, isAirport, isTrainStation, SNTF_URL } from '../reports/transport';
 import type { Route, RouteMode } from '../navigation/routing';
@@ -93,6 +94,7 @@ export function PlaceSheet({
   onStartNavigation,
 }: Props) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const wikiPhoto = usePlacePhoto(place);
   const gallery = place?.photos?.length ? place.photos.map((p) => p.url) : place?.photoUrl ? [place.photoUrl] : [];
   const [mainPhoto, setMainPhoto] = usePhotoSelection(gallery, wikiPhoto);
@@ -219,8 +221,22 @@ export function PlaceSheet({
     ? blocPhoto || peutGerer
     : Boolean(adminToken && place.source === 'win') || place.isPartner || blocPhoto;
 
+  /* LE DERNIER BOUTON PASSAIT SOUS LA BARRE DE NAVIGATION D'ANDROID.
+   *
+   * La fiche est collee au bas de l'ecran (`bottom: 0`), et le bas de l'ecran n'appartient pas
+   * a l'application : c'est la barre du systeme, trois boutons ou un trait de geste, entre
+   * vingt-quatre et quarante-huit points selon le telephone. Sa marge basse etait une valeur
+   * fixe qui ignorait cette bande. Resultat vu par le client : << Gerer cette fiche >> affiche,
+   * mais coupe — present a l'ecran et impossible a lire.
+   *
+   * La marge se calcule donc a partir de ce que le telephone declare lui-meme. */
   return (
-    <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
+    <View
+      style={[
+        styles.sheet,
+        { backgroundColor: colors.surface, paddingBottom: insets.bottom + spacing.lg },
+      ]}
+    >
       <View style={[styles.grip, { backgroundColor: colors.border }]} />
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -625,7 +641,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.lg,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.xl,
+    // La marge basse est calculee au rendu : elle depend de la barre du systeme (voir le
+    // commentaire dans le composant). Elle n'a donc pas sa place ici.
     maxHeight: '72%',
     elevation: 12,
     shadowColor: '#000',

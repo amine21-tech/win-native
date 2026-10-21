@@ -191,7 +191,7 @@ export function WinPlaceCard({
         accessibilityLabel={t('place.manage')}
         style={({ pressed }) => [
           styles.gerer,
-          { borderColor: colors.border, backgroundColor: pressed ? colors.surfaceAlt : 'transparent' },
+          { borderColor: colors.border, backgroundColor: pressed ? colors.border : colors.surfaceAlt },
         ]}
       >
         <Text style={[styles.gererText, { color: colors.text }]} numberOfLines={1}>
@@ -272,15 +272,18 @@ const styles = StyleSheet.create({
   },
   startBtnText: { color: '#fff', fontWeight: '800' as const, fontSize: 16 },
 
+  /* Un fond plein plutot qu'un contour vide, et de la hauteur : le client le decrivait comme
+   * << mal encadre >>. Un bouton pose sur du blanc, en bas d'une fiche, a besoin d'une surface
+   * pour exister — un simple filet le fait passer pour une ligne de texte. */
   gerer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
-  gererText: { flex: 1, fontSize: 13.5, fontWeight: '700' as const },
+  gererText: { flex: 1, fontSize: 14, fontWeight: '800' as const },
   gererChevron: { fontSize: 20, fontWeight: '300' as const },
 });

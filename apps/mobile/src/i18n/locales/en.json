@@ -63,7 +63,10 @@
     "sub_pothole": "Pothole",
     "sub_flood": "Road under water",
     "sub_fire": "Fire visible from the road",
-    "menuSub": "Help the WIN community avoid problems"
+    "menuSub": "Help the WIN community avoid problems",
+    "voice_police": "Police checkpoint",
+    "voice_gendarmerie": "Gendarmerie checkpoint",
+    "voice_armee": "Army checkpoint"
   },
   "nav": {
     "start": "Start",
@@ -434,7 +437,10 @@
     "reject": "Reject"
   },
   "approach": {
-    "prefix": "Caution,"
+    "prefix": "Caution,",
+    "announce_m": "{{label}} reported in {{metres}} metres",
+    "announce_f": "{{label}} reported in {{metres}} metres",
+    "announce_pl": "{{label}} reported in {{metres}} metres"
   },
   "assistant": {
     "title": "Voice assistant",
