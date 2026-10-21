@@ -35,6 +35,8 @@ import { NavigationOverlay } from '../src/components/NavigationOverlay';
 import { PlaceSheet, type SelectedPlace } from '../src/components/PlaceSheet';
 import { ProfilePanel } from '../src/components/ProfilePanel';
 import { QiblaPanel } from '../src/components/QiblaPanel';
+import { QuranMiniBar } from '../src/components/QuranMiniBar';
+import { useQuranPlayer } from '../src/quran/player';
 import { ReportMenu } from '../src/components/ReportMenu';
 import { ReportVoteCard } from '../src/components/ReportVoteCard';
 import { SearchBar } from '../src/components/SearchBar';
@@ -425,6 +427,9 @@ export default function MapScreen() {
   const [sosOpen, setSosOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [qiblaOpen, setQiblaOpen] = useState(false);
+  /* Arret de la recitation, pilote depuis l'exterieur du panneau : le lecteur ne depend plus
+   * d'aucun ecran (voir src/quran/player.ts). */
+  const arreterCoran = useQuranPlayer((s) => s.arreter);
   const [addPlaceCoords, setAddPlaceCoords] = useState<Position | null>(null);
   // Declare avant tout le reste : la cadence du GPS en depend (1 Hz en navigation contre
   // une mesure toutes les 3 s au repos), donc la source de position aussi.
@@ -2379,7 +2384,34 @@ export default function MapScreen() {
           openPlace({ name: p.name, displayName: p.name, lat: p.lat, lon: p.lon, source: 'win', placeId: p.id })
         }
       />
-      <QiblaPanel visible={qiblaOpen} onClose={() => setQiblaOpen(false)} position={position} colors={colors} />
+      {/* LA CROIX FERME, LE CHEVRON REDUIT.
+          Fermer arrete la recitation : un son qui continuerait sans rien a l'ecran pour le
+          commander serait impossible a couper. Reduire la laisse jouer et la confie a la barre
+          ci-dessous, qui porte alors la pause et la croix. */}
+      <QiblaPanel
+        visible={qiblaOpen}
+        onClose={() => {
+          setQiblaOpen(false);
+          arreterCoran();
+        }}
+        onReduce={() => setQiblaOpen(false)}
+        position={position}
+        colors={colors}
+      />
+
+      {/* La Qibla reduite. Elle ne s'affiche que si une recitation tourne ET que le panneau
+          est ferme — sinon elle doublerait les commandes deja presentes dedans.
+          Pendant le guidage, elle remonte au-dessus du cadre du bas, comme la colonne. */}
+      {!qiblaOpen ? (
+        <QuranMiniBar
+          bottom={
+            navigating
+              ? navColumnBottom
+              : insets.bottom + spacing.xl
+          }
+          onOuvrir={() => setQiblaOpen(true)}
+        />
+      ) : null}
       <AddPlaceSheet
         coords={addPlaceCoords}
         onClose={() => setAddPlaceCoords(null)}

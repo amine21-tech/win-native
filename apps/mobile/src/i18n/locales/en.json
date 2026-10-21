@@ -373,7 +373,12 @@
     "compassActiveBold": "Compass active",
     "compassActiveRest": " — the arrow follows your phone’s real orientation.",
     "compassFlat": "Hold the phone flat, horizontal.",
-    "quran": "Quran recitations"
+    "quran": "Quran recitations",
+    "reduce": "Minimise",
+    "close": "Close",
+    "play": "Play",
+    "pause": "Pause",
+    "stop": "Stop"
   },
   "trip": {
     "unavailable": "Route unavailable.",

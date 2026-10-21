@@ -373,7 +373,12 @@
     "compassActiveBold": "Boussole active",
     "compassActiveRest": " — la flèche suit l’orientation réelle de ton téléphone.",
     "compassFlat": "Tiens le téléphone à plat, à l’horizontale.",
-    "quran": "Récitations du Coran"
+    "quran": "Récitations du Coran",
+    "reduce": "Réduire",
+    "close": "Fermer",
+    "play": "Écouter",
+    "pause": "Pause",
+    "stop": "Arrêter"
   },
   "trip": {
     "unavailable": "Itinéraire indisponible.",

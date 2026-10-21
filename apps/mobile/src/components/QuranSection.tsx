@@ -1,8 +1,7 @@
-import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
-import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { RECITATEUR, RECITATIONS, urlsDe, type Recitation } from '../quran/recitations';
+import { useQuranPlayer } from '../quran/player';
+import { RECITATEUR, RECITATIONS } from '../quran/recitations';
 import { fonts, radius, spacing } from '../theme';
 
 /* Les couleurs de l'ecran Qibla, et non celles du theme general : cette section vit dans le
@@ -23,71 +22,22 @@ const BORD_LIGNE = 'rgba(230,198,107,0.18)';
  *
  * Rien n'est telecharge : le serveur accepte la lecture par morceaux, et Al-Baqara pese plus de
  * cent megaoctets. Sur un forfait algerien, la difference n'est pas un detail.
+ *
+ * CE COMPOSANT NE TIENT PLUS LE LECTEUR. Il l'a tenu, et c'etait la cause de deux defauts : la
+ * recitation s'arretait des qu'on quittait l'ecran, et la liberation du lecteur au demontage
+ * rendait l'ecran blanc. Le lecteur vit desormais dans quran/player, hors de tout ecran — ce
+ * qui permet aussi de reduire la Qibla et de continuer a ecouter en conduisant.
  */
 export function QuranSection() {
   const { t } = useTranslation();
-  const [enCours, setEnCours] = useState<Recitation | null>(null);
-  /** Position dans la suite, pour les trois protectrices qui s'enchainent. */
-  const indexSuite = useRef(0);
 
-  const lecteur = useAudioPlayer();
-  const etat = useAudioPlayerStatus(lecteur);
-
-  /* Le son ne doit PAS etre coupe par le mode silencieux : quelqu'un qui lance une sourate veut
-   * l'entendre, meme si son telephone est en silencieux pour les notifications.
-   *
-   * La lecture en ARRIERE-PLAN, elle, n'est pas activee, et c'est un choix. Android l'exige
-   * sous la forme d'un second service de premier plan, donc d'une declaration supplementaire
-   * chez Google — alors que celle du guidage bloque deja la publication. La recitation
-   * s'ecoute donc tant que l'ecran de la Qibla est ouvert, ce qui correspond au moment ou l'on
-   * s'en sert : on est arrete, avant la priere. */
-  useEffect(() => {
-    void setAudioModeAsync({ playsInSilentMode: true });
-  }, []);
-
-  /* Enchainement des trois protectrices : quand un fichier se termine, on passe au suivant. */
-  useEffect(() => {
-    if (!enCours || !etat.didJustFinish) return;
-    const urls = urlsDe(enCours);
-    const suivant = indexSuite.current + 1;
-    if (suivant < urls.length) {
-      indexSuite.current = suivant;
-      lecteur.replace(urls[suivant]!);
-      lecteur.play();
-    } else {
-      setEnCours(null);
-    }
-  }, [etat.didJustFinish, enCours, lecteur]);
-
-  const basculer = (r: Recitation) => {
-    if (enCours?.numero === r.numero) {
-      // Meme ligne : on met en pause ou on reprend, on ne recharge rien.
-      if (etat.playing) lecteur.pause();
-      else lecteur.play();
-      return;
-    }
-    indexSuite.current = 0;
-    setEnCours(r);
-    lecteur.replace(urlsDe(r)[0]!);
-    lecteur.play();
-  };
-
-  /* LA CROIX DE LA QIBLA RENDAIT UN ECRAN BLANC FIGE, et c'est cette ligne-la qui le faisait.
-   *
-   * Il y avait ici `useEffect(() => () => lecteur.remove(), [lecteur])` — liberer le lecteur
-   * en quittant l'ecran. L'intention etait bonne, le geste etait en trop : `useAudioPlayer`
-   * libere DEJA son lecteur au demontage (expo-audio le construit avec
-   * `useReleasingSharedObject`). L'appel manuel arrivait donc apres, sur un objet natif qui
-   * n'existait plus, et levait une exception.
-   *
-   * Le reste s'enchaine mecaniquement : un `Modal` de React Native rend `null` des que
-   * `visible` passe a faux, donc fermer la Qibla DEMONTE cette section. L'exception tombait
-   * ainsi au milieu du demontage du panneau ; la fenetre native du Modal restait a l'ecran
-   * sans contenu — l'ecran blanc — et l'application ne pouvait plus repartir de cet etat.
-   *
-   * Il n'y a donc rien a remettre a la place : la lecture s'arrete bien a la fermeture,
-   * puisque c'est precisement ce que fait la liberation automatique.
-   */
+  /* Tout l'etat vit AILLEURS, et c'est le point de ce changement. Ce composant ne fait plus
+   * que l'afficher : le lecteur appartient au module quran/player, qui survit a la fermeture
+   * du panneau. Voir le commentaire en tete de ce fichier-la. */
+  const enCours = useQuranPlayer((s) => s.enCours);
+  const joue = useQuranPlayer((s) => s.joue);
+  const charge = useQuranPlayer((s) => s.charge);
+  const basculer = useQuranPlayer((s) => s.basculer);
 
   return (
     <View style={styles.bloc}>
@@ -100,8 +50,7 @@ export function QuranSection() {
 
       {RECITATIONS.map((r) => {
         const active = enCours?.numero === r.numero;
-        // `isBuffering` sans lecture : le son est demande mais pas encore arrive.
-        const charge = active && !etat.playing && !etat.isLoaded;
+        const enAttente = active && charge;
         return (
           <Pressable
             key={r.numero}
@@ -133,11 +82,11 @@ export function QuranSection() {
             <Text style={styles.duree}>{r.duree}</Text>
 
             <View style={[styles.bouton, active && styles.boutonActif]}>
-              {charge ? (
+              {enAttente ? (
                 <ActivityIndicator size="small" color={active ? '#0D3A2B' : OR_PALE} />
               ) : (
                 <Text style={[styles.boutonGlyphe, active && { color: '#0D3A2B' }]}>
-                  {active && etat.playing ? '❚❚' : '▶'}
+                  {active && joue ? '❚❚' : '▶'}
                 </Text>
               )}
             </View>

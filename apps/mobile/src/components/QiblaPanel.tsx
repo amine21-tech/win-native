@@ -30,7 +30,10 @@ type Coords = { lat: number; lon: number };
 
 type Props = {
   visible: boolean;
+  /** Ferme le panneau ET arrete la recitation. */
   onClose: () => void;
+  /** Ferme le panneau en LAISSANT la recitation : elle continue dans la barre reduite. */
+  onReduce: () => void;
   position: Coords | null;
   /** Reçue mais volontairement inutilisée : cet écran garde ses propres couleurs de jour comme
    * de nuit, exactement comme `.qibla-box` en v83, qui n'est pas touchée par `body.night`. */
@@ -86,7 +89,7 @@ const HEADING_DEADBAND_DEG = 0.25;
 const COMPASS_MAX = 290;
 
 /** Panneau Qibla : boussole vers la Kaaba, dates du jour, mode manuel hors-ligne (58 wilayas). */
-export function QiblaPanel({ visible, onClose, position }: Props) {
+export function QiblaPanel({ visible, onClose, onReduce, position }: Props) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language as Language;
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -238,7 +241,28 @@ export function QiblaPanel({ visible, onClose, position }: Props) {
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
             >
-              <Pressable onPress={onClose} hitSlop={12} style={styles.close}>
+              {/* DEUX FACONS DE QUITTER, et la difference est le sujet de la demande.
+                  La croix ferme pour de bon : le panneau s'en va et la recitation avec.
+                  Le chevron REDUIT : le panneau s'efface, la recitation continue dans une
+                  barre posee en bas de la carte (voir QuranMiniBar). C'est ce que font les
+                  lecteurs de musique, et c'est ce qui permet d'ecouter en conduisant. */}
+              <Pressable
+                onPress={onReduce}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={t('qibla.reduce')}
+                style={styles.reduce}
+              >
+                <Text style={styles.closeGlyph}>⌄</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={onClose}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={t('qibla.close')}
+                style={styles.close}
+              >
                 <Text style={styles.closeGlyph}>✕</Text>
               </Pressable>
 
@@ -387,6 +411,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Le chevron se pose a GAUCHE de la croix, dans l'ordre ou l'on quitte : on reduit plus
+  // souvent qu'on ne ferme.
+  reduce: {
+    position: 'absolute',
+    top: -3,
+    right: 30,
+    zIndex: 5,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   closeGlyph: { color: GOLD_TEXT, fontSize: 16, lineHeight: 18 },
 
   // `#qiblaDates{position:absolute;top:9px;left:13px;right:50px}` — decale de la marge interne
@@ -395,7 +433,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -2,
     left: 0,
-    right: 37,
+    // 68 et non 37 : deux boutons occupent desormais le coin, pas un seul.
+    right: 68,
     zIndex: 4,
     backgroundColor: 'rgba(0,0,0,0.16)',
     borderWidth: 1,
