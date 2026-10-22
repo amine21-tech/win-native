@@ -32,7 +32,16 @@
 set -euo pipefail
 
 FICHIER=/etc/nginx/sites-enabled/default
-SAUVEGARDE="$FICHIER.avant-deux-noms"
+
+# LA SAUVEGARDE NE DOIT SURTOUT PAS RESTER DANS sites-enabled/.
+#
+# nginx y charge TOUS les fichiers, pas seulement `default` : une copie posee a cote
+# devient une seconde configuration, et ses blocs entrent en conflit avec ceux de
+# l'originale. Essaye sur le serveur du client, cela a donne
+# << duplicate listen options for [::]:443 >>. La verification a refuse et le script a bien
+# remis l'original, mais la copie restait la et rendait la configuration sur disque
+# invalide jusqu'a ce qu'on la retire a la main.
+SAUVEGARDE="/root/nginx-default.avant-deux-noms"
 PRINCIPAL=51.77.194.25.nip.io
 SECOND=51.77.194.25.sslip.io
 
@@ -42,6 +51,15 @@ stop()  { printf '   \033[0;31mNON\033[0m  %s\n' "$1"; exit 1; }
 
 [ "$(id -u)" = "0" ] || stop "a lancer avec sudo."
 [ -f "$FICHIER" ] || stop "$FICHIER introuvable."
+
+# Reste d'un essai precedent : une copie laissee dans sites-enabled empeche nginx de
+# valider quoi que ce soit, y compris la configuration actuelle.
+ANCIENNE=/etc/nginx/sites-enabled/default.avant-deux-noms
+if [ -f "$ANCIENNE" ]; then
+  bleu "Menage"
+  mv "$ANCIENNE" /root/nginx-default.avant-deux-noms.precedente
+  bien "copie parasite retiree de sites-enabled (deplacee dans /root)"
+fi
 
 bleu "Sauvegarde"
 cp "$FICHIER" "$SAUVEGARDE"
