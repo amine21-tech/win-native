@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   },
   close: {
     position: 'absolute',
-    top: 0,
+    top: 7,
     right: -2,
     zIndex: 5,
     width: 24,
@@ -419,7 +419,10 @@ const styles = StyleSheet.create({
    * reste large grace au `hitSlop` de douze points pose sur chaque bouton. */
   reduce: {
     position: 'absolute',
-    top: 0,
+    // 7 et non 0 : posees sur le bord, les deux pastilles mordaient le filet dore du cadre et
+    // semblaient coupees. Sept points les font tenir franchement A L'INTERIEUR, ce que le
+    // client demande — elles se lisent alors comme deux boutons, pas comme un accident.
+    top: 7,
     right: 27,
     zIndex: 5,
     width: 24,
