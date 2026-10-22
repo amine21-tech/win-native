@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -213,6 +214,10 @@ function Dashboard({
         {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{t('admin.save')}</Text>}
       </Pressable>
 
+      <PlaceCorrections token={token} colors={colors} />
+
+      <PhotoReports token={token} colors={colors} />
+
       <ContributorCodes token={token} colors={colors} />
 
       <UnlockRequests token={token} colors={colors} />
@@ -267,7 +272,7 @@ function ContributorCodes({ token, colors }: { token: string; colors: Palette })
       setLabel('');
       await query.refetch();
     } catch (e) {
-      setErreur(e instanceof ApiError ? e.message : t('errors.generic'));
+      setErreur(e instanceof ApiError ? e.message : t('errors.unknown'));
     } finally {
       setBusy(false);
     }
@@ -286,7 +291,7 @@ function ContributorCodes({ token, colors }: { token: string; colors: Palette })
           setBusy(true);
           void api(`/admin/contributor-codes/${c.id}`, { method: 'DELETE', adminToken: token })
             .then(() => query.refetch())
-            .catch(() => setErreur(t('errors.generic')))
+            .catch(() => setErreur(t('errors.unknown')))
             .finally(() => setBusy(false));
         },
       },
@@ -364,6 +369,231 @@ function ContributorCodes({ token, colors }: { token: string; colors: Palette })
           </View>
         );
       })}
+    </View>
+  );
+}
+
+type Correction = {
+  id: string;
+  message: string;
+  placeId: string | null;
+  placeName: string | null;
+  lat: number | null;
+  lon: number | null;
+  createdAt: string;
+};
+
+/**
+ * REMARQUES SUR LES ADRESSES — ce qu'un utilisateur signale sur une fiche : nom faux, lieu
+ * ferme, mauvaise position.
+ *
+ * CE QUE << TRAITEE >> VEUT DIRE, ET SURTOUT CE QU'ELLE NE FAIT PAS. Le serveur ne change
+ * RIEN a la fiche : il classe seulement la remarque pour qu'elle quitte la liste
+ * (apps/api/src/routes/admin.ts, POST /admin/corrections/:id/status). La correction elle-meme
+ * se fait a la main sur la fiche du lieu, depuis la carte. Un bouton nomme << Accepter >>
+ * laisserait croire le contraire, et la remarque disparaitrait sans que rien ne soit corrige —
+ * c'est pourquoi il s'appelle << Traitee >> et que la phrase d'aide le dit.
+ */
+function PlaceCorrections({ token, colors }: { token: string; colors: Palette }) {
+  const { t } = useTranslation();
+  const query = useQuery({
+    queryKey: ['admin', 'corrections'],
+    queryFn: () => api<{ items: Correction[] }>('/admin/corrections', { adminToken: token }),
+    refetchInterval: 60_000,
+  });
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const classer = async (id: string, status: 'accepted' | 'rejected') => {
+    setBusy(id);
+    try {
+      await api(`/admin/corrections/${id}/status`, {
+        method: 'POST',
+        body: { status },
+        adminToken: token,
+      });
+      await query.refetch();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const items = query.data?.items ?? [];
+
+  return (
+    <View style={{ marginTop: spacing.xl }}>
+      <Text style={[typography.heading, { color: colors.text }]}>{t('admin.correctionsTitle')}</Text>
+      <Text style={[typography.caption, styles.hint, { color: colors.textMuted }]}>
+        {t('admin.correctionsHint')}
+      </Text>
+
+      {query.isLoading ? <ActivityIndicator color={colors.accent} /> : null}
+      {!query.isLoading && items.length === 0 ? (
+        <Text style={[typography.caption, { color: colors.textMuted }]}>{t('admin.correctionsEmpty')}</Text>
+      ) : null}
+
+      {items.map((c) => (
+        <View key={c.id} style={[styles.modRow, { borderColor: colors.border }]}>
+          <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15 }}>
+            {c.placeName ?? t('admin.correctionNoPlace')}
+          </Text>
+          {/* Le texte en entier, jamais tronque : c'est la seule chose que la personne a ecrite. */}
+          <Text style={{ color: colors.text, marginTop: 4 }} selectable>
+            {c.message}
+          </Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
+            {new Date(c.createdAt).toLocaleString()}
+            {c.lat !== null && c.lon !== null ? ` · ${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}` : ''}
+          </Text>
+
+          <View style={styles.modActions}>
+            {busy === c.id ? (
+              <ActivityIndicator color={colors.accent} />
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => void classer(c.id, 'rejected')}
+                  style={[styles.smallBtn, { borderColor: colors.danger }]}
+                >
+                  <Text style={{ color: colors.danger, fontWeight: '800' }}>{t('admin.correctionReject')}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void classer(c.id, 'accepted')}
+                  style={[styles.smallBtn, { backgroundColor: colors.accent, borderColor: colors.accent }]}
+                >
+                  <Text style={{ color: colors.accentText, fontWeight: '800' }}>{t('admin.correctionDone')}</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+type PhotoReport = {
+  photoId: string;
+  placeId: string | null;
+  placeName: string | null;
+  photoUrl: string;
+  reportCount: number;
+  firstAt: string;
+  lastAt: string;
+  reasons: string[];
+  messages: string[];
+};
+
+/** Les motifs sont une liste fermee cote serveur : on traduit, et on garde le brut en secours. */
+const MOTIF_CLE: Record<string, string> = {
+  wrong_place: 'admin.reasonWrongPlace',
+  wrong_facade: 'admin.reasonWrongFacade',
+  poor_quality: 'admin.reasonPoorQuality',
+  inappropriate: 'admin.reasonInappropriate',
+  other: 'admin.reasonOther',
+};
+
+/**
+ * PHOTOS SIGNALEES.
+ *
+ * LA PHOTO EST AFFICHEE, et ce n'est pas un ornement : personne ne peut trancher sur une photo
+ * qu'il ne voit pas. Aller la chercher ailleurs rendrait le traitement inutilisable, donc le
+ * serveur renvoie son adresse avec chaque ligne.
+ *
+ * LES BOUTONS DISENT CE QU'ILS FONT. Cote serveur les deux decisions s'appellent `accepted` et
+ * `rejected`, ce qui porte a confusion : << accepter >> signifie que le signalement est fonde,
+ * donc que la photo est SUPPRIMEE. Ici on ecrit donc << Retirer la photo >> et << Garder >>.
+ *
+ * Le retrait est definitif — la ligne est effacee de place_photos — d'ou la confirmation.
+ * Garder la photo clot les signalements pour qu'ils ne reviennent pas encombrer la liste.
+ */
+function PhotoReports({ token, colors }: { token: string; colors: Palette }) {
+  const { t } = useTranslation();
+  const query = useQuery({
+    queryKey: ['admin', 'photo-reports'],
+    queryFn: () => api<{ items: PhotoReport[] }>('/admin/photo-reports', { adminToken: token }),
+    refetchInterval: 60_000,
+  });
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const decider = async (photoId: string, status: 'accepted' | 'rejected') => {
+    setBusy(photoId);
+    try {
+      await api(`/admin/photo-reports/${photoId}/status`, {
+        method: 'POST',
+        body: { status },
+        adminToken: token,
+      });
+      await query.refetch();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const retirer = (r: PhotoReport) => {
+    Alert.alert(t('admin.photoRemoveTitle'), t('admin.photoRemoveBody'), [
+      { text: t('addPlace.cancel'), style: 'cancel' },
+      { text: t('admin.photoRemove'), style: 'destructive', onPress: () => void decider(r.photoId, 'accepted') },
+    ]);
+  };
+
+  const items = query.data?.items ?? [];
+
+  return (
+    <View style={{ marginTop: spacing.xl }}>
+      <Text style={[typography.heading, { color: colors.text }]}>{t('admin.photoReportsTitle')}</Text>
+      <Text style={[typography.caption, styles.hint, { color: colors.textMuted }]}>
+        {t('admin.photoReportsHint')}
+      </Text>
+
+      {query.isLoading ? <ActivityIndicator color={colors.accent} /> : null}
+      {!query.isLoading && items.length === 0 ? (
+        <Text style={[typography.caption, { color: colors.textMuted }]}>{t('admin.photoReportsEmpty')}</Text>
+      ) : null}
+
+      {items.map((r) => (
+        <View key={r.photoId} style={[styles.modRow, { borderColor: colors.border }]}>
+          <Image source={{ uri: r.photoUrl }} style={styles.modPhoto} resizeMode="cover" />
+
+          <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15, marginTop: spacing.sm }}>
+            {r.placeName ?? t('admin.correctionNoPlace')}
+          </Text>
+          <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700', marginTop: 2 }}>
+            {t('admin.photoReportCount', { count: r.reportCount })}
+          </Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
+            {(r.reasons ?? []).map((m) => t(MOTIF_CLE[m] ?? 'admin.reasonOther')).join(' · ')}
+          </Text>
+          {(r.messages ?? []).map((m, i) => (
+            <Text key={i} style={{ color: colors.text, fontSize: 13, marginTop: 2 }} selectable>
+              « {m} »
+            </Text>
+          ))}
+          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
+            {new Date(r.lastAt).toLocaleString()}
+          </Text>
+
+          <View style={styles.modActions}>
+            {busy === r.photoId ? (
+              <ActivityIndicator color={colors.accent} />
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => retirer(r)}
+                  style={[styles.smallBtn, { borderColor: colors.danger }]}
+                >
+                  <Text style={{ color: colors.danger, fontWeight: '800' }}>{t('admin.photoRemove')}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void decider(r.photoId, 'rejected')}
+                  style={[styles.smallBtn, { backgroundColor: colors.accent, borderColor: colors.accent }]}
+                >
+                  <Text style={{ color: colors.accentText, fontWeight: '800' }}>{t('admin.photoKeep')}</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
@@ -450,6 +680,23 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   smallBtn: { borderWidth: 1.5, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  modRow: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  // Les deux boutons a droite, sur leur propre ligne : le texte signale peut etre long, et
+  // les serrer a cote de lui donnait des boutons de deux caracteres de large.
+  modActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  // Assez grande pour trancher : une vignette de la taille d'une icone ne sert a rien ici.
+  modPhoto: { width: '100%', height: 180, borderRadius: radius.sm, backgroundColor: '#0002' },
   codeCreate: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   codeInput: { flex: 1, marginTop: 0 },
   codeCreateBtn: { borderRadius: radius.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },

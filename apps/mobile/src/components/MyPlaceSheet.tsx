@@ -169,7 +169,7 @@ export function MyPlaceSheet({ visible, photoUrl, place, onClose, onSaved, onDel
       clearSearchCache();
       onSaved();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : t('errors.generic'));
+      setError(e instanceof ApiError ? e.message : t('errors.unknown'));
     } finally {
       setSaving(false);
     }
@@ -192,7 +192,7 @@ export function MyPlaceSheet({ visible, photoUrl, place, onClose, onSaved, onDel
               clearSearchCache();
               onDeleted();
             })
-            .catch(() => setError(t('errors.generic')))
+            .catch(() => setError(t('errors.unknown')))
             .finally(() => setDeleting(false));
         },
       },

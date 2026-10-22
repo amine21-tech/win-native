@@ -192,7 +192,7 @@ export function PlaceSheet({
               refreshMyPlaces();
               onClose();
             })
-            .catch(() => Alert.alert(t('errors.generic')))
+            .catch(() => Alert.alert(t('errors.unknown')))
             .finally(() => setDeleting(false));
         },
       },
