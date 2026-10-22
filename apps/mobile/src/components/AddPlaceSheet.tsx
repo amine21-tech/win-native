@@ -116,6 +116,17 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
   const [coordText, setCoordText] = useState({ lat: '', lon: '' });
   const insets = useSafeAreaInsets();
 
+  /* TOUT REPART DE ZERO A CHAQUE OUVERTURE — y compris ce qui vient du dernier enregistrement.
+   *
+   * Cet effet remettait le formulaire a blanc mais oubliait les quatre etats de l'ecran de
+   * VERIFICATION, celui qui s'affiche une fois le lieu enregistre. `savedOk` restait donc vrai,
+   * et toute ouverture suivante montrait << Verification recommandee — vous etes a 20 m du lieu
+   * enregistre >> au lieu du formulaire. Le client l'a decrit exactement : il se deplacait de
+   * Tizi Ouzou a Alger et retrouvait le message du lieu precedent, sans jamais pouvoir en
+   * ajouter un nouveau.
+   *
+   * La regle est simple et vaut pour la suite : cet effet doit remettre a zero TOUT ce que le
+   * composant garde entre deux ouvertures. Un etat ajoute ici plus tard devra y figurer. */
   useEffect(() => {
     if (coords) {
       setForm(emptyForm);
@@ -127,6 +138,11 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
       setVipInput('');
       setVipError(null);
       setCoordText({ lat: coords.lat.toFixed(6), lon: coords.lon.toFixed(6) });
+      // L'ecran de verification du lieu PRECEDENT : sans ces quatre lignes, il reste affiche.
+      setSavedOk(false);
+      setSavedId(null);
+      setVerifyM(null);
+      setVerifying(false);
     }
   }, [coords]);
 

@@ -402,7 +402,10 @@ const styles = StyleSheet.create({
   close: {
     position: 'absolute',
     top: 7,
-    right: -2,
+    // 4 et non -2 : a l'exterieur de la marge interieure, la croix venait buter contre le filet
+    // dore du cadre et paraissait coupee. Quelques points vers la gauche suffisent a la poser
+    // franchement dedans.
+    right: 4,
     zIndex: 5,
     width: 24,
     height: 24,
@@ -423,7 +426,8 @@ const styles = StyleSheet.create({
     // semblaient coupees. Sept points les font tenir franchement A L'INTERIEUR, ce que le
     // client demande — elles se lisent alors comme deux boutons, pas comme un accident.
     top: 7,
-    right: 27,
+    // La seconde pastille suit : 4 + 24 de large + 5 d'ecart.
+    right: 33,
     zIndex: 5,
     width: 24,
     height: 24,
@@ -440,8 +444,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -2,
     left: 0,
-    // 57 : deux pastilles de vingt-quatre points et leur ecart, rien de plus.
-    right: 57,
+    // Les deux pastilles occupent de 4 a 57 points depuis le bord droit. L'encadre de dates
+    // s'arrete a 63 : six points de respiration, pour qu'il ne vienne pas les toucher.
+    right: 63,
     zIndex: 4,
     backgroundColor: 'rgba(0,0,0,0.16)',
     borderWidth: 1,
