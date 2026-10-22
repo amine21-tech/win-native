@@ -14,6 +14,7 @@ import { db } from '../db/client.js';
 import { env } from '../env.js';
 import { conflict, HttpError, notFound, parse } from '../lib/http.js';
 import { fetchLegacyAddresses, mergeLegacyAddresses, type SearchedPlace } from '../lib/legacyAddresses.js';
+import { consommerCode } from './contributorCodes.js';
 
 /** Colonnes renvoyees a l'application, photos comprises. */
 const placeColumns = sql`
@@ -315,7 +316,19 @@ const routes: FastifyPluginAsync = async (app) => {
     { preHandler: [app.requireDevice], config: VIP_RATE_LIMIT },
     async (req) => {
       const { code } = parse(contributorCheckInput, req.body);
-      if (!contributorCodeMatches(code)) {
+
+      /* DEUX SOURCES, DANS CET ORDRE.
+       *
+       * D'abord les codes NOMINATIFS crees depuis l'espace admin : un par personne, valable
+       * une fois, revocable individuellement (voir routes/contributorCodes.ts). C'est le
+       * fonctionnement voulu.
+       *
+       * Le code unique du fichier de configuration reste accepte en second, et uniquement
+       * pour ne pas rompre ce qui marche : ceux a qui on l'a deja donne continuent de pouvoir
+       * s'en servir. Le vider dans le .env du serveur ferme cette porte le jour ou tous les
+       * contributeurs seront passes aux codes nominatifs. */
+      const parCodeNominatif = await consommerCode(code, req.deviceId!);
+      if (!parCodeNominatif && !contributorCodeMatches(code)) {
         throw new HttpError(403, 'code_contributeur_invalide', 'Code contributeur incorrect.');
       }
       await db.execute(sql`

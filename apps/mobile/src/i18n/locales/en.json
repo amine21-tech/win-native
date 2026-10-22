@@ -439,7 +439,18 @@
     "unlocksHint": "Match each number against the BaridiMob transfers received on the account above, then approve. Access opens automatically on the customer’s phone.",
     "unlocksEmpty": "No pending request.",
     "approve": "Approve",
-    "reject": "Reject"
+    "reject": "Reject",
+    "codesTitle": "Contributor codes",
+    "codesHint": "One code per person, usable once. It grants the \"contributor\" badge, the name in the ranking and the place counter — no extra rights: adding, editing and removing an address are open to everyone.",
+    "codeFor": "Who is it for? (name)",
+    "codeCreate": "Create",
+    "codeRevoke": "Revoke",
+    "codeRevokeTitle": "Revoke this code?",
+    "codeRevokeBody": "{{label}}'s code will no longer work, and whoever used it loses the contributor badge.",
+    "codeFree": "Never used",
+    "codeUsed": "Used",
+    "codeRevoked": "Revoked",
+    "codesEmpty": "No code created yet."
   },
   "approach": {
     "prefix": "Caution,",

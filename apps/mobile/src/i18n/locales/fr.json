@@ -439,7 +439,18 @@
     "unlocksHint": "Comparez chaque numéro aux virements BaridiMob reçus sur le compte ci-dessus, puis validez. L’accès s’ouvre automatiquement sur le téléphone du client.",
     "unlocksEmpty": "Aucune demande en attente.",
     "approve": "Valider",
-    "reject": "Refuser"
+    "reject": "Refuser",
+    "codesTitle": "Codes de contributeur",
+    "codesHint": "Un code par personne, valable une seule fois. Il donne le badge « contributeur », le nom au classement et le compteur de lieux — aucun droit supplémentaire : ajouter, corriger et retirer une adresse sont ouverts à tous.",
+    "codeFor": "Pour qui ? (nom)",
+    "codeCreate": "Créer",
+    "codeRevoke": "Retirer",
+    "codeRevokeTitle": "Retirer ce code ?",
+    "codeRevokeBody": "Le code de {{label}} ne pourra plus être utilisé, et la personne qui s’en est servie perdra son badge de contributeur.",
+    "codeFree": "Jamais utilisé",
+    "codeUsed": "Utilisé",
+    "codeRevoked": "Retiré",
+    "codesEmpty": "Aucun code créé pour le moment."
   },
   "approach": {
     "prefix": "Attention,",

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -212,6 +213,8 @@ function Dashboard({
         {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{t('admin.save')}</Text>}
       </Pressable>
 
+      <ContributorCodes token={token} colors={colors} />
+
       <UnlockRequests token={token} colors={colors} />
 
       <Pressable onPress={onLogout} style={styles.logout}>
@@ -222,6 +225,148 @@ function Dashboard({
 }
 
 type UnlockRequest = { id: string; phone: string | null; amountDa: number; createdAt: string };
+
+type ContributorCode = {
+  id: string;
+  code: string;
+  label: string;
+  createdAt: string;
+  usedAt: string | null;
+  revokedAt: string | null;
+  createdByName: string | null;
+};
+
+/**
+ * CODES DE CONTRIBUTEUR — un par personne.
+ *
+ * Ce qu'un code donne : le titre, et rien d'autre. Le badge, le nom au classement, le compteur
+ * de lieux. Corriger et retirer une adresse sont ouverts a tous depuis le 19 octobre, et le
+ * client a confirme le 22 que le code devait rester une reconnaissance. L'ecran le dit en
+ * toutes lettres : un administrateur qui croirait distribuer des droits se tromperait.
+ *
+ * Chaque code ne sert qu'une fois et se lie au premier telephone qui le presente. C'est ce qui
+ * permet de savoir a qui on l'a donne et de n'en retirer qu'un seul.
+ */
+function ContributorCodes({ token, colors }: { token: string; colors: Palette }) {
+  const { t } = useTranslation();
+  const query = useQuery({
+    queryKey: ['admin', 'contributor-codes'],
+    queryFn: () => api<{ items: ContributorCode[] }>('/admin/contributor-codes', { adminToken: token }),
+  });
+  const [label, setLabel] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  const creer = async () => {
+    const pour = label.trim();
+    if (pour.length < 2) return;
+    setBusy(true);
+    setErreur(null);
+    try {
+      await api('/admin/contributor-codes', { method: 'POST', body: { label: pour }, adminToken: token });
+      setLabel('');
+      await query.refetch();
+    } catch (e) {
+      setErreur(e instanceof ApiError ? e.message : t('errors.generic'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const retirer = (c: ContributorCode) => {
+    /* La confirmation dit ce qu'elle fait VRAIMENT : le code cesse d'etre utilisable ET la
+     * personne qui s'en etait servie perd son badge. Retirer l'un sans l'autre ne voudrait
+     * rien dire, et l'administrateur doit le savoir avant d'appuyer. */
+    Alert.alert(t('admin.codeRevokeTitle'), t('admin.codeRevokeBody', { label: c.label }), [
+      { text: t('addPlace.cancel'), style: 'cancel' },
+      {
+        text: t('admin.codeRevoke'),
+        style: 'destructive',
+        onPress: () => {
+          setBusy(true);
+          void api(`/admin/contributor-codes/${c.id}`, { method: 'DELETE', adminToken: token })
+            .then(() => query.refetch())
+            .catch(() => setErreur(t('errors.generic')))
+            .finally(() => setBusy(false));
+        },
+      },
+    ]);
+  };
+
+  const items = query.data?.items ?? [];
+
+  return (
+    <View style={{ marginTop: spacing.xl }}>
+      <Text style={[typography.heading, { color: colors.text }]}>{t('admin.codesTitle')}</Text>
+      <Text style={[typography.caption, styles.hint, { color: colors.textMuted }]}>{t('admin.codesHint')}</Text>
+
+      <View style={styles.codeCreate}>
+        <TextInput
+          value={label}
+          onChangeText={setLabel}
+          placeholder={t('admin.codeFor')}
+          placeholderTextColor={colors.textMuted}
+          style={[styles.input, styles.codeInput, { borderColor: colors.border, color: colors.text }]}
+        />
+        <Pressable
+          disabled={busy || label.trim().length < 2}
+          onPress={() => void creer()}
+          style={[
+            styles.codeCreateBtn,
+            { backgroundColor: colors.accent, opacity: busy || label.trim().length < 2 ? 0.5 : 1 },
+          ]}
+        >
+          <Text style={styles.btnText}>{t('admin.codeCreate')}</Text>
+        </Pressable>
+      </View>
+
+      {erreur ? (
+        <Text style={[typography.caption, { color: colors.danger, marginTop: spacing.sm }]}>{erreur}</Text>
+      ) : null}
+
+      {query.isLoading ? <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.md }} /> : null}
+      {!query.isLoading && items.length === 0 ? (
+        <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.sm }]}>
+          {t('admin.codesEmpty')}
+        </Text>
+      ) : null}
+
+      {items.map((c) => {
+        const retire = c.revokedAt !== null;
+        const utilise = c.usedAt !== null;
+        return (
+          <View key={c.id} style={[styles.codeRow, { borderColor: colors.border }]}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              {/* Le code en chiffres fixes : il se dicte au telephone et se recopie a la main. */}
+              <Text
+                style={[styles.codeValue, { color: retire ? colors.textMuted : colors.text }]}
+                selectable
+              >
+                {c.code}
+              </Text>
+              <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={1}>
+                {c.label}
+              </Text>
+              <Text style={[styles.codeEtat, { color: retire ? colors.danger : utilise ? colors.accent : colors.textMuted }]}>
+                {retire ? t('admin.codeRevoked') : utilise ? t('admin.codeUsed') : t('admin.codeFree')}
+              </Text>
+            </View>
+
+            {!retire ? (
+              <Pressable
+                disabled={busy}
+                onPress={() => retirer(c)}
+                style={[styles.smallBtn, { borderColor: colors.danger }]}
+              >
+                <Text style={{ color: colors.danger, fontWeight: '800' }}>{t('admin.codeRevoke')}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
 /**
  * Deblocages de la Tunisie en attente. L'administrateur compare chaque numero aux virements
@@ -305,6 +450,21 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   smallBtn: { borderWidth: 1.5, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  codeCreate: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  codeInput: { flex: 1, marginTop: 0 },
+  codeCreateBtn: { borderRadius: radius.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  // Chiffres a chasse fixe et lettres espacees : ce code se lit a voix haute et se recopie.
+  codeValue: { fontSize: 17, fontWeight: '800' as const, letterSpacing: 2, fontVariant: ['tabular-nums'] },
+  codeEtat: { fontSize: 11, fontWeight: '700' as const, marginTop: 2 },
   scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.xl },
   hint: { marginTop: spacing.xs, marginBottom: spacing.md, lineHeight: 18 },
