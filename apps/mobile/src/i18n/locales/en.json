@@ -470,7 +470,8 @@
     "reasonWrongFacade": "Wrong frontage",
     "reasonPoorQuality": "Unreadable photo",
     "reasonInappropriate": "Inappropriate content",
-    "reasonOther": "Other"
+    "reasonOther": "Other",
+    "correctionOpenPlace": "→ Tap to open this place on the map"
   },
   "approach": {
     "prefix": "Caution,",

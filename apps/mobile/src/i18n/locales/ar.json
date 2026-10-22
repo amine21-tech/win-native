@@ -470,7 +470,8 @@
     "reasonWrongFacade": "واجهة خاطئة",
     "reasonPoorQuality": "صورة غير واضحة",
     "reasonInappropriate": "محتوى غير لائق",
-    "reasonOther": "أخرى"
+    "reasonOther": "أخرى",
+    "correctionOpenPlace": "← اضغط لفتح هذا المكان على الخريطة"
   },
   "approach": {
     "prefix": "انتبه،",

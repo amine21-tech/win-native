@@ -470,7 +470,8 @@
     "reasonWrongFacade": "واجهة غالطة",
     "reasonPoorQuality": "تصويرة ما تبانش",
     "reasonInappropriate": "محتوى ما يصلحش",
-    "reasonOther": "حاجة أخرى"
+    "reasonOther": "حاجة أخرى",
+    "correctionOpenPlace": "← دوس باش تحل هذي البلاصة في الخريطة"
   },
   "approach": {
     "prefix": "رد بالك،",

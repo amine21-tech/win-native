@@ -470,7 +470,8 @@
     "reasonWrongFacade": "Mauvaise façade",
     "reasonPoorQuality": "Photo illisible",
     "reasonInappropriate": "Contenu déplacé",
-    "reasonOther": "Autre"
+    "reasonOther": "Autre",
+    "correctionOpenPlace": "→ Appuyez pour ouvrir ce lieu sur la carte"
   },
   "approach": {
     "prefix": "Attention,",

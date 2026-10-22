@@ -32,6 +32,7 @@ import { CategoryChips } from '../src/components/CategoryChips';
 import { ConsentGate } from '../src/components/ConsentGate';
 import { Header } from '../src/components/Header';
 import { NavigationOverlay } from '../src/components/NavigationOverlay';
+import { useLocalSearchParams } from 'expo-router';
 import { PlaceSheet, type SelectedPlace } from '../src/components/PlaceSheet';
 import { ProfilePanel } from '../src/components/ProfilePanel';
 import { QiblaPanel } from '../src/components/QiblaPanel';
@@ -1214,6 +1215,48 @@ export default function MapScreen() {
     },
     [openPlace],
   );
+
+  /* ------------------------------------------------------------------ */
+  /* Ouverture demandee par un autre ecran (espace admin -> une remarque) */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * L'espace admin renvoie ici avec le lieu vise par une remarque, pour qu'on puisse le
+   * corriger sans le rechercher a la main.
+   *
+   * Le garde-fou n'est pas une precaution de style : les parametres de route RESTENT en place
+   * apres consommation, et cet effet se declenche a chaque rendu suivant — au moindre
+   * deplacement de la carte. Sans la memoire de ce qui a deja ete ouvert, la fiche se
+   * reouvrirait indefiniment et la camera se recentrerait sous les doigts de l'utilisateur.
+   */
+  const params = useLocalSearchParams<{ lieu?: string; lat?: string; lon?: string; nom?: string }>();
+  const demandeTraitee = useRef<string | null>(null);
+
+  useEffect(() => {
+    const lieu = typeof params.lieu === 'string' ? params.lieu : '';
+    const lat = Number(params.lat);
+    const lon = Number(params.lon);
+    const signature = `${lieu}|${params.lat ?? ''}|${params.lon ?? ''}`;
+    if (signature === '||' || demandeTraitee.current === signature) return;
+
+    /* Une remarque peut porter un lieu SANS position, ou une position sans lieu. Sans l'une ni
+     * l'autre il n'y a rien a montrer, et on ne touche a rien. */
+    const aUnePosition = Number.isFinite(lat) && Number.isFinite(lon);
+    if (!lieu && !aUnePosition) return;
+
+    demandeTraitee.current = signature;
+    const nom = typeof params.nom === 'string' && params.nom ? params.nom : t('admin.correctionNoPlace');
+    openPlace({
+      name: nom,
+      displayName: nom,
+      lat: aUnePosition ? lat : 0,
+      lon: aUnePosition ? lon : 0,
+      /* `source: 'win'` avec un placeId : c'est ce couple qui fait charger la fiche complete
+       * et apparaitre << Gerer cette fiche >> (voir PlaceSheet, peutGerer). */
+      source: lieu ? 'win' : 'nominatim',
+      ...(lieu ? { placeId: lieu } : {}),
+    });
+  }, [params.lieu, params.lat, params.lon, params.nom, openPlace, t]);
 
   const closeSheet = useCallback(() => {
     setSelectedPlace(null);

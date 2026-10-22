@@ -431,19 +431,57 @@ function PlaceCorrections({ token, colors }: { token: string; colors: Palette })
         <Text style={[typography.caption, { color: colors.textMuted }]}>{t('admin.correctionsEmpty')}</Text>
       ) : null}
 
-      {items.map((c) => (
+      {items.map((c) => {
+        /* Le CHAINON MANQUANT : lire une remarque ne servait a rien si l'on devait ensuite
+         * retrouver le lieu a la main sur la carte. Appuyer sur la ligne y emmene
+         * directement, fiche ouverte, << Gerer cette fiche >> sous la main.
+         *
+         * Possible seulement si la remarque designe quelque chose : certaines arrivent sans
+         * lieu ni position (le formulaire les accepte, voir correctionInput). On n'affiche
+         * donc l'invitation a appuyer que lorsqu'il y a reellement une destination. */
+        const situe = Boolean(c.placeId) || (c.lat !== null && c.lon !== null);
+        const ouvrirLeLieu = () => {
+          /* `navigate` et non `push` : la carte est deja dans la pile, dessous. `push` en
+           * empilerait une SECONDE — deux cartes vivantes, deux suivis GPS. `navigate`
+           * revient sur celle qui existe, ce qui referme cet ecran au passage. */
+          router.navigate({
+            pathname: '/',
+            params: {
+              lieu: c.placeId ?? '',
+              lat: c.lat !== null ? String(c.lat) : '',
+              lon: c.lon !== null ? String(c.lon) : '',
+              nom: c.placeName ?? '',
+            },
+          });
+        };
+
+        return (
         <View key={c.id} style={[styles.modRow, { borderColor: colors.border }]}>
-          <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15 }}>
-            {c.placeName ?? t('admin.correctionNoPlace')}
-          </Text>
-          {/* Le texte en entier, jamais tronque : c'est la seule chose que la personne a ecrite. */}
-          <Text style={{ color: colors.text, marginTop: 4 }} selectable>
-            {c.message}
-          </Text>
-          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
-            {new Date(c.createdAt).toLocaleString()}
-            {c.lat !== null && c.lon !== null ? ` · ${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}` : ''}
-          </Text>
+          {/* SEULE LA ZONE DE LECTURE est cliquable, et les deux boutons restent dehors.
+            * Imbriquer un Pressable dans un autre fait dependre le resultat de la regle du
+            * responder : en principe le bouton interieur gagne le toucher, mais s'il ne le
+            * gagnait pas, appuyer sur << Traitee >> quitterait AUSSI l'ecran. Une structure
+            * qui ne pose pas la question vaut mieux qu'une regle sur laquelle on parie. */}
+          <Pressable onPress={situe ? ouvrirLeLieu : undefined} disabled={!situe}>
+            <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15 }}>
+              {c.placeName ?? t('admin.correctionNoPlace')}
+            </Text>
+            {/* Le texte en entier, jamais tronque : c'est la seule chose que la personne a ecrite. */}
+            <Text style={{ color: colors.text, marginTop: 4 }} selectable>
+              {c.message}
+            </Text>
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
+              {new Date(c.createdAt).toLocaleString()}
+              {c.lat !== null && c.lon !== null ? ` · ${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}` : ''}
+            </Text>
+            {/* Dit ou l'on va, et previent que l'ecran se referme : sans cela on croit avoir
+              * perdu l'espace admin. */}
+            {situe ? (
+              <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '700', marginTop: 4 }}>
+                {t('admin.correctionOpenPlace')}
+              </Text>
+            ) : null}
+          </Pressable>
 
           <View style={styles.modActions}>
             {busy === c.id ? (
@@ -466,7 +504,8 @@ function PlaceCorrections({ token, colors }: { token: string; colors: Palette })
             )}
           </View>
         </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
