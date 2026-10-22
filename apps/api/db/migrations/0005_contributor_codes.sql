@@ -29,7 +29,7 @@
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS contributor_codes (
-  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
 
   -- Le code remis a la personne. Unique : deux invitations ne peuvent pas se
   -- confondre, et la contrainte evite qu'un tirage au sort malchanceux ne
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS contributor_codes (
 
   -- L'appareil qui s'en est servi, et quand. Vides tant que le code n'a pas
   -- ete presente.
-  used_by      text REFERENCES devices(id) ON DELETE SET NULL,
+  used_by      uuid REFERENCES devices(id) ON DELETE SET NULL,
   used_at      timestamptz,
 
   -- Revocation : on ne SUPPRIME pas une ligne, on la date. L'historique de qui
