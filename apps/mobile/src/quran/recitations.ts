@@ -11,7 +11,7 @@
  * s'orienter avant la priere. On y trouve donc ce qu'on y cherche a ce moment-la — la Fatiha,
  * le verset du Trone, les sourates qu'on recite le vendredi ou le soir — et rien de plus.
  */
-import { API_BASE_URL } from '../api/client';
+import { apiBase } from '../api/client';
 
 export type Recitation = {
   /** Numero de la sourate, tel qu'il nomme le fichier sur le serveur (001 a 114). */
@@ -70,6 +70,6 @@ export function urlSourate(numero: number): string {
 
 /** Les fichiers a enchainer pour une entree de la liste. */
 export function urlsDe(r: Recitation): string[] {
-  if (r.fichierLocal) return [`${API_BASE_URL}/uploads/audio/${r.fichierLocal}`];
+  if (r.fichierLocal) return [`${apiBase()}/uploads/audio/${r.fichierLocal}`];
   return (r.suite ?? [r.numero]).map(urlSourate);
 }

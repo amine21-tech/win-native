@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import type { Report } from '../shared';
-import { BASE_URL } from '../api/client';
+import { apiBase } from '../api/client';
 
 type Handlers = {
   onNew?: (report: Report) => void;
@@ -33,7 +33,7 @@ export function useRealtime(
     // l'origine d'un cote et du chemin complet de l'autre : si on lui passe le
     // prefixe dans l'URL, il le prend pour un espace de noms et frappe la
     // mauvaise adresse.
-    const base = new URL(BASE_URL);
+    const base = new URL(apiBase());
     const socket = io(base.origin, {
       path: `${base.pathname.replace(/\/$/, '')}/socket.io/`,
       transports: ['websocket'],

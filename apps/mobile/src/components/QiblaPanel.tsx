@@ -401,31 +401,35 @@ const styles = StyleSheet.create({
   },
   close: {
     position: 'absolute',
-    top: -3,
-    right: -5,
+    top: 0,
+    right: -2,
     zIndex: 5,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Le chevron se pose a GAUCHE de la croix, dans l'ordre ou l'on quitte : on reduit plus
-  // souvent qu'on ne ferme.
+  /* Deux pastilles plus DISCRETES que la premiere version.
+   *
+   * A trente points avec un fond sombre, elles pesaient autant que le titre de l'ecran et
+   * tiraient l'oeil avant la boussole — or on ouvre cette page pour s'orienter, pas pour la
+   * fermer. Vingt-quatre points et un fond a peine marque suffisent : la zone tactile, elle,
+   * reste large grace au `hitSlop` de douze points pose sur chaque bouton. */
   reduce: {
     position: 'absolute',
-    top: -3,
-    right: 30,
+    top: 0,
+    right: 27,
     zIndex: 5,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeGlyph: { color: GOLD_TEXT, fontSize: 16, lineHeight: 18 },
+  closeGlyph: { color: GOLD_TEXT, fontSize: 13, lineHeight: 15 },
 
   // `#qiblaDates{position:absolute;top:9px;left:13px;right:50px}` — decale de la marge interne
   // de l'encadre, puisqu'il est ici pose dans la zone deja marginee.
@@ -433,8 +437,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -2,
     left: 0,
-    // 68 et non 37 : deux boutons occupent desormais le coin, pas un seul.
-    right: 68,
+    // 57 : deux pastilles de vingt-quatre points et leur ecart, rien de plus.
+    right: 57,
     zIndex: 4,
     backgroundColor: 'rgba(0,0,0,0.16)',
     borderWidth: 1,
