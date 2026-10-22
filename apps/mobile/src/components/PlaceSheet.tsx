@@ -19,7 +19,7 @@ import { fonts, radius, spacing, typography, type Palette } from '../theme';
 import { AdminEditPlaceSheet } from './AdminEditPlaceSheet';
 import { CorrectionSheet } from './CorrectionSheet';
 import { TripCard } from './TripCard';
-import { WinPlaceCard } from './WinPlaceCard';
+import { WinPlaceActions, WinPlaceCard } from './WinPlaceCard';
 
 export type SelectedPlace = GeocodedResult & { distanceM?: number };
 
@@ -238,7 +238,13 @@ export function PlaceSheet({
       ]}
     >
       <View style={[styles.grip, { backgroundColor: colors.border }]} />
+      {/* `flexShrink` EST INDISPENSABLE, et son absence est un piege connu de React Native :
+          il vaut zero par defaut, la liste garde alors la hauteur de son contenu, et les
+          boutons epingles en dessous sont simplement pousses hors du cadre. C'est exactement
+          ce qui arrivait au panneau de la Qibla. Avec lui, la liste accepte de rapetisser et
+          rend la place aux actions. */}
       <ScrollView
+        style={styles.defilant}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={entetePleine ? undefined : styles.sousLaCroix}
       >
@@ -253,10 +259,7 @@ export function PlaceSheet({
             isFavorite={isFavorite}
             onToggleFavorite={onToggleFavorite}
             peutGerer={peutGerer}
-            hasUserPosition={hasUserPosition}
-            onStart={onStartNavigation}
             onEdit={() => setMyEditOpen(true)}
-            onManage={() => setManageOpen(true)}
           />
         ) : (
         <>
@@ -470,6 +473,17 @@ export function PlaceSheet({
         )}
       </ScrollView>
 
+      {/* Hors du defilement : voir WinPlaceActions. Les deux gestes de la fiche restent sous
+          le pouce quelle que soit la longueur du nom, de l'adresse ou la hauteur de l'ecran. */}
+      {compacte ? (
+        <WinPlaceActions
+          colors={colors}
+          hasUserPosition={hasUserPosition}
+          onStart={onStartNavigation}
+          onManage={() => setManageOpen(true)}
+        />
+      ) : null}
+
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="close"
@@ -655,6 +669,7 @@ const styles = StyleSheet.create({
    * le contenu en commencait vingt-neuf. Vingt-six de plus mettent le coeur a six points
    * au-dessous d'elle — assez pour que l'oeil comme le pouce les separent. */
   sousLaCroix: { paddingTop: 26 },
+  defilant: { flexShrink: 1 },
   gerer: {
     flexDirection: 'row',
     alignItems: 'center',

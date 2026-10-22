@@ -20,12 +20,8 @@ type Props = {
   /** L'utilisateur a-t-il le droit de corriger et de retirer cette fiche ? Ne commande plus
    * que le crayon pose sur la photo : le bouton « Gerer cette fiche », lui, est pour tous. */
   peutGerer: boolean;
-  hasUserPosition: boolean;
-  onStart: () => void;
   /** Ouvre directement le formulaire de correction (crayon sur la photo). */
   onEdit: () => void;
-  /** Ouvre le panneau des trois actions. */
-  onManage: () => void;
 };
 
 /**
@@ -61,10 +57,7 @@ export function WinPlaceCard({
   isFavorite,
   onToggleFavorite,
   peutGerer,
-  hasUserPosition,
-  onStart,
   onEdit,
-  onManage,
 }: Props) {
   const { t } = useTranslation();
   const [copie, setCopie] = useState(false);
@@ -174,6 +167,40 @@ export function WinPlaceCard({
         </Pressable>
       </View>
 
+    </View>
+  );
+}
+
+/**
+ * LES DEUX ACTIONS, EPINGLEES SOUS LA FICHE ET HORS DU DEFILEMENT.
+ *
+ * Elles etaient a la fin du contenu, donc emportees par le defilement : sur un telephone un
+ * peu court, << Gerer cette fiche >> tombait sous le bord et n'apparaissait qu'en faisant
+ * glisser la fiche. Le client l'a photographie coupe en deux, et il a raison — un bouton a
+ * moitie visible ne se lit pas comme un bouton, il se lit comme un defaut.
+ *
+ * Les en sortir regle le probleme a la racine et pour tous les telephones, au lieu de grappiller
+ * des points de hauteur ici et la en esperant que ca passe : quelle que soit la longueur du
+ * nom, de l'adresse ou le nombre de lignes, << C'est parti >> et << Gerer cette fiche >> sont
+ * la. Ce qui peut defiler, c'est ce qui se lit — la photo, l'adresse, les coordonnees.
+ *
+ * C'est aussi ce que font les applications de carte : les gestes restent sous le pouce, le
+ * texte monte et descend derriere.
+ */
+export function WinPlaceActions({
+  colors,
+  hasUserPosition,
+  onStart,
+  onManage,
+}: {
+  colors: Palette;
+  hasUserPosition: boolean;
+  onStart: () => void;
+  onManage: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View style={[styles.actions, { borderTopColor: colors.border }]}>
       {hasUserPosition ? (
         <Pressable onPress={onStart} style={[styles.startBtn, { backgroundColor: colors.accent }]}>
           <Text style={styles.startBtnText}>➤ {t('nav.start')}</Text>
@@ -264,8 +291,11 @@ const styles = StyleSheet.create({
   copyBtn: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   copyText: { fontSize: 12, fontWeight: '800' as const },
 
+  /* La bande des actions. Un filet clair la separe de ce qui defile au-dessus : sans lui, le
+   * texte qui passe derriere semblerait glisser SOUS les boutons sans raison. */
+  actions: { paddingTop: spacing.md, marginTop: spacing.xs, borderTopWidth: 1 },
   startBtn: {
-    marginTop: spacing.md,
+    marginTop: 0,
     borderRadius: radius.lg,
     paddingVertical: spacing.md,
     alignItems: 'center',
