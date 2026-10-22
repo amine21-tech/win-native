@@ -64,7 +64,13 @@ bien "conteneur reconstruit et relance"
 bleu "Migration de la base"
 # Rejouable sans risque : migrate.ts tient la liste des migrations deja appliquees dans la
 # table _migrations et ignore celles qui y figurent.
-docker compose exec -T api npm run db:push:prod
+#
+# `< /dev/null` N'EST PAS DECORATIF. Ce script s'execute par `curl | bash` : son texte arrive
+# donc par l'entree standard. `docker compose exec` lit lui aussi l'entree standard, et sans
+# cette redirection il AVALE les lignes du script qui le suivent. Essaye sur le serveur du
+# client : la migration a reussi, puis le controle final n'a jamais eu lieu et l'invite est
+# revenue sans un mot, comme si le script s'etait arrete de lui-meme.
+docker compose exec -T api npm run db:push:prod < /dev/null
 bien "0005_contributor_codes applique"
 
 bleu "Controle"
