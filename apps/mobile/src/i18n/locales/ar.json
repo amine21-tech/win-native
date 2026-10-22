@@ -471,7 +471,9 @@
     "reasonPoorQuality": "صورة غير واضحة",
     "reasonInappropriate": "محتوى غير لائق",
     "reasonOther": "أخرى",
-    "correctionOpenPlace": "← اضغط لفتح هذا المكان على الخريطة"
+    "correctionOpenPlace": "← اضغط لفتح هذا المكان على الخريطة",
+    "sessionExpired": "انتهت الجلسة. اخرج ثم عد للدخول للمتابعة.",
+    "actionTimeout": "لم يستجب الخادم. تحقّق من اتصالك وأعد المحاولة."
   },
   "approach": {
     "prefix": "انتبه،",

@@ -24,6 +24,62 @@ import { palette, radius, spacing, typography, type Palette } from '../src/theme
 type PayoutAccount = { type: 'ccp' | 'bank'; accountNumber: string; holderName: string };
 
 /**
+ * DELAI MAXIMAL D'UNE ACTION DE MODERATION.
+ *
+ * `api()` n'en impose aucun. Une requete qui reste pendue — reseau coupe en pleine connexion,
+ * serveur qui ne repond plus — laisse donc le rond tourner indefiniment, sans erreur et sans
+ * retour en arriere. Vu de l'ecran, c'est la meme chose que << rien ne s'est passe >>.
+ *
+ * Quinze secondes : assez pour une connexion algerienne lente sur une requete qui ne transporte
+ * qu'un mot, assez peu pour qu'on ne reste pas devant un rond qui tourne.
+ */
+const DELAI_ACTION_MS = 15_000;
+
+async function avecDelai<T>(appel: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controleur = new AbortController();
+  const minuteur = setTimeout(() => controleur.abort(), DELAI_ACTION_MS);
+  try {
+    return await appel(controleur.signal);
+  } finally {
+    clearTimeout(minuteur);
+  }
+}
+
+/**
+ * Le message a afficher quand une action de moderation echoue.
+ *
+ * POURQUOI CETTE FONCTION EXISTE. Les trois listes appelaient l'API sans rien attraper. L'appel
+ * etant fait en `void`, une requete en echec partait dans le vide : la liste ne bougeait pas et
+ * l'ecran restait identique. C'est ce qui a ete rapporte comme << j'ai clique sur traiter, rien
+ * s'est passe >> — l'ecran n'avait aucun autre comportement a offrir.
+ *
+ * On montre le message du SERVEUR quand il en donne un : lui seul sait pourquoi il a refuse, et
+ * le traduire en << une erreur est survenue >> reviendrait a jeter la seule information utile.
+ */
+function messageEchec(e: unknown, t: (cle: string) => string): string {
+  // L'abandon vient de notre propre minuteur : le serveur n'a pas repondu a temps. Le dire
+  // ainsi, plutot que << pas de connexion >>, evite de faire chercher au mauvais endroit.
+  if (e instanceof Error && e.name === 'AbortError') return t('admin.actionTimeout');
+  if (e instanceof ApiError) {
+    // 401 : le jeton d'administrateur dure douze heures. Passe ce delai, chaque action echoue
+    // sans que rien n'indique qu'il faut simplement se reconnecter.
+    if (e.status === 401) return t('admin.sessionExpired');
+    return e.message;
+  }
+  return t('errors.network');
+}
+
+/** La ligne rouge sous une liste de moderation. Rien a afficher, rien ne s'affiche. */
+function LigneErreur({ message, colors }: { message: string | null; colors: Palette }) {
+  if (!message) return null;
+  return (
+    <Text style={[typography.caption, { color: colors.danger, marginTop: spacing.sm }]}>
+      {message}
+    </Text>
+  );
+}
+
+/**
  * Espace administrateur : connexion par compte reel (voir apps/api/src/routes/admin.ts, deja
  * construit cote serveur) puis configuration du compte CCP/bancaire qui recoit les paiements de
  * deblocage Tunisie. Premiere brique du chantier paiement — le reglement en ligne lui-meme
@@ -272,7 +328,7 @@ function ContributorCodes({ token, colors }: { token: string; colors: Palette })
       setLabel('');
       await query.refetch();
     } catch (e) {
-      setErreur(e instanceof ApiError ? e.message : t('errors.unknown'));
+      setErreur(messageEchec(e, t));
     } finally {
       setBusy(false);
     }
@@ -291,7 +347,7 @@ function ContributorCodes({ token, colors }: { token: string; colors: Palette })
           setBusy(true);
           void api(`/admin/contributor-codes/${c.id}`, { method: 'DELETE', adminToken: token })
             .then(() => query.refetch())
-            .catch(() => setErreur(t('errors.unknown')))
+            .catch((e: unknown) => setErreur(messageEchec(e, t)))
             .finally(() => setBusy(false));
         },
       },
@@ -402,16 +458,23 @@ function PlaceCorrections({ token, colors }: { token: string; colors: Palette })
     refetchInterval: 60_000,
   });
   const [busy, setBusy] = useState<string | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
 
   const classer = async (id: string, status: 'accepted' | 'rejected') => {
     setBusy(id);
+    setErreur(null);
     try {
-      await api(`/admin/corrections/${id}/status`, {
-        method: 'POST',
-        body: { status },
-        adminToken: token,
-      });
+      await avecDelai((signal) =>
+        api(`/admin/corrections/${id}/status`, {
+          method: 'POST',
+          body: { status },
+          adminToken: token,
+          signal,
+        }),
+      );
       await query.refetch();
+    } catch (e) {
+      setErreur(messageEchec(e, t));
     } finally {
       setBusy(null);
     }
@@ -430,6 +493,9 @@ function PlaceCorrections({ token, colors }: { token: string; colors: Palette })
       {!query.isLoading && items.length === 0 ? (
         <Text style={[typography.caption, { color: colors.textMuted }]}>{t('admin.correctionsEmpty')}</Text>
       ) : null}
+      {/* L'erreur de CHARGEMENT compte autant que celle d'une action : une liste vide parce que
+        * la requete a echoue se lit sinon comme << aucune remarque en attente >>. */}
+      <LigneErreur message={erreur ?? (query.isError ? messageEchec(query.error, t) : null)} colors={colors} />
 
       {items.map((c) => {
         /* Le CHAINON MANQUANT : lire une remarque ne servait a rien si l'on devait ensuite
@@ -553,16 +619,23 @@ function PhotoReports({ token, colors }: { token: string; colors: Palette }) {
     refetchInterval: 60_000,
   });
   const [busy, setBusy] = useState<string | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
 
   const decider = async (photoId: string, status: 'accepted' | 'rejected') => {
     setBusy(photoId);
+    setErreur(null);
     try {
-      await api(`/admin/photo-reports/${photoId}/status`, {
-        method: 'POST',
-        body: { status },
-        adminToken: token,
-      });
+      await avecDelai((signal) =>
+        api(`/admin/photo-reports/${photoId}/status`, {
+          method: 'POST',
+          body: { status },
+          adminToken: token,
+          signal,
+        }),
+      );
       await query.refetch();
+    } catch (e) {
+      setErreur(messageEchec(e, t));
     } finally {
       setBusy(null);
     }
@@ -588,6 +661,7 @@ function PhotoReports({ token, colors }: { token: string; colors: Palette }) {
       {!query.isLoading && items.length === 0 ? (
         <Text style={[typography.caption, { color: colors.textMuted }]}>{t('admin.photoReportsEmpty')}</Text>
       ) : null}
+      <LigneErreur message={erreur ?? (query.isError ? messageEchec(query.error, t) : null)} colors={colors} />
 
       {items.map((r) => (
         <View key={r.photoId} style={[styles.modRow, { borderColor: colors.border }]}>
@@ -650,12 +724,18 @@ function UnlockRequests({ token, colors }: { token: string; colors: Palette }) {
     refetchInterval: 30_000,
   });
   const [busy, setBusy] = useState<string | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
 
   const act = async (id: string, action: 'approve' | 'reject') => {
     setBusy(id);
+    setErreur(null);
     try {
-      await api(`/admin/unlocks/${id}/${action}`, { method: 'POST', adminToken: token });
+      await avecDelai((signal) =>
+        api(`/admin/unlocks/${id}/${action}`, { method: 'POST', adminToken: token, signal }),
+      );
       await query.refetch();
+    } catch (e) {
+      setErreur(messageEchec(e, t));
     } finally {
       setBusy(null);
     }
@@ -672,6 +752,7 @@ function UnlockRequests({ token, colors }: { token: string; colors: Palette }) {
       {!query.isLoading && items.length === 0 ? (
         <Text style={[typography.caption, { color: colors.textMuted }]}>{t('admin.unlocksEmpty')}</Text>
       ) : null}
+      <LigneErreur message={erreur ?? (query.isError ? messageEchec(query.error, t) : null)} colors={colors} />
 
       {items.map((r) => (
         <View key={r.id} style={[styles.unlockRow, { borderColor: colors.border }]}>

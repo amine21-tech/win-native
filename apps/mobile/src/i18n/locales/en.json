@@ -471,7 +471,9 @@
     "reasonPoorQuality": "Unreadable photo",
     "reasonInappropriate": "Inappropriate content",
     "reasonOther": "Other",
-    "correctionOpenPlace": "→ Tap to open this place on the map"
+    "correctionOpenPlace": "→ Tap to open this place on the map",
+    "sessionExpired": "Session expired. Log out and log back in to continue.",
+    "actionTimeout": "The server did not respond. Check your connection and try again."
   },
   "approach": {
     "prefix": "Caution,",

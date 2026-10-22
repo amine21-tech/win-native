@@ -471,7 +471,9 @@
     "reasonPoorQuality": "تصويرة ما تبانش",
     "reasonInappropriate": "محتوى ما يصلحش",
     "reasonOther": "حاجة أخرى",
-    "correctionOpenPlace": "← دوس باش تحل هذي البلاصة في الخريطة"
+    "correctionOpenPlace": "← دوس باش تحل هذي البلاصة في الخريطة",
+    "sessionExpired": "الجلسة سالات. اخرج وارجع ادخل باش تكمّل.",
+    "actionTimeout": "السيرفور ما جاوبش. شوف الكونكسيون وعاود."
   },
   "approach": {
     "prefix": "رد بالك،",

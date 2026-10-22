@@ -471,7 +471,9 @@
     "reasonPoorQuality": "Photo illisible",
     "reasonInappropriate": "Contenu déplacé",
     "reasonOther": "Autre",
-    "correctionOpenPlace": "→ Appuyez pour ouvrir ce lieu sur la carte"
+    "correctionOpenPlace": "→ Appuyez pour ouvrir ce lieu sur la carte",
+    "sessionExpired": "Session expirée. Déconnectez-vous et reconnectez-vous pour continuer.",
+    "actionTimeout": "Le serveur n'a pas répondu. Vérifiez votre connexion et réessayez."
   },
   "approach": {
     "prefix": "Attention,",
