@@ -473,7 +473,12 @@
     "reasonOther": "حاجة أخرى",
     "correctionOpenPlace": "← دوس باش تحل هذي البلاصة في الخريطة",
     "sessionExpired": "الجلسة سالات. اخرج وارجع ادخل باش تكمّل.",
-    "actionTimeout": "السيرفور ما جاوبش. شوف الكونكسيون وعاود."
+    "actionTimeout": "السيرفور ما جاوبش. شوف الكونكسيون وعاود.",
+    "tabPending": "مازال",
+    "tabHandled": "تعالجت",
+    "correctionsNoneHandled": "ما كاين حتى ملاحظة تعالجت للوقت.",
+    "correctionWasDone": "عالجها {{who}} في {{when}}",
+    "correctionWasRejected": "رفضها {{who}} في {{when}}"
   },
   "approach": {
     "prefix": "رد بالك،",

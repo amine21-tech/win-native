@@ -432,11 +432,14 @@ function ContributorCodes({ token, colors }: { token: string; colors: Palette })
 type Correction = {
   id: string;
   message: string;
+  status: 'pending' | 'accepted' | 'rejected';
   placeId: string | null;
   placeName: string | null;
   lat: number | null;
   lon: number | null;
   createdAt: string;
+  reviewedAt: string | null;
+  reviewedByName: string | null;
 };
 
 /**
@@ -452,10 +455,23 @@ type Correction = {
  */
 function PlaceCorrections({ token, colors }: { token: string; colors: Palette }) {
   const { t } = useTranslation();
+  /**
+   * DEUX ONGLETS, et c'est une correction de conception.
+   *
+   * L'ecran ne savait que VIDER une liste : la remarque classee disparaissait, et quand c'etait
+   * la derniere l'ecran affichait << aucune remarque en attente >>. Le client a traite cinq
+   * remarques et a rapporte << rien ne s'est passe >> — ce qu'il avait sous les yeux ne
+   * ressemblait a rien d'autre. L'onglet << Traitees >> rend ce travail consultable : ce qui a
+   * ete classe, par qui, et quand.
+   */
+  const [vue, setVue] = useState<'pending' | 'handled'>('pending');
   const query = useQuery({
-    queryKey: ['admin', 'corrections'],
-    queryFn: () => api<{ items: Correction[] }>('/admin/corrections', { adminToken: token }),
-    refetchInterval: 60_000,
+    queryKey: ['admin', 'corrections', vue],
+    queryFn: () =>
+      api<{ items: Correction[] }>(`/admin/corrections?status=${vue}`, { adminToken: token }),
+    // Les remarques classees ne bougent pas d'elles-memes : seul ce qui attend merite un
+    // rafraichissement automatique.
+    refetchInterval: vue === 'pending' ? 60_000 : false,
   });
   const [busy, setBusy] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -489,9 +505,37 @@ function PlaceCorrections({ token, colors }: { token: string; colors: Palette })
         {t('admin.correctionsHint')}
       </Text>
 
+      <View style={styles.onglets}>
+        {(['pending', 'handled'] as const).map((v) => (
+          <Pressable
+            key={v}
+            onPress={() => setVue(v)}
+            style={[
+              styles.onglet,
+              {
+                borderColor: vue === v ? colors.accent : colors.border,
+                backgroundColor: vue === v ? colors.accent : 'transparent',
+              },
+            ]}
+          >
+            <Text
+              style={{
+                color: vue === v ? colors.accentText : colors.textMuted,
+                fontWeight: '800',
+                fontSize: 13,
+              }}
+            >
+              {t(v === 'pending' ? 'admin.tabPending' : 'admin.tabHandled')}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
       {query.isLoading ? <ActivityIndicator color={colors.accent} /> : null}
       {!query.isLoading && items.length === 0 ? (
-        <Text style={[typography.caption, { color: colors.textMuted }]}>{t('admin.correctionsEmpty')}</Text>
+        <Text style={[typography.caption, { color: colors.textMuted }]}>
+          {t(vue === 'pending' ? 'admin.correctionsEmpty' : 'admin.correctionsNoneHandled')}
+        </Text>
       ) : null}
       {/* L'erreur de CHARGEMENT compte autant que celle d'une action : une liste vide parce que
         * la requete a echoue se lit sinon comme << aucune remarque en attente >>. */}
@@ -540,6 +584,23 @@ function PlaceCorrections({ token, colors }: { token: string; colors: Palette })
               {new Date(c.createdAt).toLocaleString()}
               {c.lat !== null && c.lon !== null ? ` · ${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}` : ''}
             </Text>
+            {/* LA TRACE DU TRAITEMENT : c'est precisement ce qui manquait. Qui a classe la
+              * remarque, dans quel sens, et quand. */}
+            {c.status !== 'pending' ? (
+              <Text
+                style={{
+                  color: c.status === 'accepted' ? colors.accent : colors.textMuted,
+                  fontSize: 12,
+                  fontWeight: '700',
+                  marginTop: 4,
+                }}
+              >
+                {t(c.status === 'accepted' ? 'admin.correctionWasDone' : 'admin.correctionWasRejected', {
+                  who: c.reviewedByName ?? '—',
+                  when: c.reviewedAt ? new Date(c.reviewedAt).toLocaleString() : '—',
+                })}
+              </Text>
+            ) : null}
             {/* Dit ou l'on va, et previent que l'ecran se referme : sans cela on croit avoir
               * perdu l'espace admin. */}
             {situe ? (
@@ -549,6 +610,7 @@ function PlaceCorrections({ token, colors }: { token: string; colors: Palette })
             ) : null}
           </Pressable>
 
+          {c.status === 'pending' ? (
           <View style={styles.modActions}>
             {busy === c.id ? (
               <ActivityIndicator color={colors.accent} />
@@ -569,6 +631,7 @@ function PlaceCorrections({ token, colors }: { token: string; colors: Palette })
               </>
             )}
           </View>
+          ) : null}
         </View>
         );
       })}
@@ -800,6 +863,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   smallBtn: { borderWidth: 1.5, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  onglets: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  onglet: {
+    borderWidth: 1.5,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   modRow: {
     borderWidth: 1,
     borderRadius: radius.md,

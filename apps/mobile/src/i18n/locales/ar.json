@@ -473,7 +473,12 @@
     "reasonOther": "أخرى",
     "correctionOpenPlace": "← اضغط لفتح هذا المكان على الخريطة",
     "sessionExpired": "انتهت الجلسة. اخرج ثم عد للدخول للمتابعة.",
-    "actionTimeout": "لم يستجب الخادم. تحقّق من اتصالك وأعد المحاولة."
+    "actionTimeout": "لم يستجب الخادم. تحقّق من اتصالك وأعد المحاولة.",
+    "tabPending": "معلّقة",
+    "tabHandled": "مُعالَجة",
+    "correctionsNoneHandled": "لا توجد ملاحظة مُعالَجة بعد.",
+    "correctionWasDone": "عالجها {{who}} في {{when}}",
+    "correctionWasRejected": "رفضها {{who}} في {{when}}"
   },
   "approach": {
     "prefix": "انتبه،",

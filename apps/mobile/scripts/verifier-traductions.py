@@ -33,10 +33,32 @@ ICI = os.path.dirname(os.path.abspath(__file__))
 RACINE = os.path.normpath(os.path.join(ICI, '..'))
 LANGUES = ('fr', 'en', 'ar', 'dz')
 
-# `t('une.cle')` ou `t("une.cle")`, avec ou sans arguments derriere.
-APPEL = re.compile(r"""\bt\(\s*(['"])([a-zA-Z0-9_.]+)\1""")
-# Un appel dont la cle n'est pas litterale : on ne peut pas la verifier.
-APPEL_DYNAMIQUE = re.compile(r"""\bt\(\s*(?![\'"])[^)\s]""")
+# L'ouverture d'un appel a `t(`. Ce qu'il contient est examine ensuite : la cle peut etre
+# ecrite directement, mais aussi choisie par une condition — `t(x ? 'a.b' : 'c.d')`, forme
+# employee dans l'ecran admin. Ne lire que le premier argument laisserait ces cles hors
+# controle, c'est-a-dire precisement celles qu'on vient d'ecrire.
+OUVERTURE = re.compile(r'\bt\(')
+# Une cle de traduction : au moins un point, pour ne pas la confondre avec une valeur
+# quelconque passee en argument ('cancel', 'destructive'...).
+CLE_LITTERALE = re.compile(r"""(['"])([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\1""")
+
+
+def fin_de_parenthese(texte, i):
+    """Position de la parenthese fermante correspondant a celle ouverte en i.
+
+    Compter les parentheses, plutot que de s'arreter a la premiere fermante, est ce qui permet
+    de lire un appel contenant lui-meme des appels ou des objets : `t('a.b', { x: f(y) })`.
+    """
+    profondeur = 0
+    while i < len(texte):
+        if texte[i] == '(':
+            profondeur += 1
+        elif texte[i] == ')':
+            profondeur -= 1
+            if profondeur == 0:
+                return i
+        i += 1
+    return len(texte)
 
 
 def fichiers_source():
@@ -75,15 +97,15 @@ def main():
     for chemin in sorted(fichiers_source()):
         texte = io.open(chemin, encoding='utf-8').read()
         relatif = os.path.relpath(chemin, RACINE).replace('\\', '/')
-        for m in APPEL.finditer(texte):
-            cle = m.group(2)
-            # `t('...')` sert aussi a i18next pour des cles sans point : on les garde quand
-            # meme, une cle de premier niveau est legitime.
+        for m in OUVERTURE.finditer(texte):
+            args = texte[m.end():fin_de_parenthese(texte, m.end() - 1)]
             ligne = texte.count('\n', 0, m.start()) + 1
-            utilisees.setdefault(cle, []).append('%s:%d' % (relatif, ligne))
-        for m in APPEL_DYNAMIQUE.finditer(texte):
-            ligne = texte.count('\n', 0, m.start()) + 1
-            dynamiques.append('%s:%d' % (relatif, ligne))
+            cles = [c.group(2) for c in CLE_LITTERALE.finditer(args)]
+            for cle in cles:
+                utilisees.setdefault(cle, []).append('%s:%d' % (relatif, ligne))
+            # Aucune cle litterale dans l'appel : elle est calculee, donc hors de portee.
+            if not cles:
+                dynamiques.append('%s:%d' % (relatif, ligne))
 
     fautes = []
     for cle in sorted(utilisees):

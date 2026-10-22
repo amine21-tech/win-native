@@ -6,6 +6,17 @@ import { db } from '../db/client.js';
 import { env } from '../env.js';
 import { HttpError, notFound, parse } from '../lib/http.js';
 
+/**
+ * Les etats qu'un ecran peut demander. `handled` n'existe pas en base : c'est le raccourci
+ * pour << tout ce qui a ete classe >>, accepte comme refuse.
+ *
+ * POURQUOI UNE LISTE FERMEE. Le parametre venait de la requete et partait tel quel dans le
+ * SQL. Il etait passe en PARAMETRE, donc rien d'injectable — mais une valeur fantaisiste
+ * renvoyait une liste vide, soit exactement l'apparence de << il n'y a rien a traiter >>. Un
+ * etat inconnu doit etre refuse, pas confondu avec le vide.
+ */
+const ETATS_CORRECTION = ['pending', 'accepted', 'rejected', 'handled'] as const;
+
 const routes: FastifyPluginAsync = async (app) => {
   /**
    * Connexion administrateur.
@@ -53,17 +64,46 @@ const routes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  /** Corrections d'adresse en attente de traitement. */
+  /**
+   * Corrections d'adresse.
+   *
+   * `reviewedAt` et `reviewedByName` ne sont pas decoratifs : apres avoir classe une remarque,
+   * l'administrateur n'avait AUCUN moyen de revoir ce qu'il avait fait — la ligne disparaissait
+   * et c'etait tout. Le client l'a rapporte comme << rien ne s'est passe >> alors que ses cinq
+   * clics avaient bien ete enregistres. Qui a classe quoi, et quand, est ce qui transforme une
+   * liste qui se vide en un travail dont on garde la trace.
+   */
   app.get('/admin/corrections', { preHandler: [app.requireAdmin] }, async (req) => {
-    const status = (req.query as { status?: string }).status ?? 'pending';
+    const demande = (req.query as { status?: string }).status ?? 'pending';
+    if (!(ETATS_CORRECTION as readonly string[]).includes(demande)) {
+      throw new HttpError(
+        400,
+        'etat_invalide',
+        `Etat attendu : ${ETATS_CORRECTION.join(', ')}.`,
+      );
+    }
+
+    const filtre =
+      demande === 'handled'
+        ? sql`c.status IN ('accepted', 'rejected')`
+        : sql`c.status = ${demande}`;
+
+    /* Les remarques classees se relisent par date de TRAITEMENT, les autres par date d'arrivee :
+     * on cherche << qu'ai-je fait recemment >> dans un cas, << qu'est-ce qui attend >> dans
+     * l'autre. */
+    const ordre =
+      demande === 'pending' ? sql`c.created_at DESC` : sql`c.reviewed_at DESC NULLS LAST`;
+
     const rows = await db.execute(sql`
       SELECT c.id, c.message, c.payload, c.status, c.created_at AS "createdAt",
              c.place_id AS "placeId", p.name AS "placeName",
+             c.reviewed_at AS "reviewedAt", a.display_name AS "reviewedByName",
              ST_Y(c.geom::geometry) AS lat, ST_X(c.geom::geometry) AS lon
       FROM corrections c
       LEFT JOIN places p ON p.id = c.place_id
-      WHERE c.status = ${status}
-      ORDER BY c.created_at DESC
+      LEFT JOIN admins a ON a.id = c.reviewed_by
+      WHERE ${filtre}
+      ORDER BY ${ordre}
       LIMIT 200
     `);
     return { items: rows };

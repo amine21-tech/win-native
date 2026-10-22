@@ -473,7 +473,12 @@
     "reasonOther": "Other",
     "correctionOpenPlace": "→ Tap to open this place on the map",
     "sessionExpired": "Session expired. Log out and log back in to continue.",
-    "actionTimeout": "The server did not respond. Check your connection and try again."
+    "actionTimeout": "The server did not respond. Check your connection and try again.",
+    "tabPending": "Pending",
+    "tabHandled": "Handled",
+    "correctionsNoneHandled": "No remark handled yet.",
+    "correctionWasDone": "Handled by {{who}} on {{when}}",
+    "correctionWasRejected": "Dismissed by {{who}} on {{when}}"
   },
   "approach": {
     "prefix": "Caution,",

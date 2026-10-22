@@ -473,7 +473,12 @@
     "reasonOther": "Autre",
     "correctionOpenPlace": "→ Appuyez pour ouvrir ce lieu sur la carte",
     "sessionExpired": "Session expirée. Déconnectez-vous et reconnectez-vous pour continuer.",
-    "actionTimeout": "Le serveur n'a pas répondu. Vérifiez votre connexion et réessayez."
+    "actionTimeout": "Le serveur n'a pas répondu. Vérifiez votre connexion et réessayez.",
+    "tabPending": "En attente",
+    "tabHandled": "Traitées",
+    "correctionsNoneHandled": "Aucune remarque traitée pour le moment.",
+    "correctionWasDone": "Traitée par {{who}} le {{when}}",
+    "correctionWasRejected": "Refusée par {{who}} le {{when}}"
   },
   "approach": {
     "prefix": "Attention,",
