@@ -132,6 +132,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     padding: 3,
     marginTop: spacing.sm,
+    /* Dix points sous la rangee des langues (point 4 du client) : elle touchait la barre de
+     * recherche. HEADER_HEIGHT, dans app/index.tsx, suit le meme mouvement — c'est cette
+     * constante qui place la barre de recherche sous l'en-tete, et la laisser a 92 aurait
+     * rendu les dix points invisibles en superposant les deux blocs. */
+    marginBottom: 10,
   },
   // `flex: 1` : les cinq langues se partagent la largeur a parts egales, quelle que soit la
   // longueur du mot. Une pastille de deux lettres et une de six gardent la meme surface

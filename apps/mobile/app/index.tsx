@@ -96,7 +96,11 @@ type Position = { lat: number; lon: number };
  * boutons se recalcule a partir de cette valeur : sur un grand telephone elle avait de la marge
  * et les boutons gardent leur taille pleine ; sur un ecran court ils etaient deja a leur
  * plancher de 38 points, que ces 28 points de plus ne franchissent pas. */
-const HEADER_HEIGHT = 92;
+/* 102 et non 92 depuis le 23 octobre : la rangee des langues a gagne dix points de marge
+ * basse (point 4 du client, « trop colle a la barre de recherche »). Cette constante place ce
+ * qui vient SOUS l'en-tete ; sans le meme decalage, la barre de recherche serait remontee par
+ * dessus la rangee et l'espace demande n'aurait pas existe. */
+const HEADER_HEIGHT = 102;
 
 /* Couleurs du trace, reprises de `routeColors()` en v83.
  *
@@ -319,6 +323,19 @@ const NAV_PUCK_SIZE = 46;
  * tient TOUJOURS dans la hauteur restante — sans ce calcul, la colonne debordait et les
  * derniers boutons (profil, Qibla) sortaient de l'ecran sur les telephones courts. */
 const FAB_COUNT = 10;
+/**
+ * Ecart MINIMAL entre deux boutons de la colonne (point 3 du client, 23 octobre).
+ *
+ * « Trop petits, trop rapprochés » : la mesure lui donne raison, et sur les deux points a la
+ * fois. L'ancien calcul reservait spacing.md (12) pour l'ecart au moment de choisir la taille,
+ * puis laissait l'ecart retomber jusqu'a 4 une fois la taille fixee — le pire des deux mondes,
+ * des boutons rapetisses pour un espace qui n'etait finalement pas pris.
+ *
+ * Reserver exactement ce qu'on garantira donne, sur un telephone de 6,1 pouces, des boutons de
+ * 41 points au lieu de 37, ET un ecart de 8 au lieu de 4. Voir scripts/verifier-colonne-fab.py,
+ * qui refait le calcul sur cinq hauteurs d'ecran reelles.
+ */
+const ECART_FAB_MIN = 8;
 /** Le bouton de signalement est plus gros que les autres (styles.fabPrimary). */
 const FAB_PRIMARY_RATIO = 64 / HIT_SIZE;
 const FAB_TOP_RESERVE = HIT_SIZE + 56;
@@ -372,7 +389,7 @@ export default function MapScreen() {
   const baseFabSize = useMemo(() => {
     const available =
       windowHeight - (insets.top + HEADER_HEIGHT + FAB_TOP_RESERVE) - (insets.bottom + spacing.xl);
-    const gaps = (FAB_COUNT - 1) * spacing.md;
+    const gaps = (FAB_COUNT - 1) * ECART_FAB_MIN;
     const raw = (available - gaps) / (FAB_COUNT - 1 + FAB_PRIMARY_RATIO);
     /* Plancher a 32 points, et non 38 : c'est ce qui manquait pour que la colonne TIENNE.
      *
@@ -386,7 +403,7 @@ export default function MapScreen() {
      * telephone courant : des qu'il y a la place, la taille remonte d'elle-meme jusqu'aux 52
      * points de confort — mesure a 49 sur un Galaxy ordinaire, 52 sur un grand. Le compromis
      * ne coute donc rien a ceux qui n'en ont pas besoin. */
-    return Math.max(32, Math.min(HIT_SIZE, Math.floor(raw)));
+    return Math.max(30, Math.min(HIT_SIZE, Math.floor(raw)));
   }, [windowHeight, insets.top, insets.bottom]);
 
   /**
@@ -408,7 +425,7 @@ export default function MapScreen() {
       windowHeight - (insets.top + HEADER_HEIGHT + FAB_TOP_RESERVE) - (insets.bottom + spacing.xl);
     const hauteurBoutons = baseFabSize * (FAB_COUNT - 1 + FAB_PRIMARY_RATIO);
     const reste = available - hauteurBoutons;
-    return Math.max(4, Math.min(spacing.md, Math.floor(reste / (FAB_COUNT - 1))));
+    return Math.max(ECART_FAB_MIN, Math.min(spacing.md, Math.floor(reste / (FAB_COUNT - 1))));
   }, [windowHeight, insets.top, insets.bottom, baseFabSize]);
 
   const [liveReports, setLiveReports] = useState<Report[]>([]);
@@ -1721,7 +1738,19 @@ export default function MapScreen() {
         >
           {/* Libelle texte « Qibla », comme `.qibla-lbl` en v83 — pas d'emoji Kaaba : le site
               affiche le mot, et les deux doivent coincider. */}
-          <Text style={[styles.qiblaLabel, { color: colors.accentDark }]}>Qibla</Text>
+          {/* Le mot s'affichait « Qibl » puis « a » a la ligne (point 2 du client) : la
+              colonne retrecit le bouton sur les petits ecrans, et onze points ne tenaient
+              plus. `adjustsFontSizeToFit` reduit le corps juste ce qu'il faut plutot que de
+              couper, et `numberOfLines` interdit le retour a la ligne qui produisait la
+              coupure. Le mot reste donc entier a toutes les tailles de bouton. */}
+          <Text
+            style={[styles.qiblaLabel, { color: colors.accentDark }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            Qibla
+          </Text>
         </Pressable>
       </View>
   );
@@ -1811,9 +1840,9 @@ export default function MapScreen() {
               navigating
                 ? {
                     'line-gradient': degradeDeProgression(
-                      rgba(routeColors.halo, 0.1),
-                      rgba(routeColors.halo, 0.7),
-                      rgba(routeColors.halo, 0.95),
+                      rgba(routeColors.halo, 0.35),
+                      rgba(routeColors.halo, 0.8),
+                      routeColors.halo,
                       avanceFraction,
                       traineFraction,
                     ),
@@ -1841,8 +1870,8 @@ export default function MapScreen() {
               navigating
                 ? {
                     'line-gradient': degradeDeProgression(
-                      rgba(routeColors.casing, 0.08),
-                      rgba(routeColors.casing, 0.5),
+                      rgba(routeColors.casing, 0.3),
+                      rgba(routeColors.casing, 0.65),
                       routeColors.casing,
                       avanceFraction,
                       traineFraction,
@@ -1855,7 +1884,13 @@ export default function MapScreen() {
                   }
             }
           />
-          {/* LA TRAINE DE COMETE (point 13 du client).
+          {/* LA TRAINE DE COMETE (point 13 du client), OPACIFIEE le 23 octobre.
+              La traine descendait jusqu'a 8 % d'opacite : le chemin parcouru devenait une
+              fenetre sur le fond de carte, et la nationale jaune d'OpenStreetMap reparaissait
+              dessous. Le client l'a vu comme « la ligne jaune transparait sous la ligne verte ».
+              Les trois couches gardent leur degrade — il reste DERRIERE le vehicule, jamais
+              devant — mais ne descendent plus sous 30 %, et le trace a venir est pleinement
+              opaque. On garde donc l'effet sans le trou.
               Devant le vehicule, le vert vif de la route a parcourir ; derriere, le gris de
               v83 qui s'affaiblit puis s'efface sur quatre cents metres. Ce n'est plus une
               seconde ligne posee par-dessus mais la MEME ligne, teintee selon l'avancement :
@@ -1871,8 +1906,8 @@ export default function MapScreen() {
               navigating
                 ? {
                     'line-gradient': degradeDeProgression(
-                      rgba(GRIS_PARCOURU, 0.12),
-                      rgba(GRIS_PARCOURU, 0.92),
+                      rgba(GRIS_PARCOURU, 0.4),
+                      rgba(GRIS_PARCOURU, 0.95),
                       routeColors.main,
                       avanceFraction,
                       traineFraction,
