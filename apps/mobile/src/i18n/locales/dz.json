@@ -394,7 +394,11 @@
     "early": "{{minutes}} دقيقة أقل من لي كان متوقع.",
     "close": "سالي",
     "motorway": "لوتوروت",
-    "noMotorway": "بلا لوتوروت"
+    "noMotorway": "بلا لوتوروت",
+    "status": "الحالة",
+    "statusVip": "VIP",
+    "statusWin": "WIN",
+    "statusAddress": "عنوان"
   },
   "correction": {
     "title": "بلّغ على غلطة",

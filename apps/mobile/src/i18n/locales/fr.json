@@ -394,7 +394,11 @@
     "early": "{{minutes}} min de moins que prévu.",
     "close": "Terminer",
     "motorway": "Autoroute",
-    "noMotorway": "Sans autoroute"
+    "noMotorway": "Sans autoroute",
+    "status": "Statut",
+    "statusVip": "VIP",
+    "statusWin": "WIN",
+    "statusAddress": "Adresse"
   },
   "correction": {
     "title": "Signaler une erreur",

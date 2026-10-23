@@ -371,6 +371,13 @@ export function PlaceSheet({
 
         {hasUserPosition ? (
           <TripCard
+            statut={
+              place.isPartner
+                ? { texte: t('trip.statusVip'), vip: true }
+                : isContributed
+                  ? { texte: t('trip.statusWin'), vip: false }
+                  : { texte: t('trip.statusAddress'), vip: false }
+            }
             routes={routes}
             selectedIndex={selectedRouteIndex}
             onSelect={onSelectRoute}

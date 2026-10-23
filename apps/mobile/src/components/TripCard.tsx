@@ -14,19 +14,36 @@ type Props = {
   mode: RouteMode;
   onModeChange: (mode: RouteMode) => void;
   onStart: () => void;
+  /**
+   * Statut du lieu vise — la TROISIEME tuile demandee par le client (point 6, 23 octobre).
+   *
+   * Le cadre n'affichait que la duree et la distance, et il lui a paru « vide ». Le statut est
+   * l'information qui manquait : savoir qu'on va chez un partenaire VIP ou vers une adresse
+   * posee par la communaute change ce qu'on attend en arrivant.
+   */
+  statut: { texte: string; vip: boolean };
   colors: Palette;
 };
 
 /** Carte "resume de trajet" : reprise de `.tripcard` en v83 — distance/duree, bascule voiture/pied,
  * itineraires alternatifs, bouton demarrer. */
-export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode, onModeChange, onStart, colors }: Props) {
+export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode, onModeChange, onStart, statut, colors }: Props) {
   const prefs = useSession((s) => s.routePrefs);
   const setAutoroute = useSession((s) => s.setAutoroute);
   const { t } = useTranslation();
   const selected = routes[selectedIndex];
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    /* BORDURE VERTE SUPERIEURE (point 6). Trois points de vert en haut du cadre : c'est ce qui
+       le detache du reste de la fiche et lui donne un bord, au lieu d'un rectangle pose sans
+       limite franche. Le client l'a demandee explicitement, et c'est aussi ce qui repond au
+       reproche de cadre « sans encadrement ». */
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.surface, borderColor: colors.border, borderTopColor: colors.accent },
+      ]}
+    >
       {loading ? (
         <ActivityIndicator color={colors.accent} style={{ paddingVertical: spacing.lg }} />
       ) : error || !selected ? (
@@ -46,6 +63,21 @@ export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode
                 {formatDuration(selected.durationS)}
               </Text>
               <Text style={[styles.metricLabel, { color: colors.textMuted }]}>{t('trip.duration')}</Text>
+            </View>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            {/* La tuile de statut. Le texte y est plus petit que les deux chiffres voisins :
+                c'est un mot, pas une mesure, et lui donner la meme taille deformerait la
+                lecture d'un cadre ou l'oeil cherche d'abord la duree. */}
+            <View style={styles.metric}>
+              <Text
+                style={[styles.statutValeur, { color: statut.vip ? colors.gold : colors.accentDark }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                {statut.vip ? `⭐ ${statut.texte}` : statut.texte}
+              </Text>
+              <Text style={[styles.metricLabel, { color: colors.textMuted }]}>{t('trip.status')}</Text>
             </View>
           </View>
 
@@ -133,11 +165,19 @@ export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.md, marginTop: spacing.md },
+  card: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    // Le haut plus epais et colore : c'est lui qui « encadre » le bloc (point 6 du client).
+    borderTopWidth: 3,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
   errorText: { textAlign: 'center', paddingVertical: spacing.sm },
   metrics: { flexDirection: 'row', alignItems: 'stretch' },
   metric: { flex: 1, alignItems: 'center', paddingVertical: 4 },
   metricLabel: { fontSize: 10.5, fontWeight: '700' as const, letterSpacing: 0.3, textTransform: 'uppercase', marginTop: 2 },
+  statutValeur: { fontSize: 15, fontWeight: '800' as const, letterSpacing: 0.2 },
   divider: { width: 1, marginVertical: 2 },
   modes: { flexDirection: 'row', borderRadius: radius.md, padding: 4, marginTop: spacing.md, gap: 4 },
   modeBtn: { flex: 1, borderRadius: radius.sm, paddingVertical: spacing.sm, alignItems: 'center' },

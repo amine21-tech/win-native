@@ -394,7 +394,11 @@
     "early": "{{minutes}} دقيقة أقل من المتوقع.",
     "close": "إنهاء",
     "motorway": "الطريق السيار",
-    "noMotorway": "بدون طريق سيار"
+    "noMotorway": "بدون طريق سيار",
+    "status": "الحالة",
+    "statusVip": "VIP",
+    "statusWin": "WIN",
+    "statusAddress": "عنوان"
   },
   "correction": {
     "title": "الإبلاغ عن خطأ",

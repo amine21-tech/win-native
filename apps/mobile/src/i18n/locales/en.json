@@ -394,7 +394,11 @@
     "early": "{{minutes}} min shorter than expected.",
     "close": "Done",
     "motorway": "Motorway",
-    "noMotorway": "No motorway"
+    "noMotorway": "No motorway",
+    "status": "Status",
+    "statusVip": "VIP",
+    "statusWin": "WIN",
+    "statusAddress": "Address"
   },
   "correction": {
     "title": "Report an issue",

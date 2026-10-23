@@ -739,9 +739,20 @@ function Field({
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   box: {
-    maxHeight: '90%',
+    /* 78 % et non 90 % (point 5 du client, 23 octobre : « le reduire pour qu'il ne prenne pas
+     * tout l'ecran »). A 90 %, le cadre d'enregistrement recouvrait la carte presque entiere et
+     * l'on perdait de vue l'endroit que l'on etait en train d'enregistrer — or c'est
+     * precisement ce qu'on veut verifier du coin de l'oeil en remplissant le formulaire.
+     *
+     * Le contenu defile deja : reduire la hauteur ne cache rien, cela rend simplement la carte
+     * visible derriere. */
+    maxHeight: '78%',
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
+    /* Bordure fine verte, teinte donnee par le client. Elle ferme le cadre : sans elle, le
+     * panneau blanc se fondait dans la carte claire et l'on ne voyait plus ou il commencait. */
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
     padding: spacing.lg,
   },
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
