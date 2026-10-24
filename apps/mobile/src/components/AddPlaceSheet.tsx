@@ -1,6 +1,6 @@
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -127,6 +127,9 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
    *
    * La regle est simple et vaut pour la suite : cet effet doit remettre a zero TOUT ce que le
    * composant garde entre deux ouvertures. Un etat ajoute ici plus tard devra y figurer. */
+  /** Dernieres coordonnees connues, gardees le temps que le panneau s'efface (voir plus bas). */
+  const dernieresCoords = useRef<Coords | null>(coords);
+
   useEffect(() => {
     if (coords) {
       setForm(emptyForm);
@@ -146,7 +149,21 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
     }
   }, [coords]);
 
-  if (!coords) return null;
+  /* NE JAMAIS ARRACHER DE L'ARBRE UN MODAL ENCORE AFFICHE.
+   *
+   * `coords` passe a null des que le formulaire se ferme — c'est ce que fait onClose chez
+   * l'appelant. Avec un simple `if (!coords) return null`, le `<Modal>` disparaissait donc de
+   * l'arbre SANS avoir jamais ete rendu ferme. Android, lui, avait deja ouvert sa fenetre
+   * native : elle restait a l'ecran, vide, par-dessus l'application, qui se figeait puis se
+   * fermait. C'est le plantage rapporte a l'enregistrement d'un lieu.
+   *
+   * On garde donc les dernieres coordonnees connues pour que le contenu reste dessinable
+   * pendant que le panneau s'efface, et c'est `visible` qui commande la fermeture. Le null
+   * n'est rendu que si le formulaire n'a jamais ete ouvert — la, il n'y a aucune fenetre a
+   * refermer. */
+  if (coords) dernieresCoords.current = coords;
+  const posees = coords ?? dernieresCoords.current;
+  if (!posees) return null;
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -241,8 +258,8 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
   const coordsValid =
     Number.isFinite(typedLat) && Number.isFinite(typedLon) &&
     Math.abs(typedLat) <= 90 && Math.abs(typedLon) <= 180;
-  const saveLat = coordsValid ? typedLat : coords.lat;
-  const saveLon = coordsValid ? typedLon : coords.lon;
+  const saveLat = coordsValid ? typedLat : posees.lat;
+  const saveLon = coordsValid ? typedLon : posees.lon;
 
   /* L'utilisateur enregistre-t-il SA position, ou vise-t-il un point ailleurs sur la carte ?
    * La precision du GPS ne concerne que le premier cas. */
@@ -385,7 +402,7 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
   };
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={Boolean(coords)} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         {/* `maxHeight` laisse une bande libre en haut, et la marge basse suit la barre de
             navigation du telephone : le bouton « Enregistrer » touchait le bord inferieur de

@@ -23,6 +23,25 @@ import { WinPlaceActions, WinPlaceCard } from './WinPlaceCard';
 
 export type SelectedPlace = GeocodedResult & { distanceM?: number };
 
+/**
+ * Referme la fiche APRES avoir laisse un panneau enfant disparaitre.
+ *
+ * LE DEFAUT QU'ELLE CORRIGE. `onDeleted` faisait `setMyEditOpen(false)` puis `onClose()` dans
+ * le meme gestionnaire. React groupe les deux : la fiche parente renvoyait null et emportait le
+ * `<Modal>` enfant, qui n'avait JAMAIS eu un seul rendu avec `visible={false}`. Android, lui,
+ * avait ouvert sa fenetre native : elle restait a l'ecran, vide, par-dessus l'application, qui
+ * se figeait puis se fermait. C'est le plantage rapporte a la suppression d'un lieu.
+ *
+ * Laisser passer l'animation de fermeture suffit : le Modal recoit son rendu ferme, se retire
+ * proprement, et la fiche disparait ensuite. Trois cents millisecondes, la duree de la
+ * glissade de React Native ; on ne la voit pas, et elle evite d'arracher une fenetre ouverte.
+ */
+const FERMETURE_MODAL_MS = 320;
+
+function refermerApresModal(fermer: () => void) {
+  setTimeout(fermer, FERMETURE_MODAL_MS);
+}
+
 type Props = {
   place: SelectedPlace | null;
   isFavorite: boolean;
@@ -569,12 +588,12 @@ export function PlaceSheet({
         onSaved={() => {
           setMyEditOpen(false);
           refreshMyPlaces();
-          onClose();
+          refermerApresModal(onClose);
         }}
         onDeleted={() => {
           setMyEditOpen(false);
           refreshMyPlaces();
-          onClose();
+          refermerApresModal(onClose);
         }}
         colors={colors}
       />
@@ -587,7 +606,7 @@ export function PlaceSheet({
           onClose={() => setAdminEditOpen(false)}
           onSaved={() => {
             setAdminEditOpen(false);
-            onClose();
+            refermerApresModal(onClose);
           }}
         />
       ) : null}
