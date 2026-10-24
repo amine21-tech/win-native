@@ -482,7 +482,17 @@
     "tabHandled": "تعالجت",
     "correctionsNoneHandled": "ما كاين حتى ملاحظة تعالجت للوقت.",
     "correctionWasDone": "عالجها {{who}} في {{when}}",
-    "correctionWasRejected": "رفضها {{who}} في {{when}}"
+    "correctionWasRejected": "رفضها {{who}} في {{when}}",
+    "statsTitle": "نظرة عامة",
+    "statsPendingRemarks": "ملاحظات لازم تتعالج",
+    "statsPendingPhotos": "تصاور لازم تتعالج",
+    "statsPlaces": "بلايص في الخريطة",
+    "statsPlaces30d": "تزادو في 30 يوم",
+    "statsContributors": "المساهمين",
+    "statsActiveDevices": "تيليفونات خدّامة (30 يوم)",
+    "statsActiveReports": "بلاغات خدّامة",
+    "statsPartners": "شركاء VIP",
+    "statsByWilaya": "البلايص حسب الولاية، أول ثمنية"
   },
   "approach": {
     "prefix": "رد بالك،",

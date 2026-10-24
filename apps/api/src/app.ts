@@ -11,6 +11,7 @@ import errors from './plugins/errors.js';
 import realtime from './realtime/index.js';
 import adminRoutes from './routes/admin.js';
 import contributionRoutes from './routes/contributions.js';
+import adminStatsRoutes from './routes/adminStats.js';
 import contributorCodeRoutes from './routes/contributorCodes.js';
 import deviceRoutes from './routes/devices.js';
 import geocodeRoutes from './routes/geocode.js';
@@ -82,6 +83,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(routingRoutes);
   await app.register(geocodeRoutes);
   await app.register(adminRoutes);
+  await app.register(adminStatsRoutes);
   await app.register(paymentRoutes);
   await app.register(unlockRoutes);
 

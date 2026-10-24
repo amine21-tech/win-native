@@ -482,7 +482,17 @@
     "tabHandled": "Handled",
     "correctionsNoneHandled": "No remark handled yet.",
     "correctionWasDone": "Handled by {{who}} on {{when}}",
-    "correctionWasRejected": "Dismissed by {{who}} on {{when}}"
+    "correctionWasRejected": "Dismissed by {{who}} on {{when}}",
+    "statsTitle": "Overview",
+    "statsPendingRemarks": "Remarks to handle",
+    "statsPendingPhotos": "Photos to handle",
+    "statsPlaces": "Places on the map",
+    "statsPlaces30d": "Added in 30 days",
+    "statsContributors": "Contributors",
+    "statsActiveDevices": "Active devices (30 d)",
+    "statsActiveReports": "Active reports",
+    "statsPartners": "VIP partners",
+    "statsByWilaya": "Places per wilaya, top eight"
   },
   "approach": {
     "prefix": "Caution,",

@@ -482,7 +482,17 @@
     "tabHandled": "Traitées",
     "correctionsNoneHandled": "Aucune remarque traitée pour le moment.",
     "correctionWasDone": "Traitée par {{who}} le {{when}}",
-    "correctionWasRejected": "Refusée par {{who}} le {{when}}"
+    "correctionWasRejected": "Refusée par {{who}} le {{when}}",
+    "statsTitle": "Vue d’ensemble",
+    "statsPendingRemarks": "Remarques à traiter",
+    "statsPendingPhotos": "Photos à traiter",
+    "statsPlaces": "Lieux sur la carte",
+    "statsPlaces30d": "Ajoutés en 30 jours",
+    "statsContributors": "Contributeurs",
+    "statsActiveDevices": "Appareils actifs (30 j)",
+    "statsActiveReports": "Signalements actifs",
+    "statsPartners": "Partenaires VIP",
+    "statsByWilaya": "Lieux par wilaya, les huit premières"
   },
   "approach": {
     "prefix": "Attention,",

@@ -270,6 +270,8 @@ function Dashboard({
         {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{t('admin.save')}</Text>}
       </Pressable>
 
+      <AdminStats token={token} colors={colors} />
+
       <PlaceCorrections token={token} colors={colors} />
 
       <PhotoReports token={token} colors={colors} />
@@ -425,6 +427,151 @@ function ContributorCodes({ token, colors }: { token: string; colors: Palette })
           </View>
         );
       })}
+    </View>
+  );
+}
+
+type Stats = {
+  lieux: number;
+  lieux30j: number;
+  partenaires: number;
+  contributeurs: number;
+  appareilsActifs: number;
+  signalementsActifs: number;
+  remarquesEnAttente: number;
+  photosEnAttente: number;
+  wilayas: { nom: string; lieux: number }[];
+};
+
+/**
+ * LES CHIFFRES, EN TETE DE L'ESPACE ADMIN.
+ *
+ * L'ecran ne montrait que des listes a traiter. Rien ne disait si la carte grandit, combien de
+ * personnes l'alimentent, ni ou l'application s'implante — on pilotait sans un chiffre.
+ *
+ * CE QUI EST MIS EN AVANT, ET DANS QUEL ORDRE. Ce qui APPELLE UNE ACTION vient en premier :
+ * les remarques et les photos en attente, qui se colorent des qu'il y a du travail et restent
+ * gris quand il n'y en a pas. Les mesures d'ensemble suivent. Un tableau de bord qui range les
+ * grands totaux en haut se regarde une fois ; celui-ci doit se consulter tous les jours.
+ */
+function AdminStats({ token, colors }: { token: string; colors: Palette }) {
+  const { t } = useTranslation();
+  const query = useQuery({
+    queryKey: ['admin', 'stats'],
+    queryFn: () => api<Stats>('/admin/stats', { adminToken: token }),
+    refetchInterval: 120_000,
+  });
+
+  const s = query.data;
+
+  return (
+    <View style={{ marginTop: spacing.lg }}>
+      <Text style={[typography.heading, { color: colors.text }]}>{t('admin.statsTitle')}</Text>
+
+      {query.isLoading ? <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.sm }} /> : null}
+      <LigneErreur message={query.isError ? messageEchec(query.error, t) : null} colors={colors} />
+
+      {s ? (
+        <>
+          {/* A TRAITER. Deux nombres qui demandent un geste, donc separes du reste et colores
+            * seulement quand ils ne sont pas a zero : une pastille rouge permanente cesse
+            * d'etre un signal. */}
+          <View style={styles.statsRangee}>
+            <Tuile
+              valeur={s.remarquesEnAttente}
+              libelle={t('admin.statsPendingRemarks')}
+              couleur={s.remarquesEnAttente > 0 ? colors.danger : colors.textMuted}
+              colors={colors}
+            />
+            <Tuile
+              valeur={s.photosEnAttente}
+              libelle={t('admin.statsPendingPhotos')}
+              couleur={s.photosEnAttente > 0 ? colors.danger : colors.textMuted}
+              colors={colors}
+            />
+          </View>
+
+          <View style={styles.statsRangee}>
+            <Tuile valeur={s.lieux} libelle={t('admin.statsPlaces')} couleur={colors.accent} colors={colors} />
+            <Tuile
+              /* Le signe plus n'est pas decoratif : sans lui on lit un total, et le chiffre
+                 des trente derniers jours passerait pour une baisse du nombre de lieux. */
+              texte={`+${s.lieux30j}`}
+              libelle={t('admin.statsPlaces30d')}
+              couleur={colors.accent}
+              colors={colors}
+            />
+          </View>
+
+          <View style={styles.statsRangee}>
+            <Tuile valeur={s.contributeurs} libelle={t('admin.statsContributors')} couleur={colors.gold} colors={colors} />
+            <Tuile valeur={s.appareilsActifs} libelle={t('admin.statsActiveDevices')} couleur={colors.accent} colors={colors} />
+          </View>
+
+          <View style={styles.statsRangee}>
+            <Tuile valeur={s.signalementsActifs} libelle={t('admin.statsActiveReports')} couleur={colors.accent} colors={colors} />
+            <Tuile valeur={s.partenaires} libelle={t('admin.statsPartners')} couleur={colors.gold} colors={colors} />
+          </View>
+
+          {/* OU L'APPLICATION S'IMPLANTE. Une barre proportionnelle a la wilaya la mieux
+            * pourvue : on veut voir d'un coup d'oeil si la couverture est concentree sur Alger
+            * ou repartie, pas relire huit nombres. */}
+          {s.wilayas.length > 0 ? (
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={[typography.caption, styles.hint, { color: colors.textMuted }]}>
+                {t('admin.statsByWilaya')}
+              </Text>
+              {s.wilayas.map((w) => (
+                <View key={w.nom} style={styles.wilayaLigne}>
+                  <Text style={{ color: colors.text, fontSize: 13, width: 110 }} numberOfLines={1}>
+                    {w.nom}
+                  </Text>
+                  <View style={[styles.wilayaPiste, { backgroundColor: colors.border }]}>
+                    <View
+                      style={[
+                        styles.wilayaBarre,
+                        {
+                          backgroundColor: colors.accent,
+                          width: `${Math.max(4, (w.lieux / s.wilayas[0]!.lieux) * 100)}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={{ color: colors.textMuted, fontSize: 12, width: 38, textAlign: 'right' }}>
+                    {w.lieux}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+/** Une tuile chiffree. `texte` prend le pas sur `valeur` quand le nombre doit etre habille. */
+function Tuile({
+  valeur,
+  texte,
+  libelle,
+  couleur,
+  colors,
+}: {
+  valeur?: number;
+  texte?: string;
+  libelle: string;
+  couleur: string;
+  colors: Palette;
+}) {
+  return (
+    <View style={[styles.tuile, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+      <Text style={[styles.tuileValeur, { color: couleur }]} numberOfLines={1} adjustsFontSizeToFit>
+        {texte ?? valeur ?? 0}
+      </Text>
+      <Text style={[styles.tuileLibelle, { color: colors.textMuted }]} numberOfLines={2}>
+        {libelle}
+      </Text>
     </View>
   );
 }
@@ -863,6 +1010,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   smallBtn: { borderWidth: 1.5, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  statsRangee: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  tuile: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+  },
+  tuileValeur: { fontSize: 24, fontWeight: '800' as const, letterSpacing: 0.3 },
+  tuileLibelle: { fontSize: 10.5, fontWeight: '700' as const, textAlign: 'center', marginTop: 2 },
+  wilayaLigne: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 6 },
+  wilayaPiste: { flex: 1, height: 8, borderRadius: 4, overflow: 'hidden' },
+  wilayaBarre: { height: 8, borderRadius: 4 },
   onglets: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   onglet: {
     borderWidth: 1.5,

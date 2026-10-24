@@ -482,7 +482,17 @@
     "tabHandled": "مُعالَجة",
     "correctionsNoneHandled": "لا توجد ملاحظة مُعالَجة بعد.",
     "correctionWasDone": "عالجها {{who}} في {{when}}",
-    "correctionWasRejected": "رفضها {{who}} في {{when}}"
+    "correctionWasRejected": "رفضها {{who}} في {{when}}",
+    "statsTitle": "نظرة عامة",
+    "statsPendingRemarks": "ملاحظات للمعالجة",
+    "statsPendingPhotos": "صور للمعالجة",
+    "statsPlaces": "أماكن على الخريطة",
+    "statsPlaces30d": "أُضيفت في 30 يومًا",
+    "statsContributors": "المساهمون",
+    "statsActiveDevices": "أجهزة نشطة (30 يومًا)",
+    "statsActiveReports": "بلاغات نشطة",
+    "statsPartners": "شركاء VIP",
+    "statsByWilaya": "الأماكن حسب الولاية، أول ثماني"
   },
   "approach": {
     "prefix": "انتبه،",
