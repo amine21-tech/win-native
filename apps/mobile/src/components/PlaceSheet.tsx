@@ -15,6 +15,7 @@ import { MyPlaceSheet } from './MyPlaceSheet';
 import { ReportPhotoSheet } from './ReportPhotoSheet';
 import { api } from '../api/client';
 import { clearSearchCache } from '../search/usePlaceSearch';
+import { usePlaces } from '../store/places';
 import { fonts, radius, spacing, typography, type Palette } from '../theme';
 import { AdminEditPlaceSheet } from './AdminEditPlaceSheet';
 import { CorrectionSheet } from './CorrectionSheet';
@@ -137,6 +138,7 @@ export function PlaceSheet({
    * l'appareil createur — et c'est ce qui ouvre « Modifier » et « Supprimer ». */
   const myPlaceIds = useMyPlaceIds();
   const refreshMyPlaces = useRefreshMyPlaces();
+  const oublierLieu = usePlaces((s) => s.oublierLieu);
   const [myEditOpen, setMyEditOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [photoReportOpen, setPhotoReportOpen] = useState(false);
@@ -208,6 +210,10 @@ export function PlaceSheet({
           void api(`/places/${place.placeId}/mine`, { method: 'DELETE' })
             .then(() => {
               clearSearchCache();
+              /* Le lieu doit aussi quitter l'historique et les favoris DU TELEPHONE : la barre
+               * de recherche les affiche, et sans cela la fiche supprimee reparaissait des
+               * qu'on retapait son nom. */
+              oublierLieu(place.lat, place.lon);
               refreshMyPlaces();
               onClose();
             })
@@ -592,6 +598,9 @@ export function PlaceSheet({
         }}
         onDeleted={() => {
           setMyEditOpen(false);
+          // Meme oubli que dans la suppression directe : sans lui, la fiche retiree
+          // reapparait depuis l'historique du telephone des qu'on retape son nom.
+          oublierLieu(place.lat, place.lon);
           refreshMyPlaces();
           refermerApresModal(onClose);
         }}

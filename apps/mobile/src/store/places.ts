@@ -29,6 +29,8 @@ type PlacesState = {
   addToHistory: (b: Bookmark) => void;
   removeFromHistory: (b: Bookmark) => void;
   clearHistory: () => void;
+  /** Oublie un lieu supprime : il quitte l'historique ET les favoris. Voir l'implementation. */
+  oublierLieu: (lat: number, lon: number) => void;
 };
 
 export const usePlaces = create<PlacesState>((set, get) => ({
@@ -61,5 +63,30 @@ export const usePlaces = create<PlacesState>((set, get) => ({
   clearHistory: () => {
     writeJson(StorageKeys.history, []);
     set({ history: [] });
+  },
+
+  /**
+   * Oublie un lieu supprime : il quitte l'historique ET les favoris.
+   *
+   * POURQUOI C'EST NECESSAIRE. La barre de recherche n'affiche pas que les reponses du
+   * serveur : elle montre aussi ce que le telephone garde en local, l'historique et les
+   * favoris. Retirer une fiche du serveur ne vidait donc rien de tout cela, et le lieu
+   * supprime reparaissait des qu'on retapait son nom. Le client en a conclu — a juste titre
+   * vu de l'ecran — que la suppression n'avait pas pris.
+   *
+   * L'IDENTITE RETENUE ICI EST LA POSITION SEULE, et non le couple nom + position qui sert
+   * partout ailleurs. Une fiche a pu etre renommee entre le moment ou elle est entree dans
+   * l'historique et celui ou on la supprime : on veut l'oublier quel que soit le nom sous
+   * lequel elle avait ete rangee.
+   */
+  oublierLieu: (lat, lon) => {
+    const memeEndroit = (b: Bookmark) =>
+      Math.abs(b.lat - lat) < 1e-6 && Math.abs(b.lon - lon) < 1e-6;
+
+    const history = get().history.filter((h) => !memeEndroit(h));
+    const favorites = get().favorites.filter((f) => !memeEndroit(f));
+    writeJson(StorageKeys.history, history);
+    writeJson(StorageKeys.favorites, favorites);
+    set({ history, favorites });
   },
 }));

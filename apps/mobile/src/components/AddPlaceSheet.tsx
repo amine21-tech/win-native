@@ -717,7 +717,11 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
             {error ? <Text style={[typography.caption, { color: colors.danger, marginTop: spacing.sm }]}>{error}</Text> : null}
 
             <Pressable
-              onPress={submit}
+              /* `void submit()` et non `submit` : une fonction asynchrone passee directement
+                 rend une promesse que Pressable ignore. Si elle etait rejetee — ce que son
+                 try/catch interdit aujourd'hui, mais qu'une modification future pourrait
+                 reintroduire — le rejet partirait sans gestionnaire. On ferme la porte. */
+              onPress={() => void submit()}
               disabled={submitting || preparingPhoto}
               style={[
                 styles.save,
