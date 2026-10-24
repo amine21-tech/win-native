@@ -407,36 +407,39 @@ const styles = StyleSheet.create({
     // franchement dedans.
     right: 4,
     zIndex: 5,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: 'rgba(0,0,0,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  /* Deux pastilles plus DISCRETES que la premiere version.
+  /* TRENTE POINTS, apres un detour par vingt-quatre.
    *
-   * A trente points avec un fond sombre, elles pesaient autant que le titre de l'ecran et
-   * tiraient l'oeil avant la boussole — or on ouvre cette page pour s'orienter, pas pour la
-   * fermer. Vingt-quatre points et un fond a peine marque suffisent : la zone tactile, elle,
-   * reste large grace au `hitSlop` de douze points pose sur chaque bouton. */
+   * Elles avaient ete reduites a vingt-quatre parce qu'a trente, avec un fond sombre marque,
+   * elles pesaient autant que le titre de l'ecran et tiraient l'oeil avant la boussole. Le
+   * client les a ensuite trouvees trop petites — document du 23 octobre, « agrandir le bouton
+   * reduction boussole », puis de vive voix. On remonte donc la taille en GARDANT le fond a
+   * peine marque : c'est lui, et non le diametre, qui les rendait lourdes. La zone tactile
+   * etait deja large grace au `hitSlop` de douze points ; ce qui manquait etait la cible
+   * VISIBLE, et c'est elle qu'on corrige. */
   reduce: {
     position: 'absolute',
     // 7 et non 0 : posees sur le bord, les deux pastilles mordaient le filet dore du cadre et
     // semblaient coupees. Sept points les font tenir franchement A L'INTERIEUR, ce que le
     // client demande — elles se lisent alors comme deux boutons, pas comme un accident.
     top: 7,
-    // La seconde pastille suit : 4 + 24 de large + 5 d'ecart.
-    right: 33,
+    // La seconde pastille suit : 4 + 30 de large + 5 d'ecart.
+    right: 39,
     zIndex: 5,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: 'rgba(0,0,0,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeGlyph: { color: GOLD_TEXT, fontSize: 13, lineHeight: 15 },
+  closeGlyph: { color: GOLD_TEXT, fontSize: 16, lineHeight: 18 },
 
   // `#qiblaDates{position:absolute;top:9px;left:13px;right:50px}` — decale de la marge interne
   // de l'encadre, puisqu'il est ici pose dans la zone deja marginee.
@@ -444,9 +447,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -2,
     left: 0,
-    // Les deux pastilles occupent de 4 a 57 points depuis le bord droit. L'encadre de dates
-    // s'arrete a 63 : six points de respiration, pour qu'il ne vienne pas les toucher.
-    right: 63,
+    // Les deux pastilles occupent de 4 a 69 points depuis le bord droit — elles sont passees
+    // de 24 a 30 points de large. L'encadre de dates s'arrete a 75 : six points de
+    // respiration, pour qu'il ne vienne pas les toucher. Cette valeur SUIT la taille des
+    // pastilles ; la laisser a 63 les aurait fait se chevaucher.
+    right: 75,
     zIndex: 4,
     backgroundColor: 'rgba(0,0,0,0.16)',
     borderWidth: 1,
