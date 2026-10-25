@@ -253,7 +253,7 @@ export function QiblaPanel({ visible, onClose, onReduce, position }: Props) {
                 accessibilityLabel={t('qibla.reduce')}
                 style={styles.reduce}
               >
-                <Text style={styles.closeGlyph}>⌄</Text>
+                <Text style={styles.reduceGlyph}>⌄</Text>
               </Pressable>
 
               <Pressable
@@ -440,6 +440,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   closeGlyph: { color: GOLD_TEXT, fontSize: 20, lineHeight: 23 },
+
+  /* LE CHEVRON A BESOIN D'UNE TAILLE A LUI, et ce n'est pas un caprice de reglage.
+   *
+   * « ⌄ » (U+2304) et « ✕ » (U+2715) sont dessines tres differemment dans la police : a corps
+   * EGAL, le chevron occupe a peine la moitie de la hauteur de la croix. Les deux pastilles
+   * font pourtant la meme taille — le client a donc vu, a juste titre, un bouton plus petit
+   * que l'autre alors que seuls les caracteres differaient.
+   *
+   * Trente points pour le chevron contre vingt pour la croix : c'est ce qui les rend
+   * OPTIQUEMENT egaux, ce qui est la seule egalite qui compte ici. */
+  reduceGlyph: { color: GOLD_TEXT, fontSize: 30, lineHeight: 32 },
 
   // `#qiblaDates{position:absolute;top:9px;left:13px;right:50px}` — decale de la marge interne
   // de l'encadre, puisqu'il est ici pose dans la zone deja marginee.
