@@ -407,9 +407,9 @@ const styles = StyleSheet.create({
     // franchement dedans.
     right: 4,
     zIndex: 5,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: 'rgba(0,0,0,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -429,17 +429,17 @@ const styles = StyleSheet.create({
     // semblaient coupees. Sept points les font tenir franchement A L'INTERIEUR, ce que le
     // client demande — elles se lisent alors comme deux boutons, pas comme un accident.
     top: 7,
-    // La seconde pastille suit : 4 + 30 de large + 5 d'ecart.
-    right: 39,
+    // La seconde pastille suit : 4 + 38 de large + 5 d'ecart.
+    right: 47,
     zIndex: 5,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: 'rgba(0,0,0,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeGlyph: { color: GOLD_TEXT, fontSize: 16, lineHeight: 18 },
+  closeGlyph: { color: GOLD_TEXT, fontSize: 20, lineHeight: 23 },
 
   // `#qiblaDates{position:absolute;top:9px;left:13px;right:50px}` — decale de la marge interne
   // de l'encadre, puisqu'il est ici pose dans la zone deja marginee.
@@ -447,11 +447,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -2,
     left: 0,
-    // Les deux pastilles occupent de 4 a 69 points depuis le bord droit — elles sont passees
-    // de 24 a 30 points de large. L'encadre de dates s'arrete a 75 : six points de
-    // respiration, pour qu'il ne vienne pas les toucher. Cette valeur SUIT la taille des
-    // pastilles ; la laisser a 63 les aurait fait se chevaucher.
-    right: 75,
+    // Les deux pastilles occupent de 4 a 85 points depuis le bord droit. Elles sont passees de
+    // 24 a 30, puis a 38 : le client les trouvait encore trop petites sur la v80, capture a
+    // l'appui. L'encadre de dates s'arrete a 91 : six points de respiration, pour qu'il ne
+    // vienne pas les toucher. Cette valeur SUIT la taille des pastilles ; l'oublier les
+    // ferait se chevaucher, ce qui est precisement le defaut qu'on corrige.
+    right: 91,
     zIndex: 4,
     backgroundColor: 'rgba(0,0,0,0.16)',
     borderWidth: 1,

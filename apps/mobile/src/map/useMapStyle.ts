@@ -239,7 +239,8 @@ export function addWinLayers(style: StyleSpecification, night: boolean): void {
   }
 }
 
-const cache = new Map<string, StyleSpecification | 'error'>();
+/** Styles deja telecharges et corriges, par URL. Les echecs n'y entrent pas : voir useMapStyle. */
+const cache = new Map<string, StyleSpecification>();
 
 function patchStyle(style: StyleSpecification, night: boolean): StyleSpecification {
   for (const layer of style.layers ?? []) {
@@ -284,18 +285,29 @@ export type MapStyle = {
  */
 export function useMapStyle(styleUrl: string): MapStyle {
   const night = styleUrl.includes('dark');
-  const [patched, setPatched] = useState<StyleSpecification | null>(() => {
-    const hit = cache.get(styleUrl);
-    return hit && hit !== 'error' ? hit : null;
-  });
+  const [patched, setPatched] = useState<StyleSpecification | null>(() => cache.get(styleUrl) ?? null);
 
   useEffect(() => {
     const hit = cache.get(styleUrl);
-    if (hit === 'error') return;
     if (hit) {
       setPatched(hit);
       return;
     }
+
+    /* LACHER LE STYLE DE L'AUTRE THEME, tout de suite.
+     *
+     * `patched` contient encore celui qu'on affichait avant la bascule. Le garder pendant que
+     * le nouveau se telecharge — ou pour toujours, si le telechargement echoue — faisait que
+     * les boutons et les couleurs passaient en nuit pendant que LE FOND DE CARTE restait en
+     * jour. C'est le defaut rapporte par le client : « il change tous les icones, il ne change
+     * pas l'arriere-plan. »
+     *
+     * A null, `mapStyle` rend l'URL d'origine et MapLibre va la chercher lui-meme : on perd
+     * nos reglages (relief, pictogrammes, espacement des badges) le temps du chargement, mais
+     * le fond est du bon theme. Mieux vaut une carte juste sans fioritures qu'une carte du
+     * mauvais theme. */
+    setPatched(null);
+
     let cancelled = false;
     void (async () => {
       try {
@@ -305,7 +317,11 @@ export function useMapStyle(styleUrl: string): MapStyle {
         cache.set(styleUrl, result);
         if (!cancelled) setPatched(result);
       } catch {
-        cache.set(styleUrl, 'error');
+        /* ON NE MEMORISE PLUS L'ECHEC. Un `cache.set(styleUrl, 'error')` condamnait ce theme
+         * pour toute la duree de la session : une seule coupure de reseau — un tunnel, le mode
+         * avion le temps d'un essai — et la carte ne repassait plus jamais en nuit. L'effet ne
+         * se rejoue qu'au changement de theme, donc reessayer ne coute rien et rend la panne
+         * passagere au lieu d'etre definitive. */
       }
     })();
     return () => {

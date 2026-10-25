@@ -152,6 +152,8 @@
     "reason_other": "Autre",
     "contributorOnly": "L'enregistrement de lieux est réservé aux contributeurs WIN.",
     "manage": "Gérer cette fiche",
+    "needPosition": "Votre position est inconnue : impossible de calculer la distance ni l'itinéraire.",
+    "enableLocation": "Me localiser",
     "reportIssueTitle": "Signaler un problème",
     "reportIssueSub": "Informations incorrectes, lieu dangereux",
     "editPlaceTitle": "Modifier",

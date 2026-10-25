@@ -152,6 +152,8 @@
     "reason_other": "Other",
     "contributorOnly": "Adding places is reserved for WIN contributors.",
     "manage": "Manage this place",
+    "needPosition": "Your position is unknown, so distance and route cannot be computed.",
+    "enableLocation": "Locate me",
     "reportIssueTitle": "Report a problem",
     "reportIssueSub": "Wrong information, unsafe place",
     "editPlaceTitle": "Edit",

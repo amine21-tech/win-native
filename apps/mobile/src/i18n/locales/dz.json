@@ -152,6 +152,8 @@
     "reason_other": "حاجة أخرى",
     "contributorOnly": "زيادة البلايص خاصة بالمساهمين تاع WIN.",
     "manage": "إدارة هاد البطاقة",
+    "needPosition": "بلاصتك ما نعرفوهاش، على هذا ما نقدروش نحسبو المسافة ولا الطريق.",
+    "enableLocation": "لقى بلاصتي",
     "reportIssueTitle": "بلّغ على مشكل",
     "reportIssueSub": "معلومات ماشي صحيحة ولا بلاصة خطيرة",
     "editPlaceTitle": "بدّل",

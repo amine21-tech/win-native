@@ -2541,6 +2541,10 @@ export default function MapScreen() {
           onClose={closeSheet}
           colors={colors}
           hasUserPosition={!!position}
+          /* Sans position, la fiche propose desormais de la demander plutot que de se taire.
+             `getFix` reclame une mesure ponctuelle — et la permission si elle n'a jamais ete
+             accordee, ce qui est le cas le plus frequent. */
+          onRequestPosition={() => void getFix()}
           routes={previewRoutes}
           routesLoading={preview.isLoading && !navigating}
           // Un trajet EN COURS ne doit jamais afficher « Itineraire indisponible » : le client

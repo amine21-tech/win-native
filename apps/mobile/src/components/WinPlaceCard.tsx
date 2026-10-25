@@ -192,20 +192,36 @@ export function WinPlaceActions({
   hasUserPosition,
   onStart,
   onManage,
+  onRequestPosition,
 }: {
   colors: Palette;
   hasUserPosition: boolean;
   onStart: () => void;
   onManage: () => void;
+  /** Demande une mesure GPS quand la position manque. Sans elle, le bouton reste informatif. */
+  onRequestPosition?: () => void;
 }) {
   const { t } = useTranslation();
   return (
     <View style={[styles.actions, { borderTopColor: colors.border }]}>
-      {hasUserPosition ? (
-        <Pressable onPress={onStart} style={[styles.startBtn, { backgroundColor: colors.accent }]}>
-          <Text style={styles.startBtnText}>➤ {t('nav.start')}</Text>
-        </Pressable>
-      ) : null}
+      {/* LE BOUTON NE DISPARAIT PLUS QUAND LA POSITION MANQUE.
+          Il s'effaçait, et la fiche n'offrait alors plus aucune action : le client a vu « un
+          simple point, aucun bouton pour cliquer ». Or la position manque pour des raisons
+          banales et reparables — permission jamais accordee, GPS qui cherche encore, mode
+          avion. Le bouton reste donc, et DIT ce qu'il attend : appuyer declenche une mesure
+          au lieu de laisser l'utilisateur devant un ecran muet. */}
+      <Pressable
+        onPress={hasUserPosition ? onStart : onRequestPosition}
+        disabled={!hasUserPosition && !onRequestPosition}
+        style={[
+          styles.startBtn,
+          { backgroundColor: hasUserPosition ? colors.accent : colors.surfaceAlt },
+        ]}
+      >
+        <Text style={[styles.startBtnText, hasUserPosition ? null : { color: colors.text }]}>
+          {hasUserPosition ? `➤ ${t('nav.start')}` : `📍 ${t('place.enableLocation')}`}
+        </Text>
+      </Pressable>
 
       {/* UNE SEULE PORTE, ET ELLE EST OUVERTE A TOUS.
           Les deux boutons precedents n'apparaissaient qu'a l'auteur de la fiche ou a un

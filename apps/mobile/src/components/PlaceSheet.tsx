@@ -50,6 +50,8 @@ type Props = {
   onClose: () => void;
   colors: Palette;
   hasUserPosition: boolean;
+  /** Declenche une mesure GPS quand la position manque (voir le bloc « sans position »). */
+  onRequestPosition?: () => void;
   routes: Route[];
   routesLoading: boolean;
   routesError: boolean;
@@ -104,6 +106,7 @@ export function PlaceSheet({
   onClose,
   colors,
   hasUserPosition,
+  onRequestPosition,
   routes,
   routesLoading,
   routesError,
@@ -394,6 +397,27 @@ export function PlaceSheet({
           {place.displayName}
         </Text>
 
+        {!hasUserPosition ? (
+          /* Pourquoi il n'y a ni distance, ni duree, ni bouton : le dire vaut mieux que de
+             laisser un blanc a la place du bloc de trajet. Le client a vu une fiche muette et
+             en a conclu qu'elle etait vide. */
+          <View style={[styles.sansPosition, { borderColor: colors.border, backgroundColor: colors.surfaceAlt }]}>
+            <Text style={[typography.caption, { color: colors.textMuted, textAlign: 'center' }]}>
+              {t('place.needPosition')}
+            </Text>
+            {onRequestPosition ? (
+              <Pressable
+                onPress={onRequestPosition}
+                style={[styles.sansPositionBtn, { backgroundColor: colors.accent }]}
+              >
+                <Text style={{ color: colors.accentText, fontWeight: '800' }}>
+                  📍 {t('place.enableLocation')}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+
         {hasUserPosition ? (
           <TripCard
             statut={
@@ -511,6 +535,7 @@ export function PlaceSheet({
         <WinPlaceActions
           colors={colors}
           hasUserPosition={hasUserPosition}
+          onRequestPosition={onRequestPosition}
           onStart={onStartNavigation}
           onManage={() => setManageOpen(true)}
         />
@@ -699,6 +724,15 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     shadowOffset: { width: 0, height: -6 },
   },
+  sansPosition: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  sansPositionBtn: { borderRadius: radius.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   grip: { width: 42, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: spacing.md },
   /* De quoi passer SOUS la croix : elle s'arrete a quarante-huit points du haut de la fiche,
    * le contenu en commencait vingt-neuf. Vingt-six de plus mettent le coeur a six points

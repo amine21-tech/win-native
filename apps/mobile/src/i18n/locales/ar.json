@@ -152,6 +152,8 @@
     "reason_other": "أخرى",
     "contributorOnly": "إضافة الأماكن مخصّصة لمساهمي WIN.",
     "manage": "إدارة هذه البطاقة",
+    "needPosition": "موقعك غير معروف، لذا لا يمكن حساب المسافة ولا المسار.",
+    "enableLocation": "حدّد موقعي",
     "reportIssueTitle": "الإبلاغ عن مشكلة",
     "reportIssueSub": "معلومات غير صحيحة أو مكان خطير",
     "editPlaceTitle": "تعديل",
