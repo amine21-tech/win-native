@@ -25,6 +25,21 @@ type Props = {
 const FOND_CARTE = '#F7F8F9';
 const BORDURE_CARTE = '#E4E6E8';
 
+/**
+ * TEXTE DES CARTES — fixe, parce que LEUR FOND L'EST.
+ *
+ * `FOND_CARTE` est une constante : les cartes restent claires dans les deux themes. Leur texte,
+ * lui, prenait `colors.text`, qui devient CLAIR en mode nuit — le libelle disparaissait alors
+ * sur un fond blanc. Le client l'a constate, capture a l'appui : « en mode nuit, ce n'est pas
+ * bien affiché ».
+ *
+ * La regle est generale et vaut au-dela de cet ecran : la couleur d'un texte suit le fond SUR
+ * LEQUEL IL EST POSE, pas le theme de l'application. Des qu'un fond est fige, son texte doit
+ * l'etre aussi.
+ */
+const TEXTE_CARTE = '#15201C';
+const TEXTE_CARTE_DOUX = '#5E6B64';
+
 /* Vert WIN, epaisseur et marges : les trois valeurs sont celles du client, au point pres.
  *
  * Sans bordure, le panneau collait aux quatre bords de l'ecran et ressemblait a n'importe quel
@@ -71,7 +86,8 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
               { backgroundColor: pressed ? BORDURE_CARTE : FOND_CARTE },
             ]}
           >
-            <Text style={[styles.fermerGlyphe, { color: colors.textMuted }]}>✕</Text>
+            {/* Meme raison : la pastille de fermeture est claire dans les deux themes. */}
+            <Text style={[styles.fermerGlyphe, { color: TEXTE_CARTE_DOUX }]}>✕</Text>
           </Pressable>
 
           <Text style={[typography.heading, styles.titre, { color: colors.text }]}>{t('report.menuTitle')}</Text>
@@ -102,8 +118,18 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
                     ) : null}
 
                     {estBarrage ? (
-                      /* Les trois ecussons, a la place du pictogramme. Celui qui est choisi est
-                         plein, les deux autres s'effacent — l'etat du choix se voit sans lire. */
+                      /* Les trois ecussons, a la place du pictogramme.
+                       *
+                       * LES TROIS GARDENT LEUR COULEUR PLEINE. Les deux non choisis etaient
+                       * ramenes a 32 % d'opacite : la teinte institutionnelle s'effaçait, et le
+                       * texte blanc avec elle. Sur la capture du client, << GEND. >> et
+                       * << ARMÉE >> etaient illisibles — deux pastilles grises dont on ne
+                       * devinait ni la couleur ni le mot.
+                       *
+                       * Le choix se marque donc par un CERCLE sombre autour de l'ecusson actif,
+                       * et non par l'effacement des autres. La bordure est posee sur les trois,
+                       * transparente quand l'ecusson n'est pas choisi : la taille ne bouge pas
+                       * d'un point quand on change de force. */
                       <View style={styles.forces}>
                         {FORCES.map((f) => {
                           const actif = f.kind === force;
@@ -112,10 +138,14 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
                               key={f.kind}
                               onPress={() => setForce(f.kind)}
                               accessibilityRole="button"
+                              accessibilityState={{ selected: actif }}
                               accessibilityLabel={t(`report.${f.kind}`)}
                               style={[
                                 styles.ecusson,
-                                { backgroundColor: f.couleur, opacity: actif ? 1 : 0.32 },
+                                {
+                                  backgroundColor: f.couleur,
+                                  borderColor: actif ? TEXTE_CARTE : 'transparent',
+                                },
                               ]}
                             >
                               <Text style={styles.ecussonText}>{f.court}</Text>
@@ -130,10 +160,11 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
                       <Text style={styles.emoji}>{menuEmoji(kind)}</Text>
                     )}
 
-                    <Text style={[styles.itemLabel, { color: colors.text }]} numberOfLines={1}>
+                    {/* Couleurs figees, comme le fond de la carte : voir TEXTE_CARTE. */}
+                    <Text style={[styles.itemLabel, { color: TEXTE_CARTE }]} numberOfLines={1}>
                       {t(`report.${kind}`)}
                     </Text>
-                    <Text style={[styles.itemSub, { color: colors.textMuted }]} numberOfLines={2}>
+                    <Text style={[styles.itemSub, { color: TEXTE_CARTE_DOUX }]} numberOfLines={2}>
                       {t(`report.sub_${kind}`)}
                     </Text>
                   </Pressable>
@@ -193,6 +224,10 @@ const styles = StyleSheet.create({
     width: 34,
     height: 26,
     borderRadius: 7,
+    // La bordure est posee sur les TROIS, transparente quand l'ecusson n'est pas choisi : sans
+    // cela, la pastille active serait plus large que les autres et la rangee sauterait a chaque
+    // changement de force.
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
