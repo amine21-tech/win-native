@@ -439,7 +439,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeGlyph: { color: GOLD_TEXT, fontSize: 20, lineHeight: 23 },
+  /* `includeFontPadding: false` N'EST PAS UN DETAIL DE STYLE.
+   *
+   * Sur Android, ce reglage vaut `true` par defaut : le texte recoit au-dessus et en dessous
+   * une marge calculee sur les metriques de la police — l'ascendante et la descendante — qui
+   * n'a rien a voir avec le dessin du caractere. Dans une pastille pourtant centree par flex,
+   * le symbole se retrouve donc pousse vers le bas. C'est ce que le client a vu : un chevron
+   * qui n'etait pas « au milieu ».
+   *
+   * Avec la marge retiree et une hauteur de ligne egale au corps, la boite du texte epouse
+   * exactement le caractere, et le centrage du conteneur s'applique enfin a ce qu'on voit. */
+  closeGlyph: {
+    color: GOLD_TEXT,
+    fontSize: 20,
+    lineHeight: 20,
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
 
   /* LE CHEVRON A BESOIN D'UNE TAILLE A LUI, et ce n'est pas un caprice de reglage.
    *
@@ -450,7 +467,14 @@ const styles = StyleSheet.create({
    *
    * Trente points pour le chevron contre vingt pour la croix : c'est ce qui les rend
    * OPTIQUEMENT egaux, ce qui est la seule egalite qui compte ici. */
-  reduceGlyph: { color: GOLD_TEXT, fontSize: 30, lineHeight: 32 },
+  reduceGlyph: {
+    color: GOLD_TEXT,
+    fontSize: 30,
+    lineHeight: 30,
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
 
   // `#qiblaDates{position:absolute;top:9px;left:13px;right:50px}` — decale de la marge interne
   // de l'encadre, puisqu'il est ici pose dans la zone deja marginee.
