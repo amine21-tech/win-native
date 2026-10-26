@@ -96,10 +96,17 @@ type Position = { lat: number; lon: number };
  * boutons se recalcule a partir de cette valeur : sur un grand telephone elle avait de la marge
  * et les boutons gardent leur taille pleine ; sur un ecran court ils etaient deja a leur
  * plancher de 38 points, que ces 28 points de plus ne franchissent pas. */
-/* 102 et non 92 depuis le 23 octobre : la rangee des langues a gagne dix points de marge
- * basse (point 4 du client, « trop colle a la barre de recherche »). Cette constante place ce
- * qui vient SOUS l'en-tete ; sans le meme decalage, la barre de recherche serait remontee par
- * dessus la rangee et l'espace demande n'aurait pas existe. */
+/* 102 et non 92 : les dix points d'espace demandes sous la rangee des langues (point 4 du
+ * client, « trop colle a la barre de recherche »).
+ *
+ * C'EST ICI, ET NULLE PART AILLEURS, QUE CET ESPACE SE REGLE. L'en-tete et la barre de
+ * recherche sont deux blocs independants : cette constante pose la barre a distance fixe du
+ * haut de l'ecran, sans tenir compte de la hauteur reelle de l'en-tete. Grandir l'en-tete ne
+ * pousse donc rien.
+ *
+ * Une premiere tentative avait change les DEUX — une marge basse de dix points dans Header.tsx
+ * et cette constante de dix points — et les deux se sont exactement annules : l'ecart visible
+ * n'avait pas bouge d'un pixel. La marge a ete retiree ; seule cette valeur compte. */
 const HEADER_HEIGHT = 102;
 
 /* Couleurs du trace, reprises de `routeColors()` en v83.

@@ -132,11 +132,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     padding: 3,
     marginTop: spacing.sm,
-    /* Dix points sous la rangee des langues (point 4 du client) : elle touchait la barre de
-     * recherche. HEADER_HEIGHT, dans app/index.tsx, suit le meme mouvement — c'est cette
-     * constante qui place la barre de recherche sous l'en-tete, et la laisser a 92 aurait
-     * rendu les dix points invisibles en superposant les deux blocs. */
-    marginBottom: 10,
+    /* PAS DE MARGE BASSE ICI, ET C'EST UNE CORRECTION.
+     *
+     * L'espace demande sous les langues (point 4 du client) se regle dans app/index.tsx, par
+     * HEADER_HEIGHT. Cet en-tete et la barre de recherche sont DEUX BLOCS INDEPENDANTS : la
+     * barre est posee a une distance fixe du haut de l'ecran et ne suit pas la hauteur de
+     * l'en-tete.
+     *
+     * Une premiere tentative avait pose ici `marginBottom: 10` ET monte HEADER_HEIGHT de 10 :
+     * les deux se sont exactement annules — l'en-tete grandissait de dix points pendant que la
+     * barre descendait des memes dix. L'ecart visible n'avait pas bouge d'un pixel, et le
+     * client l'a vu immediatement. Une seule des deux valeurs doit changer. */
   },
   // `flex: 1` : les cinq langues se partagent la largeur a parts egales, quelle que soit la
   // longueur du mot. Une pastille de deux lettres et une de six gardent la meme surface
