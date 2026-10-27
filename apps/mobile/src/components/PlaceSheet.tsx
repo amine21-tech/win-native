@@ -13,8 +13,9 @@ import { useMyPlaceIds, useRefreshMyPlaces } from '../place/useMyPlaces';
 import { ManagePlaceSheet } from './ManagePlaceSheet';
 import { MyPlaceSheet } from './MyPlaceSheet';
 import { ReportPhotoSheet } from './ReportPhotoSheet';
-import { api } from '../api/client';
+import { ApiError, api } from '../api/client';
 import { clearSearchCache } from '../search/usePlaceSearch';
+import { ConfirmDeleteSheet } from './ConfirmDeleteSheet';
 import { usePlaces } from '../store/places';
 import { fonts, radius, spacing, typography, type Palette } from '../theme';
 import { AdminEditPlaceSheet } from './AdminEditPlaceSheet';
@@ -146,6 +147,7 @@ export function PlaceSheet({
   const [manageOpen, setManageOpen] = useState(false);
   const [photoReportOpen, setPhotoReportOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   if (!place) return null;
 
   const isContributed = place.source === 'win';
@@ -202,30 +204,45 @@ export function PlaceSheet({
     ]);
   };
 
-  const askDelete = () => {
-    Alert.alert(t('place.deleteConfirmTitle'), t('place.deleteConfirm'), [
-      { text: t('addPlace.cancel'), style: 'cancel' },
-      {
-        text: t('place.deletePlace'),
-        style: 'destructive',
-        onPress: () => {
-          setDeleting(true);
-          void api(`/places/${place.placeId}/mine`, { method: 'DELETE' })
-            .then(() => {
-              clearSearchCache();
-              /* Le lieu doit aussi quitter l'historique et les favoris DU TELEPHONE : la barre
-               * de recherche les affiche, et sans cela la fiche supprimee reparaissait des
-               * qu'on retapait son nom. */
-              oublierLieu(place.lat, place.lon);
-              refreshMyPlaces();
-              onClose();
-            })
-            .catch(() => Alert.alert(t('errors.unknown')))
-            .finally(() => setDeleting(false));
-        },
-      },
-    ]);
+  const askDelete = () => setDeleteOpen(true);
+
+  /**
+   * Retire la fiche, puis le lieu de ce telephone.
+   *
+   * << ERREUR SURVENUE >> SUR UNE ADRESSE ANCIENNE (point 3B du client, 27 octobre). Supprimer
+   * une adresse deja retiree du serveur rendait un 404, que l'ecran affichait comme une panne.
+   * Or, du point de vue de l'utilisateur, une adresse qui n'existe plus EST supprimee : lui
+   * annoncer une erreur pour cela n'a aucun sens.
+   *
+   * Le client demandait d'ignorer toutes les erreurs du serveur. Je ne le fais pas : une vraie
+   * panne — reseau coupe, serveur indisponible — laisserait la fiche visible par tous les
+   * autres utilisateurs alors qu'on lui aurait dit qu'elle etait supprimee. Seul le cas
+   * << elle n'est deja plus la >> est traite en succes ; le reste se dit.
+   */
+  const confirmerSuppression = () => {
+    setDeleting(true);
+    void api(`/places/${place.placeId}/mine`, { method: 'DELETE' })
+      .catch((e: unknown) => {
+        const dejaPartie = e instanceof ApiError && (e.status === 404 || e.status === 410);
+        if (!dejaPartie) throw e;
+      })
+      .then(() => {
+        clearSearchCache();
+        /* Le lieu doit aussi quitter l'historique et les favoris DU TELEPHONE : la barre
+         * de recherche les affiche, et sans cela la fiche supprimee reparaissait des
+         * qu'on retapait son nom. */
+        oublierLieu(place.lat, place.lon);
+        refreshMyPlaces();
+        setDeleteOpen(false);
+        onClose();
+      })
+      .catch(() => {
+        setDeleteOpen(false);
+        Alert.alert(t('errors.unknown'));
+      })
+      .finally(() => setDeleting(false));
   };
+
   const canOrder = !!place.whatsapp && place.isPartner;
 
   const call = (n: string) => void Linking.openURL(`tel:${n.replace(/\s+/g, '')}`);
@@ -578,6 +595,18 @@ export function PlaceSheet({
         onSansDroit={expliquerDroit}
         suppressionEnCours={deleting}
         colors={colors}
+      />
+
+      {/* Confirmation de suppression — maquette du 27 octobre. Elle montre CE QU'ON SUPPRIME,
+          ce que la boite du systeme ne permettait pas. */}
+      <ConfirmDeleteSheet
+        visible={deleteOpen}
+        nom={place.name}
+        lat={place.lat}
+        lon={place.lon}
+        busy={deleting}
+        onCancel={() => setDeleteOpen(false)}
+        onConfirm={confirmerSuppression}
       />
 
       <CorrectionSheet
