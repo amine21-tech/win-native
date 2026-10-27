@@ -1,4 +1,5 @@
 import { speakGuidance, stopSpeaking } from '../speech/voice';
+import { phraseSortieRatee } from './instructions';
 import { useSpokenLanguage } from '../speech/useSpokenLanguage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { localizedInstruction, lowerFirst, spokenDistance } from './instructions';
@@ -50,7 +51,23 @@ const MIN_SPEED_FOR_REBUILD_MPS = 3 / 3.6;
 /** Ecart minimal, en metres, pour qu'une mesure compte comme un vrai eloignement. */
 const RUNAWAY_SENSITIVITY_M = 1;
 const OFF_ROUTE_SCORE_TO_RECALC = 6;
-const RECALC_COOLDOWN_MS = 4_000;
+/* Six secondes, et non quatre (point 10E du client, 27 octobre : « anti-boucle »). Le client
+ * veut un recalcul tres reactif ; le revers est qu'un trajet mal engage pourrait se recalculer
+ * en chaine, chaque nouveau trace etant aussitot juge abandonne. Six secondes laissent au
+ * conducteur le temps de s'engager vraiment sur le trajet propose avant qu'on en doute. */
+const RECALC_COOLDOWN_MS = 6_000;
+
+/**
+ * Types de manoeuvre Valhalla qui designent une BRETELLE ou une SORTIE.
+ *
+ * 17 a 21 : bretelle tout droit, a droite, a gauche, puis sortie a droite et a gauche. Ce sont
+ * les seules manoeuvres qu'on peut rater sans s'ecarter franchement de la route — d'ou leur
+ * traitement a part.
+ */
+const EST_SORTIE = new Set([17, 18, 19, 20, 21]);
+
+/** Depassement au-dela duquel une sortie est consideree comme ratee (point 10B du client). */
+const SORTIE_RATEE_M = 30;
 
 /**
  * SEUIL D'ECART ET TEMPS DE CONFIRMATION, SELON LA VITESSE (point 5A du client).
@@ -183,6 +200,13 @@ export function useNavigationSession(params: {
   /** Point le plus avance atteint sur le trace, pour reperer une marche arriere. */
   const farthestTraveledRef = useRef(0);
   const lastUTurnAtRef = useRef(0);
+  /* Sortie deja signalee comme ratee, reperee par son index sur le trace : sans cette memoire,
+   * chaque mesure GPS suivante redeclencherait l'annonce et le recalcul tant qu'on s'eloigne. */
+  const sortieRateeRef = useRef<number | null>(null);
+  /* L'annonce de sortie ratee est prononcee depuis le suivi, qui tourne hors du rendu React.
+   * Elle a donc besoin de la langue parlee et du reglage de voix par REFERENCE : les lire
+   * directement figerait les valeurs du premier rendu pour toute la navigation. */
+  const direSortieRateeRef = useRef<() => void>(() => {});
   const initialRouteRef = useRef<Route | null>(null);
   const getSpeedRef = useRef(getSpeedMps);
   const getHeadingRef = useRef(getHeading);
@@ -221,6 +245,9 @@ export function useNavigationSession(params: {
     offRouteDistanceRef.current = 0;
     offRouteSinceRef.current = 0;
     farthestTraveledRef.current = 0;
+    /* Le nouveau trace a ses propres index : garder celui d'une sortie ratee sur l'ANCIEN
+     * pourrait, par coincidence, bloquer la detection d'une sortie du nouveau. */
+    sortieRateeRef.current = null;
     announcedForRef.current = { index: -1, stage: 0 };
     departureSaidRef.current = false;
   }, []);
@@ -368,6 +395,37 @@ export function useNavigationSession(params: {
       return;
     }
 
+    /* SORTIE D'AUTOROUTE MANQUEE — recalcul SANS delai de confirmation (point 10B, 27 octobre).
+     *
+     * Pourquoi un cas a part. Rater une sortie ne creuse presque pas d'ecart : la bretelle
+     * s'ecarte de la voie rapide par un angle tres ouvert, et il faut parfois deux cents metres
+     * avant que les vingt metres du seuil soient atteints. Pendant ce temps, a 110 km/h, on
+     * s'eloigne de six secondes par seconde — et le recalcul n'arrive qu'apres le delai de
+     * confirmation, soit trop tard pour la sortie suivante.
+     *
+     * La regle du client contourne la mesure d'ecart : si la manoeuvre qu'on vient de depasser
+     * etait une sortie ou une bretelle, et qu'on l'a depassee de plus de trente metres sans
+     * l'avoir prise, c'est rate. On recalcule tout de suite, sans attendre, et on le DIT —
+     * parce qu'un conducteur qui vient de rater sa sortie cherche deja ce qu'il doit faire. */
+    const manoeuvreDepassee = currentRoute.maneuvers[idx];
+    if (
+      manoeuvreDepassee &&
+      EST_SORTIE.has(manoeuvreDepassee.type) &&
+      traveled - (currentRoute.cumulativeM[manoeuvreDepassee.shapeIndex] ?? 0) > SORTIE_RATEE_M &&
+      located.distanceM > tolerance &&
+      sortieRateeRef.current !== manoeuvreDepassee.shapeIndex &&
+      cooledDown
+    ) {
+      sortieRateeRef.current = manoeuvreDepassee.shapeIndex;
+      lastRecalcAtRef.current = now;
+      offRouteScoreRef.current = 0;
+      offRouteDistanceRef.current = 0;
+      offRouteSinceRef.current = 0;
+      direSortieRateeRef.current();
+      void loadRoute(position);
+      return;
+    }
+
     if (located.distanceM <= tolerance) {
       offRouteScoreRef.current = 0;
       offRouteDistanceRef.current = 0;
@@ -432,6 +490,13 @@ export function useNavigationSession(params: {
   // pour se rabattre, une seconde au moment d'agir. Chaque etape ne parle qu'une fois —
   // et elle est marquee comme dite meme quand le son est coupe, pour que reactiver le son
   // en cours de trajet ne declenche pas une rafale de consignes deja passees.
+  /* La phrase de sortie ratee, tenue a jour pour le suivi (point 10B). Couper la voix de
+   * guidage la coupe aussi : c'est un choix explicite du conducteur, et une sortie manquee ne
+   * justifie pas de passer outre — l'ecran, lui, affiche deja le recalcul. */
+  direSortieRateeRef.current = () => {
+    if (voiceGuidanceEnabled) speakGuidance(phraseSortieRatee(spokenLang), spokenLang);
+  };
+
   useEffect(() => {
     if (!active || !route) return;
 

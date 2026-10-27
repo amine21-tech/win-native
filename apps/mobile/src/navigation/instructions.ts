@@ -177,6 +177,29 @@ const PHRASES: Record<Language, Record<number, string>> = {
   },
 };
 
+/**
+ * Annonce d'une sortie manquee (point 10B du client, 27 octobre).
+ *
+ * Elle vit ici, avec les consignes de conduite, et non dans les fichiers de langue de
+ * l'interface : c'est le SUIVI qui la prononce, dans la langue que le telephone sait dire —
+ * laquelle n'est pas toujours celle de l'interface (voir useSpokenLanguage). Les deux textes
+ * n'ont donc pas la meme source, et les melanger ferait parler l'application dans une langue
+ * que la voix ne sait pas prononcer.
+ *
+ * Deux phrases et non une : le constat, puis ce qui se passe. Un conducteur qui vient de rater
+ * sa sortie veut d'abord savoir que c'est rate, ensuite qu'on s'en occupe.
+ */
+const SORTIE_RATEE: Record<Language, string> = {
+  fr: 'Sortie manquée. Recalcul en cours.',
+  en: 'Exit missed. Recalculating.',
+  ar: 'فاتك المخرج. جارٍ إعادة الحساب.',
+  dz: 'فاتك المخرج. راني نحسب الطريق من جديد.',
+};
+
+export function phraseSortieRatee(lang: Language): string {
+  return SORTIE_RATEE[lang] ?? SORTIE_RATEE.fr;
+}
+
 /** Instruction dans la langue active : texte Valhalla en fr/en, phrase construite en ar/dz. */
 export function localizedInstruction(maneuver: Maneuver, lang: Language): string {
   // Le texte de Valhalla est le plus riche (numero de sortie de rond-point, direction des
