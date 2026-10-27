@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { GeocodedResult } from '../search/geocode';
@@ -6,6 +6,7 @@ import type { Bookmark } from '../store/places';
 import { formatDistance } from '../shared';
 import { radius, spacing, typography, type Palette } from '../theme';
 import { photoSource } from '../place/placePhoto';
+import { ConfirmDeleteSheet } from './ConfirmDeleteSheet';
 
 type Props = {
   visible: boolean;
@@ -72,15 +73,11 @@ export function SearchResults({
 }: Props) {
   const { t } = useTranslation();
 
-  const confirmRemoveHistory = useCallback(
-    (b: Bookmark) => {
-      Alert.alert(t('search.removeHistoryConfirmTitle'), `${b.name} — ${t('search.removeHistoryConfirmBody')}`, [
-        { text: t('search.cancel'), style: 'cancel' },
-        { text: t('search.confirm'), style: 'destructive', onPress: () => onRemoveHistory(b) },
-      ]);
-    },
-    [onRemoveHistory, t],
-  );
+  /* La meme feuille que pour la suppression d'une fiche (point 9 du client, 27 octobre : « la
+   * meme maquette, pour l'historique de recherche ET la liste GPS enregistree »). Elle montre
+   * le nom et les coordonnees de ce qu'on retire — la boite du systeme ne le permettait pas. */
+  const [aSupprimer, setASupprimer] = useState<Bookmark | null>(null);
+  const confirmRemoveHistory = useCallback((b: Bookmark) => setASupprimer(b), []);
 
   const confirmClearHistory = useCallback(() => {
     Alert.alert(t('search.clearHistoryConfirmTitle'), t('search.clearHistoryConfirmBody'), [
@@ -89,7 +86,10 @@ export function SearchResults({
     ]);
   }, [onClearHistory, t]);
 
-  if (!visible) return null;
+  /* `&& !aSupprimer` : tant que la feuille de confirmation est ouverte, ce composant doit
+   * rester monte. Renvoyer null emporterait un Modal ENCORE AFFICHE, ce qui fige Android puis
+   * ferme l'application — defaut rencontre le 24 octobre sur l'ajout et la suppression. */
+  if (!visible && !aSupprimer) return null;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surface }]}>
@@ -134,6 +134,20 @@ export function SearchResults({
           </>
         )}
       </ScrollView>
+
+      <ConfirmDeleteSheet
+        visible={aSupprimer !== null}
+        nom={aSupprimer?.name ?? ''}
+        lat={aSupprimer?.lat}
+        lon={aSupprimer?.lon}
+        titre={t('search.removeHistoryConfirmTitle')}
+        message={t('search.removeHistoryConfirmBody')}
+        onCancel={() => setASupprimer(null)}
+        onConfirm={() => {
+          if (aSupprimer) onRemoveHistory(aSupprimer);
+          setASupprimer(null);
+        }}
+      />
     </View>
   );
 }

@@ -2438,24 +2438,19 @@ export default function MapScreen() {
       {votingReport ? (
         /* En navigation, le bandeau d'instruction occupe le haut de l'ecran : la carte de vote
            se pose dessous plutot que par-dessus la consigne de conduite. */
-        <View
-          style={[
-            styles.voteCardWrap,
-            navigating && landscape
-              ? { top: insets.top + spacing.sm, left: navCardWidth + insets.left + spacing.lg, right: insets.right + 70 }
-              : { top: insets.top + (navigating ? 150 : spacing.xl * 2) },
-          ]}
-        >
-          <ReportVoteCard
-            report={votingReport}
-            pending={voteReport.isPending}
-            message={voteMessage}
-            onConfirm={() => voteReport.mutate({ id: votingReport.id, vote: 'confirm' })}
-            onAbsent={() => voteReport.mutate({ id: votingReport.id, vote: 'absent' })}
-            onClose={closeVoteCard}
-            colors={colors}
-          />
-        </View>
+        /* Plus d'enveloppe positionnee : depuis la maquette du 27 octobre, cette carte est une
+           feuille basse — un Modal — qui se place elle-meme. La caler en haut de l'ecran n'a
+           plus de sens, et les reglages paysage qui l'accompagnaient non plus. */
+        <ReportVoteCard
+          report={votingReport}
+          pending={voteReport.isPending}
+          message={voteMessage}
+          distanceM={position ? haversine(position.lat, position.lon, votingReport.lat, votingReport.lon) : null}
+          onConfirm={() => voteReport.mutate({ id: votingReport.id, vote: 'confirm' })}
+          onAbsent={() => voteReport.mutate({ id: votingReport.id, vote: 'absent' })}
+          onClose={closeVoteCard}
+          colors={colors}
+        />
       ) : null}
 
       <ReportMenu visible={reportMenuOpen} onClose={() => setReportMenuOpen(false)} onPick={submitReport} colors={colors} />
