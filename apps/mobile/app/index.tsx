@@ -258,8 +258,20 @@ function pointAtDistance(route: Route, metres: number): [number, number] | null 
   return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 }
 
-/** Gris de la portion parcourue — le `#b9c4bf` de v83. */
-const GRIS_PARCOURU = '#B9C4BF';
+/**
+ * Opacite de la portion DEJA PARCOURUE — 25 %, valeur donnee par le client le 27 octobre.
+ *
+ * CE QUI CHANGE, ET POURQUOI C'EST MIEUX. La traine passait du gris `#b9c4bf` de v83 a une
+ * teinte de plus en plus claire : trois couleurs et deux paliers pour chacune des trois
+ * couches. Le resultat etait joli a l'arret et trompeur en roulant — le client a vu « le trace
+ * transparent au depart de certains trajets, puis qui redevient vert », parce que le palier
+ * clair s'etendait sur la portion deja faite avant meme d'avoir roule.
+ *
+ * Sa regle est plus simple et plus juste : LA MEME COULEUR, a un quart d'opacite derriere, a
+ * fond devant. Le chemin parcouru reste reconnaissable comme etant le trajet — ce que le gris
+ * ne disait pas — et il n'y a plus qu'une valeur a comprendre.
+ */
+const OPACITE_PARCOURU = 0.25;
 
 /* L'epingle de destination, dessinee par le moteur de la carte.
  *
@@ -1847,8 +1859,8 @@ export default function MapScreen() {
               navigating
                 ? {
                     'line-gradient': degradeDeProgression(
-                      rgba(routeColors.halo, 0.35),
-                      rgba(routeColors.halo, 0.8),
+                      rgba(routeColors.halo, OPACITE_PARCOURU),
+                      rgba(routeColors.halo, OPACITE_PARCOURU),
                       routeColors.halo,
                       avanceFraction,
                       traineFraction,
@@ -1877,8 +1889,8 @@ export default function MapScreen() {
               navigating
                 ? {
                     'line-gradient': degradeDeProgression(
-                      rgba(routeColors.casing, 0.3),
-                      rgba(routeColors.casing, 0.65),
+                      rgba(routeColors.casing, OPACITE_PARCOURU),
+                      rgba(routeColors.casing, OPACITE_PARCOURU),
                       routeColors.casing,
                       avanceFraction,
                       traineFraction,
@@ -1913,8 +1925,8 @@ export default function MapScreen() {
               navigating
                 ? {
                     'line-gradient': degradeDeProgression(
-                      rgba(GRIS_PARCOURU, 0.4),
-                      rgba(GRIS_PARCOURU, 0.95),
+                      rgba(routeColors.main, OPACITE_PARCOURU),
+                      rgba(routeColors.main, OPACITE_PARCOURU),
                       routeColors.main,
                       avanceFraction,
                       traineFraction,

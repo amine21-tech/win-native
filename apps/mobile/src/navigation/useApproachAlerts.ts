@@ -24,14 +24,19 @@ type Coords = { lat: number; lon: number };
  * La valeur est aussi celle que la voix PRONONCE (<< dans 100 metres >>). Les deux ne doivent
  * pas pouvoir diverger, d'ou une seule constante pour les deux usages.
  */
-export const ANNONCE_M = 100;
+/* 150 depuis le 27 octobre. Le client demandait « 50 → 150 » : la valeur de depart n'etait
+ * deja plus cinquante mais cent, portee la le 23 octobre pour la raison ci-dessus. Cent
+ * cinquante metres font sept secondes a 80 km/h — de quoi lever le pied, regarder et se
+ * rabattre sans hate. C'est le dernier palier raisonnable : au-dela, l'annonce arrive si tot
+ * qu'on l'a oubliee en arrivant sur l'obstacle. */
+export const ANNONCE_M = 150;
 
 /**
  * Au-dela, le signalement se rearme — sinon un demi-tour ne redeclencherait jamais l'alerte.
  * L'ecart avec la distance d'annonce evite qu'un GPS qui oscille autour du seuil ne repete
  * l'annonce : il faut vraiment s'en eloigner pour qu'elle puisse revenir.
  */
-const REARM_M = 200;
+const REARM_M = 300;
 
 /**
  * Ecart maximal entre un signalement et le trace pour qu'il nous concerne.
