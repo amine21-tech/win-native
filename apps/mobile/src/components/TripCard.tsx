@@ -5,6 +5,13 @@ import type { Route, RouteMode } from '../navigation/routing';
 import { formatDistance, formatDuration } from '../shared';
 import { radius, spacing, typography, type Palette } from '../theme';
 
+/* Les trois couleurs de la maquette validee du 27 octobre, au point pres. Elles sont FIGEES et
+ * ne suivent pas le theme : ce sont des fonds pleins, et le texte pose dessus doit rester
+ * lisible de jour comme de nuit. */
+const VERT_DISTANCE = '#0B5B2C';
+const GRIS_DUREE = '#F3F4F6';
+const OR_MEILLEUR = '#D4A017';
+
 type Props = {
   routes: Route[];
   selectedIndex: number;
@@ -14,20 +21,12 @@ type Props = {
   mode: RouteMode;
   onModeChange: (mode: RouteMode) => void;
   onStart: () => void;
-  /**
-   * Statut du lieu vise — la TROISIEME tuile demandee par le client (point 6, 23 octobre).
-   *
-   * Le cadre n'affichait que la duree et la distance, et il lui a paru « vide ». Le statut est
-   * l'information qui manquait : savoir qu'on va chez un partenaire VIP ou vers une adresse
-   * posee par la communaute change ce qu'on attend en arrivant.
-   */
-  statut: { texte: string; vip: boolean };
   colors: Palette;
 };
 
 /** Carte "resume de trajet" : reprise de `.tripcard` en v83 — distance/duree, bascule voiture/pied,
  * itineraires alternatifs, bouton demarrer. */
-export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode, onModeChange, onStart, statut, colors }: Props) {
+export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode, onModeChange, onStart, colors }: Props) {
   const prefs = useSession((s) => s.routePrefs);
   const setAutoroute = useSession((s) => s.setAutoroute);
   const { t } = useTranslation();
@@ -50,34 +49,28 @@ export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode
         <Text style={[typography.caption, styles.errorText, { color: colors.textMuted }]}>{t('trip.unavailable')}</Text>
       ) : (
         <>
+          {/* DEUX CARTES METRIQUES — maquette validee du 27 octobre.
+            *
+            * Elles remplacent trois tuiles separees par des filets, dont celle du << statut >>
+            * ajoutee le 23 octobre a la demande du meme client. L'information n'est pas perdue :
+            * la fiche affiche deja, au-dessus, « ⭐ Ajoute par WIN VIP » ou « Ajoute par WIN ».
+            * Elle etait donc ecrite deux fois, et la maquette d'aujourd'hui tranche.
+            *
+            * La carte de distance porte un fond vert plein et la duree un fond gris : leurs
+            * textes sont FIGES, puisque leurs fonds le sont. C'est la regle qui a deja coute un
+            * ecran illisible en mode nuit (menu de signalement, 26 octobre). */}
           <View style={styles.metrics}>
-            <View style={styles.metric}>
-              <Text style={[typography.title, { color: colors.accentDark }]}>
+            <View style={[styles.carteMetrique, { backgroundColor: VERT_DISTANCE }]}>
+              <Text style={styles.metriqueValeurClaire} numberOfLines={1} adjustsFontSizeToFit>
                 {formatDistance(selected.distanceM)}
               </Text>
-              <Text style={[styles.metricLabel, { color: colors.textMuted }]}>{t('trip.distance')}</Text>
+              <Text style={styles.metriqueLibelleClair}>{t('trip.distance')}</Text>
             </View>
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <View style={styles.metric}>
-              <Text style={[typography.title, { color: colors.accentDark }]}>
+            <View style={[styles.carteMetrique, { backgroundColor: GRIS_DUREE }]}>
+              <Text style={styles.metriqueValeurSombre} numberOfLines={1} adjustsFontSizeToFit>
                 {formatDuration(selected.durationS)}
               </Text>
-              <Text style={[styles.metricLabel, { color: colors.textMuted }]}>{t('trip.duration')}</Text>
-            </View>
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            {/* La tuile de statut. Le texte y est plus petit que les deux chiffres voisins :
-                c'est un mot, pas une mesure, et lui donner la meme taille deformerait la
-                lecture d'un cadre ou l'oeil cherche d'abord la duree. */}
-            <View style={styles.metric}>
-              <Text
-                style={[styles.statutValeur, { color: statut.vip ? colors.gold : colors.accentDark }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.7}
-              >
-                {statut.vip ? `⭐ ${statut.texte}` : statut.texte}
-              </Text>
-              <Text style={[styles.metricLabel, { color: colors.textMuted }]}>{t('trip.status')}</Text>
+              <Text style={styles.metriqueLibelleSombre}>{t('trip.duration')}</Text>
             </View>
           </View>
 
@@ -146,7 +139,12 @@ export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode
                     { borderColor: i === selectedIndex ? colors.accent : colors.border, backgroundColor: i === selectedIndex ? colors.surfaceAlt : colors.surface },
                   ]}
                 >
-                  <Text style={[styles.altChipTitle, { color: colors.text }]}>
+                  {/* LE MEILLEUR EN OR, les autres en gris (maquette du 27 octobre). La
+                      couleur distingue le trajet RECOMMANDE, pas celui qui est selectionne —
+                      ce sont deux choses differentes, et c'est la bordure qui dit le choix. */}
+                  <Text
+                    style={[styles.altChipTitle, { color: i === 0 ? OR_MEILLEUR : colors.textMuted }]}
+                  >
                     {i === 0 ? t('trip.fastest') : t('trip.alternative')}
                   </Text>
                   <Text style={[styles.altChipSub, { color: colors.textMuted }]}>{formatDuration(r.durationS)}</Text>
@@ -155,8 +153,17 @@ export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode
             </View>
           ) : null}
 
-          <Pressable onPress={onStart} style={[styles.startBtn, { backgroundColor: colors.accent }]}>
-            <Text style={styles.startBtnText}>➤ {t('nav.start')}</Text>
+          {/* « C'est parti ! » : vert plein, fleche de lecture, et une ombre portee. L'ombre
+              n'est pas un ornement — c'est elle qui detache le geste principal du reste de la
+              feuille, ou tout le monde est plat. */}
+          <Pressable
+            onPress={onStart}
+            style={({ pressed }) => [
+              styles.startBtn,
+              { backgroundColor: VERT_DISTANCE, opacity: pressed ? 0.88 : 1 },
+            ]}
+          >
+            <Text style={styles.startBtnText}>▶  {t('nav.start')}</Text>
           </Pressable>
         </>
       )}
@@ -174,7 +181,32 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   errorText: { textAlign: 'center', paddingVertical: spacing.sm },
-  metrics: { flexDirection: 'row', alignItems: 'stretch' },
+  metrics: { flexDirection: 'row', alignItems: 'stretch', gap: spacing.sm },
+  carteMetrique: {
+    flex: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+  },
+  metriqueValeurClaire: { color: '#FFFFFF', fontSize: 22, fontWeight: '800' as const },
+  metriqueLibelleClair: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 10.5,
+    fontWeight: '700' as const,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  metriqueValeurSombre: { color: '#15201C', fontSize: 22, fontWeight: '800' as const },
+  metriqueLibelleSombre: {
+    color: '#5E6B64',
+    fontSize: 10.5,
+    fontWeight: '700' as const,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
   metric: { flex: 1, alignItems: 'center', paddingVertical: 4 },
   metricLabel: { fontSize: 10.5, fontWeight: '700' as const, letterSpacing: 0.3, textTransform: 'uppercase', marginTop: 2 },
   statutValeur: { fontSize: 15, fontWeight: '800' as const, letterSpacing: 0.2 },
@@ -186,6 +218,17 @@ const styles = StyleSheet.create({
   altChip: { flex: 1, borderWidth: 1.5, borderRadius: radius.sm, padding: spacing.sm, alignItems: 'center' },
   altChipTitle: { fontSize: 12, fontWeight: '800' as const },
   altChipSub: { fontSize: 11, marginTop: 2 },
-  startBtn: { marginTop: spacing.md, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center' },
+  startBtn: {
+    marginTop: spacing.md,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    // L'ombre detache le geste principal d'une feuille ou tout le reste est plat.
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
   startBtnText: { color: '#fff', fontWeight: '800' as const, fontSize: 15.5 },
 });

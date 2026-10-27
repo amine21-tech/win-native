@@ -437,13 +437,6 @@ export function PlaceSheet({
 
         {hasUserPosition ? (
           <TripCard
-            statut={
-              place.isPartner
-                ? { texte: t('trip.statusVip'), vip: true }
-                : isContributed
-                  ? { texte: t('trip.statusWin'), vip: false }
-                  : { texte: t('trip.statusAddress'), vip: false }
-            }
             routes={routes}
             selectedIndex={selectedRouteIndex}
             onSelect={onSelectRoute}
@@ -740,8 +733,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    /* 30 points, valeur de la maquette du 27 octobre. Le fond, lui, SUIT LE THEME et ne
+     * devient pas blanc comme le montre la maquette : celle-ci est dessinee de jour, et une
+     * feuille blanche en pleine nuit eblouit un conducteur — c'est precisement la raison
+     * d'etre du mode nuit. Les deux cartes metriques, elles, portent bien les fonds pleins
+     * demandes. */
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     // La marge basse est calculee au rendu : elle depend de la barre du systeme (voir le
