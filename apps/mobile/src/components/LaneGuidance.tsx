@@ -57,71 +57,53 @@ function glyphFor(lane: Lane): string {
   return '↑';
 }
 
+/**
+ * LES VOIES SONT DESSINEES DANS LE BANDEAU VERT, pas sous lui (point 5 du client, 27 octobre :
+ * « integrees dans le bandeau vert de navigation EN HAUT — pas un widget separe »).
+ *
+ * Elles etaient accrochees juste en dessous, dans leur propre carte blanche a ombre portee. De
+ * pres cela se defend ; au volant, cela faisait un second objet a regarder, et la consigne —
+ * « serrez a gauche » — se trouvait separee des fleches qui la montrent. Les reunir rend la
+ * phrase et le dessin solidaires.
+ *
+ * Le code couleur devient celui du client, et il n'a plus que DEUX etats au lieu de trois : la
+ * voie a prendre en BLANC opaque, les autres dans un vert clair a 40 %. Sur un aplat vert, la
+ * nuance « suit l'itineraire mais il faudra se rabattre » ne se lisait plus — mieux vaut deux
+ * etats nets qu'une troisieme teinte que personne ne distingue a 110 km/h.
+ */
 export function LaneGuidance({
   lanes,
   distanceM,
-  colors,
-  top,
 }: {
   lanes: Lane[];
   /** Distance restante jusqu'a la bifurcation, ou `null` si elle est inconnue. */
   distanceM: number | null;
-  colors: Palette;
-  /** Hauteur a laquelle accrocher la rangee : juste sous le bandeau de consigne. */
-  top: number;
 }) {
   if (lanes.length === 0 || distanceM == null || distanceM > LANE_GUIDANCE_VISIBLE_M) return null;
 
   return (
-    <View style={[styles.wrap, { top }]} pointerEvents="none">
-      <View style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {lanes.map((lane, i) => {
-          const active = lane.active !== 0;
-          const possible = active || lane.valid !== 0;
-          return (
-            <View
-              key={i}
-              style={[
-                styles.cell,
-                active ? { backgroundColor: colors.accent } : null,
-                // Un separateur discret entre voies : sans lui, quatre fleches collees se
-                // lisent comme un seul dessin et on ne compte plus les files.
-                i > 0 ? { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border } : null,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.glyph,
-                  {
-                    color: active ? colors.accentText : possible ? colors.text : colors.textMuted,
-                    opacity: possible ? 1 : 0.4,
-                  },
-                ]}
-              >
-                {glyphFor(lane)}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
+    <View style={styles.row} pointerEvents="none">
+      {lanes.map((lane, i) => {
+        /* `active` = la voie ou l'on est deja bien place ; `valid` = elle mene quand meme la ou
+         * l'on va. Les deux comptent comme « a prendre » pour l'affichage. */
+        const aPrendre = lane.active !== 0 || lane.valid !== 0;
+        return (
+          <Text key={i} style={[styles.glyph, aPrendre ? styles.glypheBon : styles.glypheAutre]}>
+            {glyphFor(lane)}
+          </Text>
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-  row: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    marginHorizontal: spacing.md,
-  },
-  cell: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  glyph: { fontSize: 20, fontWeight: '800' as const },
+  // Une simple rangee, posee dans le bandeau : ni carte, ni bordure, ni ombre. Elle fait
+  // partie du bandeau, elle ne se pose plus dessus.
+  row: { flexDirection: 'row', gap: 4, alignItems: 'center', marginTop: 2 },
+  glyph: { fontSize: 22, fontWeight: '800' as const, width: 32, textAlign: 'center' },
+  glypheBon: { color: '#FFFFFF' },
+  /* Les voies a eviter restent VISIBLES, a quarante pour cent : les effacer tout a fait
+   * empecherait de compter les files et de savoir laquelle est la bonne. */
+  glypheAutre: { color: '#FFFFFF', opacity: 0.4 },
 });

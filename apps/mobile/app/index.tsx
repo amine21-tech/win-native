@@ -33,6 +33,10 @@ import { ConsentGate } from '../src/components/ConsentGate';
 import { Header } from '../src/components/Header';
 import { NavigationOverlay } from '../src/components/NavigationOverlay';
 import { useLocalSearchParams } from 'expo-router';
+import {
+  paliersDuTrace,
+  type BandeTrafic as BandeTraficPartagee,
+} from '../src/navigation/degradeTrace';
 import { PlaceSheet, type SelectedPlace } from '../src/components/PlaceSheet';
 import { ProfilePanel } from '../src/components/ProfilePanel';
 import { QiblaPanel } from '../src/components/QiblaPanel';
@@ -241,6 +245,35 @@ function degradeDeProgression(
   return ['interpolate', ['linear'], ['line-progress'], ...paliers] as LineGradient;
 }
 
+/**
+ * Degrade du trace PRINCIPAL : progression ET trafic, en une seule passe.
+ *
+ * POURQUOI UNE SEULE FONCTION PLUTOT QUE DEUX COUCHES SUPERPOSEES. MapLibre ne sait pas melanger
+ * deux `line-gradient` sur la meme ligne, et poser une seconde ligne par-dessus ferait un
+ * bourrelet a chaque raccord. On compose donc les deux informations dans le meme degrade : la
+ * couleur d'un point est celle de son bouchon s'il y en a un, sinon celle de sa progression.
+ *
+ * LA METHODE : on ne balaie pas la ligne, on ne calcule que les POINTS DE RUPTURE — le vehicule,
+ * et les deux bords de chaque bande de trafic. Entre deux ruptures la couleur ne change pas, et
+ * MapLibre interpole. Une dizaine de paliers suffit donc a decrire un trajet de 300 km.
+ *
+ * Les paliers d'une interpolation doivent croitre STRICTEMENT : `poser` ecarte tout palier qui
+ * ne progresse pas, sans quoi MapLibre rejette la couche ENTIERE et le trace disparait.
+ */
+function degradeTrace(
+  parcouru: string,
+  avant: string,
+  fait: number,
+  bandes: BandeTrafic[],
+): LineGradient {
+  /* Le calcul des paliers vit dans src/navigation/degradeTrace.ts, HORS de cet ecran, pour
+   * pouvoir etre eprouve sans telephone : voir scripts/verifier-degrade.ts, qui verifie sur
+   * treize cas limites qu'aucun palier ne cesse de croitre. Un seul palier fautif fait rejeter
+   * la couche entiere par MapLibre et le trace disparait en silence. */
+  const paliers = paliersDuTrace(parcouru, avant, fait, bandes, (c) => rgba(c, OPACITE_PARCOURU));
+  return ['interpolate', ['linear'], ['line-progress'], ...paliers] as LineGradient;
+}
+
 /** Point du trace situe a `metres` du depart, mesure LE LONG de la route et non a vol
  * d'oiseau. Sert a poser l'etiquette au milieu de ce qui reste a parcourir. */
 function pointAtDistance(route: Route, metres: number): [number, number] | null {
@@ -272,6 +305,41 @@ function pointAtDistance(route: Route, metres: number): [number, number] | null 
  * ne disait pas — et il n'y a plus qu'une valeur a comprendre.
  */
 const OPACITE_PARCOURU = 0.25;
+
+/**
+ * COLORATION DU TRAFIC SUR LE TRACE (point 6 du client, 27 octobre).
+ *
+ * Les signalements s'affichaient sur la carte, mais le TRACE restait vert de bout en bout :
+ * rien ne disait qu'on allait traverser un bouchon dans huit kilometres. Or c'est au moment de
+ * choisir entre deux itineraires que l'information compte, pas quand on est dedans.
+ *
+ * Trois sources seulement, et ce sont celles du client : le bouchon passe en orange, l'accident
+ * et la route bloquee en rouge. Les autres signalements — radar, dos d'ane, nid-de-poule — ne
+ * teintent rien : ils ne ralentissent pas la circulation, et colorier le trajet pour chacun
+ * d'eux le rendrait illisible.
+ */
+const COULEUR_TRAFIC: Record<string, string> = {
+  jam: '#E67E22',
+  crash: '#C0392B',
+  block: '#C0392B',
+};
+
+/**
+ * Longueur teintee de part et d'autre d'un signalement.
+ *
+ * Un signalement est un POINT, un bouchon est une LONGUEUR. Teinter le seul point donnerait un
+ * trait de quelques pixels, invisible a l'echelle d'un trajet ; cent cinquante metres de chaque
+ * cote donnent une bande qu'on repere en regardant l'ensemble du parcours, ce qui est
+ * exactement l'usage.
+ */
+const DEMI_BANDE_TRAFIC_M = 150;
+
+/** Ecart maximal entre un signalement et le trace pour qu'il concerne notre trajet. */
+const TRAFIC_SUR_LA_ROUTE_M = 35;
+
+/* Le type vient du module qui porte le calcul, pour qu'une modification de l'un oblige a
+ * regarder l'autre. */
+type BandeTrafic = BandeTraficPartagee;
 
 /* L'epingle de destination, dessinee par le moteur de la carte.
  *
@@ -839,6 +907,47 @@ export default function MapScreen() {
     if (total <= 0) return 0;
     return Math.min(1, Math.max(0, traveledMeters(nav.route, nav.progress) / total));
   }, [navigating, nav.route, nav.progress]);
+
+  /**
+   * Bandes de trafic a teinter sur le trace (point 6 du client, 27 octobre).
+   *
+   * Chaque signalement qui ralentit — bouchon, accident, route bloquee — est projete sur
+   * l'itineraire et devient une bande de trois cents metres, exprimee en fraction du trajet.
+   * Ceux qui sont a plus de trente-cinq metres du trace ne nous concernent pas : une route
+   * parallele a son propre bouchon.
+   *
+   * CE CALCUL NE SE REFAIT PAS A CHAQUE SECONDE. Il ne depend que du trace et de la liste des
+   * signalements, qui ne bougent pas entre deux points GPS — alors que la projection parcourt
+   * toute la geometrie, plusieurs milliers de points sur un Alger-Oran. La position du vehicule
+   * n'entre volontairement pas dans les dependances.
+   *
+   * La mise a jour << en temps reel >> demandee vient d'elle-meme : `liveReports` change quand un
+   * signalement expire ou est confirme, et ce memo se recalcule alors.
+   */
+  const bandesTrafic = useMemo<BandeTrafic[]>(() => {
+    const route = nav.route;
+    if (!navigating || !route) return [];
+    const cumul = route.cumulativeM;
+    const total = cumul[cumul.length - 1] ?? 0;
+    if (total <= 0) return [];
+
+    const bandes: BandeTrafic[] = [];
+    for (const r of liveReports) {
+      const couleur = COULEUR_TRAFIC[r.kind];
+      if (!couleur) continue;
+      const projection = locateOnRoute([r.lon, r.lat], route.geometry);
+      if (projection.distanceM > TRAFIC_SUR_LA_ROUTE_M) continue;
+      const metres = traveledMeters(route, projection);
+      bandes.push({
+        debut: Math.max(0, (metres - DEMI_BANDE_TRAFIC_M) / total),
+        fin: Math.min(1, (metres + DEMI_BANDE_TRAFIC_M) / total),
+        couleur,
+      });
+    }
+    // Triees : `degradeTrace` emet ses paliers dans l'ordre croissant, et deux bandes qui se
+    // chevauchent doivent etre rencontrees de gauche a droite.
+    return bandes.sort((a, b) => a.debut - b.debut);
+  }, [navigating, nav.route, liveReports]);
 
   /** Longueur de la traine, ramenee a une fraction du trajet : quatre cents metres ne
    * representent pas la meme chose sur cinq kilometres et sur quatre cents. */
@@ -1924,12 +2033,13 @@ export default function MapScreen() {
             paint={
               navigating
                 ? {
-                    'line-gradient': degradeDeProgression(
-                      rgba(routeColors.main, OPACITE_PARCOURU),
+                    /* Le trace principal porte DEUX informations a la fois : ou l'on en est, et
+                       ce qui ralentit devant. Voir degradeTrace. */
+                    'line-gradient': degradeTrace(
                       rgba(routeColors.main, OPACITE_PARCOURU),
                       routeColors.main,
                       avanceFraction,
-                      traineFraction,
+                      bandesTrafic,
                     ),
                     'line-width': ROUTE_WIDTH([1.5, 2.5, 6, 9, 13]),
                   }

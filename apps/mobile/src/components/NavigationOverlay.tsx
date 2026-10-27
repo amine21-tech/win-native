@@ -204,6 +204,15 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         {/* Heure d'arrivee estimee et distance restante, EN HAUT comme EN BAS : le client les
             veut lisibles sans avoir a baisser les yeux vers le cadre du bas, qui peut etre
             masque. L'horloge courante reste affichee en permanence (chantier #22). */}
+        {/* LES VOIES, DANS LE BANDEAU (point 5 du client, 27 octobre). Elles etaient accrochees
+            juste en dessous, dans leur propre carte : au volant, cela faisait un second objet a
+            regarder, et la consigne se trouvait separee des fleches qui la montrent. Elles
+            n'apparaissent qu'a cinq cents metres d'une bifurcation, et seulement la ou
+            OpenStreetMap connait les marquages au sol. */}
+        {!arrived && !recalculating ? (
+          <LaneGuidance lanes={nextManeuver?.lanes ?? []} distanceM={distanceToUpcoming} />
+        ) : null}
+
         <View style={styles.clockRow}>
           <Text style={styles.clockItem}>🕐 {formatClock24(now)}</Text>
           {remaining ? (
@@ -240,24 +249,6 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         </View>
       ) : null}
 
-      {/* Voies a prendre, accrochees sous le bandeau — et sous la languette « puis » quand elle
-          est la, pour qu'elles ne se recouvrent jamais. Elles n'apparaissent qu'a l'approche
-          d'une bifurcation, et seulement la ou OpenStreetMap connait les marquages au sol. */}
-      {!arrived && !recalculating && !landscape ? (
-        <LaneGuidance
-          lanes={nextManeuver?.lanes ?? []}
-          distanceM={distanceToUpcoming}
-          colors={colors}
-          top={
-            bannerTop +
-            bannerHeight +
-            (followingManeuver && distanceToUpcoming != null && distanceToUpcoming < 600
-              ? THEN_TAB_H
-              : 0) +
-            spacing.sm
-          }
-        />
-      ) : null}
 
       {/* Compteur de vitesse et limite reglementaire, EN HAUT A GAUCHE et l'un sous l'autre,
           comme sur le site (`.speed-badge` puis `.limit-badge`). Ils etaient en bas, et un
