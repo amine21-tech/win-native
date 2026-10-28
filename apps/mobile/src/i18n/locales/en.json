@@ -545,5 +545,60 @@
     "noAccount": "The payment account is not available yet. Please try again later.",
     "phoneInvalid": "Invalid phone number.",
     "tooMany": "Too many requests. Try again in a few minutes."
+  },
+  "jobs": {
+    "title": "Jobs near you",
+    "radius": "Offers within 50 km",
+    "all": "All",
+    "empty": "No offer within 50 km right now.",
+    "needPosition": "Your position is needed to find offers around you.",
+    "call": "Call",
+    "route": "Directions",
+    "publish": "Post an offer",
+    "publishTitle": "Post an offer",
+    "price": "1,500 DA",
+    "priceDetail": "Visible for 30 days, within 50 km of you.",
+    "sectorLabel": "Sector",
+    "jobTitle": "Job title",
+    "company": "Company",
+    "contractLabel": "Contract type",
+    "salary": "Salary",
+    "salaryHint": "e.g. 45,000 DA, or \"negotiable\"",
+    "description": "Description",
+    "contactSection": "Contact details",
+    "phone": "Phone",
+    "paymentSection": "Payment method",
+    "send": "Submit the offer",
+    "close": "Close",
+    "needSector": "Choose a sector.",
+    "needTitle": "The job title is required.",
+    "needPhone": "A phone number is required.",
+    "sentTitle": "Offer recorded",
+    "sentBody": "It will be published once your 1,500 DA payment has been confirmed. You will find it under \"My offers\".",
+    "sector": {
+      "btp": "Construction",
+      "commerce": "Retail",
+      "transport": "Transport",
+      "restauration": "Catering",
+      "industrie": "Industry",
+      "bureaux": "Office",
+      "services": "Home services"
+    },
+    "contract": {
+      "cdi": "Permanent",
+      "cdd": "Fixed-term",
+      "mission": "Assignment"
+    },
+    "payment": {
+      "baridimob": "BaridiMob",
+      "virement": "Bank transfer",
+      "email": "Proof by email"
+    },
+    "paymentHint": {
+      "baridimob": "Instant mobile payment — the fastest.",
+      "virement": "CCP, CPA, BNA, BEA… Bank details sent after approval.",
+      "email": "Send the payment receipt by email."
+    },
+    "shortTitle": "Jobs"
   }
 }

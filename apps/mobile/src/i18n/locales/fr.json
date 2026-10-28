@@ -545,5 +545,60 @@
     "noAccount": "Le compte de paiement n’est pas encore disponible. Réessayez plus tard.",
     "phoneInvalid": "Numéro de téléphone invalide.",
     "tooMany": "Trop de demandes. Réessayez dans quelques minutes."
+  },
+  "jobs": {
+    "title": "Emploi près de vous",
+    "radius": "Offres dans un rayon de 50 km",
+    "all": "Tous",
+    "empty": "Aucune offre dans un rayon de 50 km pour le moment.",
+    "needPosition": "Votre position est nécessaire pour trouver les offres autour de vous.",
+    "call": "Appeler",
+    "route": "Itinéraire",
+    "publish": "Publier une offre",
+    "publishTitle": "Publier une offre",
+    "price": "1 500 DA",
+    "priceDetail": "Annonce visible 30 jours, dans un rayon de 50 km autour de vous.",
+    "sectorLabel": "Secteur",
+    "jobTitle": "Désignation du poste",
+    "company": "Entreprise",
+    "contractLabel": "Type de contrat",
+    "salary": "Salaire",
+    "salaryHint": "ex. 45 000 DA, ou « à négocier »",
+    "description": "Description",
+    "contactSection": "Coordonnées",
+    "phone": "Téléphone",
+    "paymentSection": "Mode de paiement",
+    "send": "Envoyer l’annonce",
+    "close": "Fermer",
+    "needSector": "Choisissez un secteur.",
+    "needTitle": "La désignation du poste est nécessaire.",
+    "needPhone": "Un numéro de téléphone est nécessaire.",
+    "sentTitle": "Annonce enregistrée",
+    "sentBody": "Elle sera publiée dès que votre paiement de 1 500 DA aura été constaté. Vous la retrouverez dans « Mes annonces ».",
+    "sector": {
+      "btp": "BTP",
+      "commerce": "Commerce",
+      "transport": "Transport",
+      "restauration": "Restauration",
+      "industrie": "Industrie",
+      "bureaux": "Bureaux",
+      "services": "Services"
+    },
+    "contract": {
+      "cdi": "CDI",
+      "cdd": "CDD",
+      "mission": "Mission"
+    },
+    "payment": {
+      "baridimob": "BaridiMob",
+      "virement": "Virement bancaire",
+      "email": "Justificatif par email"
+    },
+    "paymentHint": {
+      "baridimob": "Paiement mobile instantané — le plus rapide.",
+      "virement": "CCP, CPA, BNA, BEA… Le RIB vous est transmis après validation.",
+      "email": "Envoyez le justificatif de paiement par courriel."
+    },
+    "shortTitle": "Emploi"
   }
 }

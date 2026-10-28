@@ -29,6 +29,8 @@ import { api, ApiError } from '../src/api/client';
 import { AddPlaceSheet } from '../src/components/AddPlaceSheet';
 import { AssistantPanel } from '../src/components/AssistantPanel';
 import { CategoryChips } from '../src/components/CategoryChips';
+import { JobsSheet } from '../src/components/JobsSheet';
+import { PublishJobSheet } from '../src/components/PublishJobSheet';
 import { ConsentGate } from '../src/components/ConsentGate';
 import { Header } from '../src/components/Header';
 import { NavigationOverlay } from '../src/components/NavigationOverlay';
@@ -532,6 +534,10 @@ export default function MapScreen() {
   const [sosOpen, setSosOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [qiblaOpen, setQiblaOpen] = useState(false);
+  /* Module Emploi : la liste des offres, et le formulaire de publication. Deux etats separes
+   * parce que l'employeur revient a la liste apres avoir publie, et non a la carte. */
+  const [jobsOpen, setJobsOpen] = useState(false);
+  const [publishJobOpen, setPublishJobOpen] = useState(false);
   /* Arret de la recitation, pilote depuis l'exterieur du panneau : le lecteur ne depend plus
    * d'aucun ecran (voir src/quran/player.ts). */
   const arreterCoran = useQuranPlayer((s) => s.arreter);
@@ -2521,6 +2527,12 @@ export default function MapScreen() {
               setSearchFocused(false);
               setResultsOpen(true);
             }}
+            /* L'EMPLOI N'EST PAS UNE CATEGORIE DE LIEUX, et c'est pour cela qu'il est passe a
+               part. Les autres rubriques lancent une recherche d'adresses ; celle-ci ouvre un
+               module entier, avec ses propres offres, ses filtres et son formulaire. La placer
+               dans la meme rangee est ce que demande le client — c'est la que les gens
+               regardent — mais elle ne peut pas emprunter le meme chemin. */
+            onEmploi={() => setJobsOpen(true)}
           />
         ) : null}
         {!resultsVisible && permissionDenied ? (
@@ -2562,6 +2574,33 @@ export default function MapScreen() {
           colors={colors}
         />
       ) : null}
+
+      {/* MODULE EMPLOI (point 11 du client, 27 octobre). */}
+      <JobsSheet
+        visible={jobsOpen}
+        onClose={() => setJobsOpen(false)}
+        position={position}
+        onPublish={() => setPublishJobOpen(true)}
+        onNavigate={(offre) => {
+          /* « Itineraire » conduit a la fiche du lieu de l'offre, pas directement au guidage :
+             le conducteur y retrouve la duree, le choix voiture/pied et le bouton de depart,
+             comme pour n'importe quelle destination. Une offre d'emploi n'a pas a inventer un
+             second chemin vers la navigation. */
+          setJobsOpen(false);
+          openPlace({
+            name: offre.title,
+            displayName: offre.company ?? offre.title,
+            lat: offre.lat,
+            lon: offre.lon,
+            source: 'nominatim',
+          });
+        }}
+      />
+      <PublishJobSheet
+        visible={publishJobOpen}
+        onClose={() => setPublishJobOpen(false)}
+        position={position}
+      />
 
       <ReportMenu visible={reportMenuOpen} onClose={() => setReportMenuOpen(false)} onPick={submitReport} colors={colors} />
       <SosPanel

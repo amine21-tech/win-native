@@ -7,6 +7,15 @@ import { radius, spacing, typography, type Palette } from '../theme';
 
 type Props = {
   onPick: (dataQ: string, label: string) => void;
+  /**
+   * Ouvre le module Emploi (point 11 du client, 27 octobre).
+   *
+   * Il est passe A PART des autres rubriques, et non ajoute a CATEGORY_GROUPS, parce qu'il ne
+   * fait pas la meme chose : les autres lancent une recherche d'adresses, celui-ci ouvre un
+   * module entier avec ses offres, ses filtres et son formulaire de publication. Le ranger
+   * avec les categories aurait oblige a inventer un faux `dataQ` et a le detourner ensuite.
+   */
+  onEmploi?: () => void;
   colors: Palette;
 };
 
@@ -15,7 +24,7 @@ type Props = {
  * sous-categories, sauf s'il n'en a qu'une seule — elle est alors cherchee
  * directement, comme runCategorySearch()/le clic sur `.grp` en v83.
  */
-export function CategoryChips({ onPick, colors }: Props) {
+export function CategoryChips({ onPick, onEmploi, colors }: Props) {
   const { t } = useTranslation();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
@@ -34,6 +43,22 @@ export function CategoryChips({ onPick, colors }: Props) {
   return (
     <View style={styles.wrap}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+        {/* L'EMPLOI EN TETE DE RANGEE, et borde d'or plutot que du vert des autres : c'est une
+            rubrique payante et nouvelle, elle doit se distinguer de la recherche d'adresses
+            sans pour autant sortir de la rangee ou les gens regardent. */}
+        {onEmploi ? (
+          <Pressable
+            onPress={onEmploi}
+            accessibilityRole="button"
+            style={[styles.grp, { backgroundColor: colors.surface, borderColor: colors.gold }]}
+          >
+            <Text style={styles.emoji}>💼</Text>
+            <Text style={[typography.caption, styles.grpLabel, { color: colors.goldDeep }]}>
+              {t('jobs.shortTitle')}
+            </Text>
+          </Pressable>
+        ) : null}
+
         {CATEGORY_GROUPS.map((group) => {
           const isOn = group.key === openGroup;
           return (
