@@ -47,6 +47,16 @@ export const SECTEURS_EMPLOI = [
   { cle: 'services', emoji: '🏠' },
 ] as const;
 
+/** Une annonce vue par son auteur : il n'a besoin que de son titre et de son etat. */
+export type MyJobOffer = {
+  id: string;
+  sector: string;
+  title: string;
+  status: 'pending' | 'active' | 'rejected';
+  createdAt: string;
+  expiresAt: string | null;
+};
+
 export type JobOffer = {
   id: string;
   sector: string;
@@ -84,14 +94,24 @@ const mail = (a: string) => void Linking.openURL(`mailto:${a}`);
 export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }: Props) {
   const { t } = useTranslation();
   const [secteur, setSecteur] = useState<string | null>(null);
+  /* « Mes annonces » n'est pas un filtre de plus : c'est la seule facon pour un employeur de
+   * savoir ou en est ce qu'il a paye. Sans cet ecran, l'ecran de confirmation lui promettait
+   * un endroit qui n'existait pas. */
+  const [mesAnnonces, setMesAnnonces] = useState(false);
 
   const query = useQuery({
     queryKey: ['jobs', position?.lat, position?.lon, secteur],
-    enabled: visible && position != null,
+    enabled: visible && !mesAnnonces && position != null,
     queryFn: () =>
       api<{ items: JobOffer[]; radiusM: number }>(
         `/jobs?lat=${position!.lat}&lon=${position!.lon}${secteur ? `&sector=${secteur}` : ''}`,
       ),
+  });
+
+  const miennes = useQuery({
+    queryKey: ['jobs', 'mine'],
+    enabled: visible && mesAnnonces,
+    queryFn: () => api<{ items: MyJobOffer[] }>('/jobs/mine'),
   });
 
   const offres = useMemo(() => query.data?.items ?? [], [query.data]);
@@ -121,19 +141,46 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
             contentContainerStyle={styles.chips}
             keyboardShouldPersistTaps="handled"
           >
-            <Chip actif={secteur === null} libelle={t('jobs.all')} onPress={() => setSecteur(null)} />
+            <Chip
+              actif={!mesAnnonces && secteur === null}
+              libelle={t('jobs.all')}
+              onPress={() => {
+                setMesAnnonces(false);
+                setSecteur(null);
+              }}
+            />
             {SECTEURS_EMPLOI.map((s) => (
               <Chip
                 key={s.cle}
-                actif={secteur === s.cle}
+                actif={!mesAnnonces && secteur === s.cle}
                 libelle={`${s.emoji}  ${t(`jobs.sector.${s.cle}`)}`}
-                onPress={() => setSecteur(s.cle)}
+                onPress={() => {
+                  setMesAnnonces(false);
+                  setSecteur(s.cle);
+                }}
               />
             ))}
+            {/* Separe des secteurs par sa couleur : ce n'est pas un filtre sur les offres des
+                autres, c'est la liste des siennes. */}
+            <Chip
+              actif={mesAnnonces}
+              libelle={`📄  ${t('jobs.mine')}`}
+              onPress={() => setMesAnnonces(true)}
+            />
           </ScrollView>
 
           <ScrollView style={styles.liste} keyboardShouldPersistTaps="handled">
-            {position == null ? (
+            {mesAnnonces ? (
+              miennes.isLoading ? (
+                <ActivityIndicator color={VERT} style={{ marginTop: spacing.lg }} />
+              ) : miennes.isError ? (
+                <Text style={styles.vide}>{t('errors.unknown')}</Text>
+              ) : (miennes.data?.items.length ?? 0) === 0 ? (
+                <Text style={styles.vide}>{t('jobs.mineEmpty')}</Text>
+              ) : (
+                miennes.data!.items.map((a) => <MienneLigne key={a.id} annonce={a} />)
+              )
+            ) : position == null ? (
               <Text style={styles.vide}>{t('jobs.needPosition')}</Text>
             ) : query.isLoading ? (
               <ActivityIndicator color={VERT} style={{ marginTop: spacing.lg }} />
@@ -235,6 +282,40 @@ function CarteOffre({ offre, onNavigate }: { offre: JobOffer; onNavigate: (o: Jo
   );
 }
 
+/**
+ * Une de mes annonces, et surtout SON ETAT.
+ *
+ * C'est la seule information que l'employeur vient chercher : a-t-elle ete publiee, attend-elle
+ * encore mon versement, a-t-elle ete refusee. Le reste — secteur, titre — ne sert qu'a la
+ * reconnaitre parmi les siennes.
+ */
+function MienneLigne({ annonce }: { annonce: MyJobOffer }) {
+  const { t } = useTranslation();
+  const emoji = SECTEURS_EMPLOI.find((s) => s.cle === annonce.sector)?.emoji ?? '💼';
+  const couleur =
+    annonce.status === 'active' ? VERT : annonce.status === 'rejected' ? '#C0392B' : '#8A6A10';
+
+  return (
+    <View style={styles.carte}>
+      <View style={styles.carteTete}>
+        <Text style={styles.carteEmoji}>{emoji}</Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.carteTitre} numberOfLines={2}>
+            {annonce.title}
+          </Text>
+          <Text style={styles.carteEntreprise}>
+            {new Date(annonce.createdAt).toLocaleDateString()}
+            {annonce.expiresAt
+              ? ` · ${t('jobs.until', { when: new Date(annonce.expiresAt).toLocaleDateString() })}`
+              : ''}
+          </Text>
+        </View>
+      </View>
+      <Text style={[styles.etat, { color: couleur }]}>{t(`jobs.status.${annonce.status}`)}</Text>
+    </View>
+  );
+}
+
 function Tag({ texte, fort = false }: { texte: string; fort?: boolean }) {
   return (
     <View style={[styles.tag, fort ? { backgroundColor: `${OR}22` } : null]}>
@@ -300,6 +381,7 @@ const styles = StyleSheet.create({
   carteDistance: { color: VERT, fontSize: 13, fontWeight: '800' as const },
   carteDescription: { color: TEXTE_DOUX, fontSize: 12.5, lineHeight: 17 },
 
+  etat: { fontSize: 12.5, fontWeight: '800' as const },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   tag: { backgroundColor: PUCE, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 4 },
   tagTexte: { color: TEXTE_DOUX, fontSize: 11, fontWeight: '700' as const },

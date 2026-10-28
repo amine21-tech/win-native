@@ -607,6 +607,14 @@
       "virement": "CCP، CPA، BNA، BEA… نبعثولك الحساب بعد المصادقة.",
       "email": "ابعث وصل الخلاص بالإيميل."
     },
-    "shortTitle": "خدمة"
+    "shortTitle": "خدمة",
+    "mine": "إعلاناتي",
+    "mineEmpty": "ما نشرت حتى إعلان.",
+    "until": "حتى {{when}}",
+    "status": {
+      "pending": "⏳ يستنى الخلاص",
+      "active": "✅ منشور",
+      "rejected": "✖ مرفوض"
+    }
   }
 }

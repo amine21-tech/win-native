@@ -607,6 +607,14 @@
       "virement": "CCP, CPA, BNA, BEA… Le RIB vous est transmis après validation.",
       "email": "Envoyez le justificatif de paiement par courriel."
     },
-    "shortTitle": "Emploi"
+    "shortTitle": "Emploi",
+    "mine": "Mes annonces",
+    "mineEmpty": "Vous n’avez publié aucune annonce.",
+    "until": "jusqu’au {{when}}",
+    "status": {
+      "pending": "⏳ En attente de paiement",
+      "active": "✅ Publiée",
+      "rejected": "✖ Refusée"
+    }
   }
 }

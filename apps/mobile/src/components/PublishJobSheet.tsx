@@ -105,8 +105,30 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
     }
   };
 
+  /**
+   * Fermer remet le formulaire a zero APRES un envoi reussi, et seulement dans ce cas.
+   *
+   * La distinction compte. Apres un envoi, garder les champs ferait reapparaitre l'annonce
+   * precedente a la prochaine ouverture, et un employeur qui en publie deux a la suite
+   * republierait la premiere sans s'en apercevoir. Mais fermer SANS avoir envoye — par erreur,
+   * ou pour verifier un numero — ne doit rien effacer : il vient de taper huit champs.
+   */
   const fermer = () => {
-    setEnvoye(false);
+    if (envoye) {
+      setSecteur(null);
+      setTitre('');
+      setEntreprise('');
+      setContrat('cdi');
+      setSalaire('');
+      setDescription('');
+      setTelephone('');
+      setWhatsapp('');
+      setViber('');
+      setEmail('');
+      setPaiement('baridimob');
+      setEnvoye(false);
+    }
+    setErreur(null);
     onClose();
   };
 

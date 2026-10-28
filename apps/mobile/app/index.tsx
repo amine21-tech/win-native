@@ -2588,7 +2588,14 @@ export default function MapScreen() {
         visible={jobsOpen}
         onClose={() => setJobsOpen(false)}
         position={position}
-        onPublish={() => setPublishJobOpen(true)}
+        /* La liste se FERME avant que le formulaire ne s'ouvre, et se rouvre apres. Empiler
+           deux Modal d'Android l'un sur l'autre est une source connue d'ennuis — la seconde
+           fenetre n'apparait pas toujours au-dessus de la premiere — et l'on n'a rien a y
+           gagner : on ne consulte pas la liste pendant qu'on redige son annonce. */
+        onPublish={() => {
+          setJobsOpen(false);
+          setPublishJobOpen(true);
+        }}
         onNavigate={(offre) => {
           /* « Itineraire » conduit a la fiche du lieu de l'offre, pas directement au guidage :
              le conducteur y retrouve la duree, le choix voiture/pied et le bouton de depart,
@@ -2606,7 +2613,12 @@ export default function MapScreen() {
       />
       <PublishJobSheet
         visible={publishJobOpen}
-        onClose={() => setPublishJobOpen(false)}
+        /* On revient d'ou l'on vient : fermer le formulaire ramene a la liste des offres, et
+           non a la carte. L'employeur qui vient de publier veut verifier son annonce. */
+        onClose={() => {
+          setPublishJobOpen(false);
+          setJobsOpen(true);
+        }}
         position={position}
       />
 

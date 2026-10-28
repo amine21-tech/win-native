@@ -607,6 +607,14 @@
       "virement": "CCP, CPA, BNA, BEA… Bank details sent after approval.",
       "email": "Send the payment receipt by email."
     },
-    "shortTitle": "Jobs"
+    "shortTitle": "Jobs",
+    "mine": "My offers",
+    "mineEmpty": "You have not posted any offer.",
+    "until": "until {{when}}",
+    "status": {
+      "pending": "⏳ Awaiting payment",
+      "active": "✅ Published",
+      "rejected": "✖ Rejected"
+    }
   }
 }
