@@ -34,6 +34,38 @@ export function bearing(aLat: number, aLon: number, bLat: number, bLon: number):
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
+/**
+ * Point situe a `metres` d'un point de depart, dans la direction `capDeg`.
+ *
+ * Formule de navigation sur une sphere, et non un simple ajout de degres : a 36° de latitude,
+ * un degre de longitude ne vaut plus que huit cents metres environ contre mille onze cents pour
+ * un degre de latitude. Ignorer cela decalerait le point de plusieurs dizaines de metres vers
+ * l'est ou l'ouest — ce qui, pour raccrocher un point a la bonne voie d'une autoroute, suffit a
+ * se tromper de route.
+ */
+export function pointAu(
+  lat: number,
+  lon: number,
+  capDeg: number,
+  metres: number,
+): { lat: number; lon: number } {
+  const R = 6_371_000;
+  const d = metres / R;
+  const cap = toRad(capDeg);
+  const lat1 = toRad(lat);
+  const lon1 = toRad(lon);
+
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(cap));
+  const lon2 =
+    lon1 +
+    Math.atan2(
+      Math.sin(cap) * Math.sin(d) * Math.cos(lat1),
+      Math.cos(d) - Math.sin(lat1) * Math.sin(lat2),
+    );
+
+  return { lat: toDeg(lat2), lon: ((toDeg(lon2) + 540) % 360) - 180 };
+}
+
 /** Distance formatee pour l'affichage : « 850 m », « 12,4 km ». */
 export function formatDistance(meters: number, locale = 'fr'): string {
   if (!Number.isFinite(meters) || meters < 0) return '—';

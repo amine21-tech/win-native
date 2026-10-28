@@ -12,7 +12,7 @@ import {
   type RouteLocation,
   type RouteMode,
 } from './routing';
-import { haversine, type Language } from '../shared';
+import { bearing, haversine, pointAu, type Language } from '../shared';
 import { useSession } from '../store/session';
 
 type Coords = { lat: number; lon: number };
@@ -68,6 +68,27 @@ const EST_SORTIE = new Set([17, 18, 19, 20, 21]);
 
 /** Depassement au-dela duquel une sortie est consideree comme ratee (point 10B du client). */
 const SORTIE_RATEE_M = 30;
+
+/**
+ * PRE-CALCUL ANTICIPATIF (point 10C du client, 27 octobre).
+ *
+ * A un kilometre d'une sortie, on calcule DEJA l'itineraire qu'il faudrait si on la ratait, et
+ * on le garde de cote. Si elle est effectivement ratee, on l'affiche sans aucun appel reseau —
+ * c'est ce qui fait passer le recalcul de deux ou trois secondes a l'affichage immediat que le
+ * client demande.
+ *
+ * D'OU PART CET ITINERAIRE, PUISQUE LE CONDUCTEUR N'A PAS ENCORE RATE SA SORTIE ? D'un point
+ * DEVINE : celui de la sortie, prolonge de trois cents metres dans le sens de la voie rapide.
+ * C'est exactement la ou l'on se trouve quand on vient de passer devant sans la prendre, et
+ * Valhalla raccrochera ce point a la route reelle.
+ *
+ * La devinette n'est pas un pari : l'itineraire du cache est affiche TOUT DE SUITE, puis un
+ * calcul exact depuis la position reelle part en arriere-plan et le remplace des qu'il arrive.
+ * Le conducteur voit une reponse immediate, et elle se corrige d'elle-meme en une seconde.
+ */
+const PRECALCUL_DISTANCE_M = 1_000;
+/** Longueur dont on prolonge la voie rapide au-dela de la sortie, pour deviner le point de repli. */
+const PRECALCUL_DEPASSEMENT_M = 300;
 
 /**
  * SEUIL D'ECART ET TEMPS DE CONFIRMATION, SELON LA VITESSE (point 5A du client).
@@ -207,6 +228,22 @@ export function useNavigationSession(params: {
    * Elle a donc besoin de la langue parlee et du reglage de voix par REFERENCE : les lire
    * directement figerait les valeurs du premier rendu pour toute la navigation. */
   const direSortieRateeRef = useRef<() => void>(() => {});
+
+  /**
+   * Itineraire de repli prepare a l'avance, et la sortie pour laquelle il l'a ete.
+   *
+   * `pour` est l'index de forme de la manoeuvre visee : il identifie la sortie sans ambiguite
+   * et permet de jeter le cache des qu'on en vise une autre. `enCours` empeche de relancer le
+   * meme calcul a chaque mesure GPS pendant tout le kilometre d'approche.
+   */
+  const repliRef = useRef<{ pour: number | null; route: Route | null; enCours: boolean }>({
+    pour: null,
+    route: null,
+    enCours: false,
+  });
+  /* Le suivi tourne hors du rendu React : il appelle le pre-calcul par reference, sinon il
+   * figerait la version construite au premier rendu, avec sa destination d'alors. */
+  const preparerRepliRef = useRef<(depart: Coords, pour: number) => Promise<void>>(async () => {});
   const initialRouteRef = useRef<Route | null>(null);
   const getSpeedRef = useRef(getSpeedMps);
   const getHeadingRef = useRef(getHeading);
@@ -286,6 +323,40 @@ export function useNavigationSession(params: {
     },
     [destination, mode, lang, applyRoute],
   );
+
+  /**
+   * Prepare l'itineraire de repli d'une sortie, en silence (point 10C du client).
+   *
+   * Rien n'est affiche, aucun indicateur de recalcul ne s'allume : le conducteur ne doit pas
+   * voir l'application douter d'une sortie qu'il n'a pas encore ratee. Un echec est ignore —
+   * si le repli n'est pas pret au moment du besoin, on retombe simplement sur le recalcul
+   * ordinaire, qui fonctionnait deja.
+   */
+  const preparerRepli = useCallback(
+    async (depart: Coords, pour: number) => {
+      if (!destination) return;
+      repliRef.current = { pour, route: null, enCours: true };
+      try {
+        const { primary } = await fetchRoute({
+          from: depart,
+          to: destination,
+          mode,
+          narrationLanguage: lang === 'en' ? 'en-US' : 'fr-FR',
+          alternates: 0,
+          prefs: prefsRef.current,
+          quick: true,
+          avoid: getAvoidRef.current?.() ?? [],
+        });
+        // La sortie visee a pu changer pendant l'appel : on ne garde le resultat que s'il
+        // concerne toujours celle qu'on surveille.
+        if (repliRef.current.pour === pour) repliRef.current = { pour, route: primary, enCours: false };
+      } catch {
+        repliRef.current = { pour, route: null, enCours: false };
+      }
+    },
+    [destination, mode, lang],
+  );
+  preparerRepliRef.current = preparerRepli;
 
   // Changement de langue PENDANT le trajet : les consignes basculent tout de suite grace aux
   // phrases locales (localizedInstruction), puis l'itineraire est recalcule depuis la position
@@ -407,6 +478,32 @@ export function useNavigationSession(params: {
      * etait une sortie ou une bretelle, et qu'on l'a depassee de plus de trente metres sans
      * l'avoir prise, c'est rate. On recalcule tout de suite, sans attendre, et on le DIT —
      * parce qu'un conducteur qui vient de rater sa sortie cherche deja ce qu'il doit faire. */
+    /* A UN KILOMETRE D'UNE SORTIE, on prepare deja l'itineraire du cas ou elle serait ratee
+     * (point 10C). Le point de depart devine est celui de la sortie prolonge de trois cents
+     * metres dans le sens de la voie rapide — la ou l'on se trouve quand on vient de passer
+     * devant sans la prendre. */
+    const manoeuvreSuivante = currentRoute.maneuvers[idx + 1];
+    if (manoeuvreSuivante && EST_SORTIE.has(manoeuvreSuivante.type)) {
+      const marque = manoeuvreSuivante.shapeIndex;
+      const restantJusquA = (currentRoute.cumulativeM[marque] ?? 0) - traveled;
+      const dejaPret = repliRef.current.pour === marque;
+      if (restantJusquA > 0 && restantJusquA <= PRECALCUL_DISTANCE_M && !dejaPret) {
+        const forme = currentRoute.geometry;
+        const avant = forme[Math.max(0, marque - 2)];
+        const sortie = forme[marque];
+        if (avant && sortie) {
+          // Le cap de la VOIE RAPIDE, pris juste avant la sortie : c'est la direction qu'on
+          // garde si on ne la prend pas.
+          const cap = bearing(avant[1], avant[0], sortie[1], sortie[0]);
+          const repli = pointAu(sortie[1], sortie[0], cap, PRECALCUL_DEPASSEMENT_M);
+          void preparerRepliRef.current(repli, marque);
+        }
+      }
+    } else if (repliRef.current.pour !== null && !repliRef.current.enCours) {
+      // Plus aucune sortie en vue : le repli prepare n'a plus d'objet.
+      repliRef.current = { pour: null, route: null, enCours: false };
+    }
+
     const manoeuvreDepassee = currentRoute.maneuvers[idx];
     if (
       manoeuvreDepassee &&
@@ -422,6 +519,16 @@ export function useNavigationSession(params: {
       offRouteDistanceRef.current = 0;
       offRouteSinceRef.current = 0;
       direSortieRateeRef.current();
+
+      /* LE REPLI PREPARE S'AFFICHE TOUT DE SUITE, sans appel reseau — c'est tout l'objet du
+       * pre-calcul. Il part d'un point DEVINE, a quelques dizaines de metres pres : on lance
+       * donc aussitot le calcul exact depuis la position reelle, qui le remplacera en une
+       * seconde. Le conducteur voit une reponse immediate, et elle se corrige d'elle-meme. */
+      const repli = repliRef.current;
+      if (repli.pour === manoeuvreDepassee.shapeIndex && repli.route) {
+        applyRoute(repli.route);
+        repliRef.current = { pour: null, route: null, enCours: false };
+      }
       void loadRoute(position);
       return;
     }
