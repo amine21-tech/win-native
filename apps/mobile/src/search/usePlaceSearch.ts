@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
+import { usePlaces } from '../store/places';
 import {
   CATEGORY_OSM,
   CATEGORY_OSM_ALT,
@@ -12,6 +13,8 @@ import {
   countryLabel,
   mergeCurated,
   normalizeCity,
+  classerPoint18,
+  PERIMETRE_VIP_M,
   rankSearchResults,
   resolveCategoryQuery,
   type Language,
@@ -346,7 +349,12 @@ export type SearchOutcome = {
   complet: boolean;
 };
 
-async function runTextSearch(qRaw: string, here: Coords | null, lang: Language): Promise<SearchOutcome> {
+async function runTextSearch(
+  qRaw: string,
+  here: Coords | null,
+  lang: Language,
+  vip: Coords[],
+): Promise<SearchOutcome> {
   /* LA SAISIE EST REMISE D'APLOMB AVANT D'ETRE CHERCHEE.
    *
    * Deux passes, dans cet ordre. La liste ecrite a la main d'abord : elle est sure, c'est nous
@@ -372,8 +380,36 @@ async function runTextSearch(qRaw: string, here: Coords | null, lang: Language):
    * declenchait que si la liste finale etait VIDE, donc jamais des qu'une seule de nos fiches
    * correspondait. C'est precisement le cas ou l'utilisateur ne voyait plus que des fiches WIN. */
 
+  /* ORDRE STRICT DU POINT 18 : la ville exacte, puis les adresses VIP du perimetre, puis le
+   * reste. La remontee des fiches WIN par le nom (`hoistOwnPlaces`) ne s'applique plus qu'au
+   * TROISIEME palier — c'est elle qui delogeait la ville de Tipaza au profit d'un commerce
+   * << Tipaza Pneus >> enregistre a Alger. */
+  const classe = classerPoint18(hoistOwnPlaces(ranked, q), {
+    estVilleExacte: (r) => r.exactCity === true,
+    estVip: (r) => estEnregistre(r, vip),
+    distanceM: (r) => r.distanceM,
+  });
+
   // Une liste n'est complete que si LES DEUX sources ont repondu.
-  return partition(hoistOwnPlaces(ranked, q), win.ok && dehors.ok);
+  return partition(classe, win.ok && dehors.ok);
+}
+
+/**
+ * Ce resultat est-il une adresse que l'utilisateur a lui-meme enregistree ?
+ *
+ * LE RAPPROCHEMENT SE FAIT SUR LES COORDONNEES, jamais sur le nom. Un favori est enregistre
+ * avec le libelle qu'avait le resultat au moment ou on l'a mis de cote ; le geocodeur, lui,
+ * change ses libelles sans prevenir — << Pharmacie Centrale >> devient << Pharmacie Centrale,
+ * Rue Didouche Mourad >>. Comparer les noms ferait donc perdre le favori au premier
+ * rafraichissement de la base OpenStreetMap, et sans que rien ne le signale.
+ *
+ * Trente metres de tolerance : un meme lieu renvoye par deux sources differentes n'a jamais
+ * exactement les memes coordonnees, et deux lieux distincts sont rarement aussi proches.
+ */
+const TOLERANCE_VIP_M = 30;
+
+function estEnregistre(r: { lat: number; lon: number }, vip: Coords[]): boolean {
+  return vip.some((v) => haversineM({ lat: v.lat, lon: v.lon }, r) <= TOLERANCE_VIP_M);
 }
 
 /**
@@ -404,12 +440,17 @@ function hoistOwnPlaces<T extends GeocodedResult>(results: T[], q: string): T[] 
   return [...own, ...results.filter((r) => !own.includes(r))];
 }
 
-async function search(qRaw: string, here: Coords | null, lang: Language): Promise<SearchOutcome> {
+async function search(
+  qRaw: string,
+  here: Coords | null,
+  lang: Language,
+  vip: Coords[],
+): Promise<SearchOutcome> {
   const category = resolveCategoryQuery(qRaw);
   if (category && here) {
     return runCategorySearch(category.key, category.extraText, qRaw, here, lang);
   }
-  return runTextSearch(qRaw, here, lang);
+  return runTextSearch(qRaw, here, lang, vip);
 }
 
 /**
@@ -480,7 +521,12 @@ export function usePlaceSearch(here: Coords | null, lang: Language) {
       // frappe alors que des resultats utilisables sont sous les yeux.
       if (!cached) setLoading(true);
       try {
-        const value = await search(q, here, lang);
+        /* LES ADRESSES VIP SONT LUES AU MOMENT DE LA RECHERCHE, par `getState` et non par un
+         * abonnement : s'abonner ferait relancer la recherche a chaque ajout de favori, y
+         * compris pendant que l'utilisateur tape. Leur contenu ne change pas entre deux
+         * frappes. */
+        const vip = usePlaces.getState().favorites.map((f) => ({ lat: f.lat, lon: f.lon }));
+        const value = await search(q, here, lang, vip);
         if (id !== requestId.current) return; // une frappe plus recente a devance cette reponse
         // Une liste dont NOS fiches manquent n'entre pas en cache : voir fetchWinPlaces.
         if (value.complet) cacheSet(cacheKey, value);

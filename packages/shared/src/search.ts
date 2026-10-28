@@ -684,3 +684,68 @@ export function corrigerLieu(saisie: string): string {
   }
   return saisie;
 }
+
+/* ------------------------------------------------------------------ */
+/* Point 18 du client : villes d'abord, puis adresses VIP              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * ORDRE DE CLASSEMENT STRICT (point 18, synthese du 29 octobre).
+ *
+ *   1. la VILLE / commune / wilaya dont le nom correspond exactement ;
+ *   2. les ADRESSES VIP de l'utilisateur situees dans le perimetre ;
+ *   3. tout le reste, du plus proche au plus eloigne.
+ *
+ * LE DEFAUT QUE LE CLIENT DECRIT N'EST PAS CELUI QU'IL CROIT. Il ecrit que << des
+ * etablissements nommes Tipaza mais situes a Alger apparaissent avant la ville de Tipaza >>, et
+ * en conclut que le classement ignore les villes. Il ne les ignore pas : `rankSearchResults`
+ * les place en tete depuis le debut. Ce qui les en delogeait, c'est une remontee appliquee
+ * APRES lui — celle qui fait passer devant les fiches de notre propre base dont le nom contient
+ * ce qui a ete tape. Un commerce << Tipaza Pneus >> enregistre a Alger satisfait cette regle, et
+ * passait donc devant la ville.
+ *
+ * Les deux regles sont bonnes separement. C'est leur ordre qui ne l'etait pas : la remontee des
+ * fiches ne doit jouer qu'a l'interieur de ce qui n'est pas une ville exacte.
+ *
+ * LE PERIMETRE DES VIP n'est pas un detail d'optimisation. Un favori enregistre a Oran n'a rien
+ * a faire en tete d'une recherche faite a Annaba : il repondrait au nom tape, mais pas au
+ * besoin. Au-dela du perimetre, il redescend dans le lot commun et se classe a la distance,
+ * comme n'importe quel resultat.
+ */
+export const PERIMETRE_VIP_M = 50_000;
+
+export type ClassementPoint18Options<T> = {
+  /** Vrai si ce resultat est une ville dont le nom correspond exactement a la saisie. */
+  estVilleExacte: (r: T) => boolean;
+  /** Vrai si ce resultat est une adresse enregistree par l'utilisateur. */
+  estVip: (r: T) => boolean;
+  /** Distance a l'utilisateur, en metres — `undefined` si la position est inconnue. */
+  distanceM: (r: T) => number | undefined;
+};
+
+export function classerPoint18<T>(resultats: T[], o: ClassementPoint18Options<T>): T[] {
+  const villes: T[] = [];
+  const vip: T[] = [];
+  const reste: T[] = [];
+
+  for (const r of resultats) {
+    if (o.estVilleExacte(r)) {
+      villes.push(r);
+      continue;
+    }
+    const d = o.distanceM(r);
+    /* Sans position connue, on ne peut pas dire si un favori est << dans le perimetre >>. On
+     * le traite alors comme VIP : c'est une adresse que l'utilisateur a lui-meme enregistree,
+     * et dans le doute elle lui est plus utile qu'un resultat anonyme. */
+    if (o.estVip(r) && (d === undefined || d <= PERIMETRE_VIP_M)) {
+      vip.push(r);
+      continue;
+    }
+    reste.push(r);
+  }
+
+  /* CHAQUE PALIER GARDE L'ORDRE QU'IL AVAIT. Les trier a nouveau ici defferait le travail de
+   * `rankSearchResults` — qui departage deja deux villes homonymes par leur taille puis par
+   * leur distance, et le reste par la distance seule. */
+  return [...villes, ...vip, ...reste];
+}
