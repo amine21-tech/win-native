@@ -101,7 +101,9 @@
     "detourNo": "No, keep going",
     "detourLocating": "Identifying the point…",
     "detourDone": "Detour under way.",
-    "resumeOriginal": "Resume the original route"
+    "resumeOriginal": "Resume the original route",
+    "slowConnection": "Check your connection…",
+    "noRoute": "No route available — check the road."
   },
   "consent": {
     "title": "Before you start",

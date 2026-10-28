@@ -49,15 +49,27 @@ function Point({ retard }: { retard: number }) {
   return <Animated.View style={[styles.point, { opacity: valeur, transform: [{ scale: valeur }] }]} />;
 }
 
-export function RecalcToast({ visible, top }: { visible: boolean; top: number }) {
+export function RecalcToast({
+  visible,
+  lent,
+  top,
+}: {
+  visible: boolean;
+  /** Le calcul depasse trois secondes : presque toujours le reseau (point 15.A du client). */
+  lent?: boolean;
+  top: number;
+}) {
   const { t } = useTranslation();
   if (!visible) return null;
 
   return (
     <View style={[styles.wrap, { top }]} pointerEvents="none">
-      <View style={styles.pastille}>
+      {/* LA PASTILLE CHANGE DE MOT, PAS DE FORME. Passer de l'orange au rouge, ou grossir,
+          ferait croire a une panne : le calcul continue, et il aboutit presque toujours. Seul
+          le texte dit ce qui se passe, et les trois points continuent de tourner. */}
+      <View style={[styles.pastille, lent ? styles.pastilleLente : null]}>
         <Text style={styles.texte} numberOfLines={1}>
-          {t('nav.recalculating')}
+          {t(lent ? 'nav.slowConnection' : 'nav.recalculating')}
         </Text>
         <View style={styles.points}>
           <Point retard={0} />
@@ -85,6 +97,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
   },
+  /* Un vert plus sombre, et rien d'autre : assez pour marquer que quelque chose a change,
+   * trop peu pour alarmer un conducteur qui n'a rien a faire de cette information sinon
+   * patienter. */
+  pastilleLente: { backgroundColor: '#07401F' },
   texte: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' as const },
   points: { flexDirection: 'row', gap: 5, alignItems: 'center' },
   point: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#FFFFFF' },

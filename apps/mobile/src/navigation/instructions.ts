@@ -221,6 +221,28 @@ export function phraseRouteBloquee(lang: Language): string {
   return ROUTE_BLOQUEE[lang] ?? ROUTE_BLOQUEE.fr;
 }
 
+/**
+ * Confirmation vocale qu'un nouvel itineraire est pret (point 15.A du client).
+ *
+ * POURQUOI ELLE MANQUAIT. La consigne de depart n'est dite QU'UNE FOIS, au lancement du
+ * guidage : apres un recalcul, l'application retombait donc dans le silence. Le conducteur
+ * voyait le trace changer sous ses yeux sans savoir si le calcul avait abouti ou s'il regardait
+ * l'ancien trajet — au moment precis ou il a le plus besoin d'etre rassure.
+ *
+ * Elle n'est dite qu'apres un RECALCUL, jamais au premier calcul : au depart, la consigne de
+ * conduite suit immediatement et dit deja que le guidage a pris.
+ */
+const RECALCULE: Record<Language, string> = {
+  fr: 'Itinéraire recalculé.',
+  en: 'Route recalculated.',
+  ar: 'تمت إعادة حساب المسار.',
+  dz: 'رانا حسبنا الطريق من جديد.',
+};
+
+export function phraseItineraireRecalcule(lang: Language): string {
+  return RECALCULE[lang] ?? RECALCULE.fr;
+}
+
 /** Instruction dans la langue active : texte Valhalla en fr/en, phrase construite en ar/dz. */
 export function localizedInstruction(maneuver: Maneuver, lang: Language): string {
   // Le texte de Valhalla est le plus riche (numero de sortie de rond-point, direction des

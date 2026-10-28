@@ -101,7 +101,9 @@
     "detourNo": "لا، كمّل",
     "detourLocating": "راني نشوف واش هي البلاصة…",
     "detourDone": "راك تحوّل.",
-    "resumeOriginal": "ارجع للطريق الأصلي"
+    "resumeOriginal": "ارجع للطريق الأصلي",
+    "slowConnection": "شوف الاتصال تاعك…",
+    "noRoute": "ما كانش طريق — شوف الطريق."
   },
   "consent": {
     "title": "قبل ما نبداو",

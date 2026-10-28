@@ -1,15 +1,15 @@
 import { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { localizedInstruction, maneuverArrow, roadRef } from '../navigation/instructions';
 import type { Maneuver } from '../navigation/routing';
 import { LaneGuidance } from './LaneGuidance';
+import { PanneauDirection } from './PanneauDirection';
 import { RecalcToast } from './RecalcToast';
 import type { FixListener } from '../navigation/useLiveLocation';
 import { formatDistance, formatDuration, type Language } from '../shared';
 import { SpeedBadge } from './SpeedBadge';
 import { SpeedLimitBadge } from './SpeedLimitBadge';
-import { radius, spacing, titleFontFor, typography, type Palette } from '../theme';
+import { radius, spacing, typography, type Palette } from '../theme';
 import { formatClock24, useClock } from '../utils/clock';
 
 /** Ecart entre les cartes flottantes et le bord de l'ecran, en paysage. */
@@ -18,8 +18,6 @@ const CARD_MARGIN = spacing.sm;
 const BADGE_GAP = 48;
 
 
-/** Hauteur de la languette « puis », sous laquelle les voies doivent passer. */
-const THEN_TAB_H = 40;
 
 type Props = {
   active: boolean;
@@ -36,6 +34,10 @@ type Props = {
   subscribeFix: (listener: FixListener) => () => void;
   remaining: { distanceM: number; durationS: number } | null;
   recalculating: boolean;
+  /** Le recalcul depasse trois secondes (point 15.A). */
+  recalculLent?: boolean;
+  /** Aucun itineraire n'a pu etre calcule (point 15.A). */
+  erreurItineraire?: boolean;
   lang: Language;
   onEnd: () => void;
   /** Ouvre la liste complete des etapes. Le geste attendu sur une carte de navigation est
@@ -88,6 +90,8 @@ export const NavigationOverlay = memo(function NavigationOverlay({
   subscribeFix,
   remaining,
   recalculating,
+  recalculLent,
+  erreurItineraire,
   lang,
   onEnd,
   onShowSteps,
@@ -130,6 +134,13 @@ export const NavigationOverlay = memo(function NavigationOverlay({
   const distanceToUpcoming = nextManeuver ? distanceToNextManeuverM : null;
 
   const eta = remaining ? new Date(Date.now() + remaining.durationS * 1000) : null;
+
+  /* Distance qui SEPARE la manoeuvre en cours de la suivante, et non la distance a la
+   * suivante. C'est elle qui dit si les deux virages s'enchainent : deux manoeuvres a trente
+   * metres l'une de l'autre doivent etre annoncees ensemble, meme si la premiere est encore
+   * loin devant. */
+  const ecartSuivanteM =
+    nextManeuver && followingManeuver ? followingManeuver.startM - nextManeuver.startM : null;
   /** Haut du bandeau : colle au bord en portrait (il passe sous la barre d'etat), flottant
    * en paysage. La languette « puis » s'accroche dessous dans les deux cas. */
   const bannerTop = landscape ? topInset + CARD_MARGIN : 0;
@@ -154,38 +165,16 @@ export const NavigationOverlay = memo(function NavigationOverlay({
             : { paddingTop: topInset + spacing.md },
         ]}
       >
-        {arrived ? (
-          <Text style={styles.instruction}>{t('nav.arrived')}</Text>
-        ) : (
-          <View style={styles.instructionRow}>
-            <Text style={styles.arrow}>{maneuverArrow(nextManeuver.type)}</Text>
-            <View style={styles.instructionTextWrap}>
-              <View style={styles.distanceRow}>
-                {distanceToUpcoming != null ? (
-                  <Text style={styles.distanceToNext}>{formatDistance(distanceToUpcoming)}</Text>
-                ) : null}
-                {/* Pastille du numero de route, comme sur les panneaux : c'est « N12 » qui est
-                    ecrit dehors, pas le nom complet de l'autoroute. */}
-                {roadRef(nextManeuver) ? (
-                  <View style={styles.shield}>
-                    <Text style={styles.shieldText}>{roadRef(nextManeuver)}</Text>
-                  </View>
-                ) : null}
-              </View>
-              {/* Trois lignes et non deux, et la taille s'ajuste au besoin : « Gardez la gauche
-                  pour rester sur Autoroute Alger–Tizi Ouzou » se terminait par des points de
-                  suspension, ce qui coupait justement le nom de la voie a prendre. */}
-              <Text
-                style={[styles.instruction, { fontFamily: titleFontFor(lang) }]}
-                numberOfLines={3}
-                adjustsFontSizeToFit
-                minimumFontScale={0.78}
-              >
-                {localizedInstruction(nextManeuver, lang)}
-              </Text>
-            </View>
-          </View>
-        )}
+        {/* LA CONSIGNE A QUITTE CE BANDEAU (point 16.A du client, 29 octobre) : elle vit
+            desormais en bas de l'ecran, avec une fleche de 80 points et le nom de la rue —
+            voir PanneauDirection.
+
+            CE BANDEAU RESTE, et ce n'est pas une hesitation : il porte trois choses que le
+            client a demandees ailleurs et qui n'ont rien a voir avec la consigne — l'horloge
+            visible en permanence (chantier #22), l'heure d'arrivee avec la distance restante,
+            et les fleches de voies cinq cents metres avant une bifurcation, que le point 16.B
+            veut explicitement EN HAUT. Le vider entierement aurait fait disparaitre tout
+            cela. */}
 
         {/* Heure courante, seule : l'heure d'ARRIVEE a rejoint le cadre du bas, sur la meme
             ligne que la distance. Le client demande l'horloge visible en permanence
@@ -204,7 +193,19 @@ export const NavigationOverlay = memo(function NavigationOverlay({
 
         {/* La pastille de recalcul, posee SOUS le bandeau et par-dessus la carte : elle dit que
             l'application travaille sans effacer la consigne. Voir RecalcToast. */}
-        <RecalcToast visible={recalculating} top={bannerHeight + spacing.sm} />
+        <RecalcToast visible={recalculating} lent={recalculLent} top={bannerHeight + spacing.sm} />
+
+        {/* ECHEC DU CALCUL (point 15.A). Il n'etait affiche NULLE PART : l'application
+            renoncait en silence, la pastille disparaissait, et le conducteur restait avec
+            l'ancien trace sans savoir qu'il ne menait plus nulle part. Rouge, parce que c'est
+            le seul cas des trois ou il y a vraiment quelque chose a faire. */}
+        {erreurItineraire && !recalculating ? (
+          <View style={[styles.echec, { top: bannerHeight + spacing.sm }]} pointerEvents="none">
+            <Text style={styles.echecTexte} numberOfLines={2}>
+              {t('nav.noRoute')}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.clockRow}>
           <Text style={styles.clockItem}>🕐 {formatClock24(now)}</Text>
@@ -220,28 +221,18 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         <View style={styles.grip} />
       </Pressable>
 
-      {/* « Puis » : la manoeuvre d'apres, en languette accrochee SOUS le bandeau et alignee a
-          gauche, comme sur les cartes de navigation courantes — et non en rangee pleine
-          largeur, qui donnait a la seconde consigne le meme poids visuel que la premiere.
-          Elle n'apparait qu'a moins de 600 m : plus loin, elle n'apporte rien. */}
-      {!arrived && followingManeuver && distanceToUpcoming != null && distanceToUpcoming < 600 ? (
-        <View
-          style={[styles.thenWrap, { top: bannerTop + bannerHeight, left: landscape ? leftInset + CARD_MARGIN : 0 }]}
-          pointerEvents="none"
-        >
-          <View
-            style={[
-              styles.thenTab,
-              { backgroundColor: colors.accentDark },
-              landscape ? { borderBottomLeftRadius: radius.md } : null,
-            ]}
-          >
-            <Text style={styles.thenLabel}>{t('nav.then')}</Text>
-            <Text style={styles.thenArrow}>{maneuverArrow(followingManeuver.type)}</Text>
-          </View>
-        </View>
-      ) : null}
-
+      {/* PANNEAU DE DIRECTION, EN BAS (point 16.A). La languette « puis » qui pendait sous le
+          bandeau a disparu : la deuxieme consigne est maintenant DANS le panneau, sous la
+          premiere et en plus petit, exactement comme le demande le document. */}
+      <PanneauDirection
+        maneuver={nextManeuver}
+        suivante={followingManeuver}
+        distanceM={distanceToUpcoming}
+        ecartSuivanteM={ecartSuivanteM}
+        lang={lang}
+        arrived={arrived}
+        bottom={(bottomOpen ? bottomBarHeight : bottomInset) + spacing.md}
+      />
 
       {/* Compteur de vitesse et limite reglementaire, EN HAUT A GAUCHE et l'un sous l'autre,
           comme sur le site (`.speed-badge` puis `.limit-badge`). Ils etaient en bas, et un
@@ -466,6 +457,22 @@ export const NavigationOverlay = memo(function NavigationOverlay({
 });
 
 const styles = StyleSheet.create({
+  echec: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    backgroundColor: '#C0392B',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  echecTexte: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' as const, textAlign: 'center' },
+
   topBanner: {
     position: 'absolute',
     top: 0,
@@ -474,39 +481,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
   },
-  instructionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  arrow: { fontSize: 34, color: '#fff' },
-  instructionTextWrap: { flex: 1 },
-  distanceToNext: { color: 'rgba(255,255,255,0.9)', fontSize: 15, fontWeight: '800' as const },
-  instruction: { color: '#fff', fontSize: 21, lineHeight: 26 },
-  distanceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
-  shield: {
-    borderWidth: 1.5,
-    borderColor: '#fff',
-    borderRadius: 5,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-  shieldText: {
-    color: '#fff',
-    fontSize: 12.5,
-    fontWeight: '800' as const,
-    letterSpacing: 0.4,
-    fontVariant: ['tabular-nums'],
-  },
-  thenWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'flex-start' },
-  thenTab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingLeft: spacing.lg,
-    paddingRight: spacing.md,
-    paddingVertical: 7,
-    borderBottomRightRadius: radius.md,
-  },
-  thenLabel: { color: 'rgba(255,255,255,0.78)', fontSize: 13, fontWeight: '700' as const },
-  thenArrow: { color: '#fff', fontSize: 18 },
+  /* Les styles de la consigne — fleche, instruction, ecusson de route, languette « puis » —
+   * ont suivi la consigne dans PanneauDirection. Les laisser ici aurait fait croire que ce
+   * bandeau l'affiche encore. */
   clockRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

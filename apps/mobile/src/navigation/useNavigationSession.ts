@@ -1,5 +1,5 @@
 import { speakGuidance, stopSpeaking } from '../speech/voice';
-import { phraseRouteBloquee, phraseSortieRatee } from './instructions';
+import { phraseItineraireRecalcule, phraseRouteBloquee, phraseSortieRatee } from './instructions';
 import { useSpokenLanguage } from '../speech/useSpokenLanguage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { localizedInstruction, lowerFirst, spokenDistance } from './instructions';
@@ -56,6 +56,15 @@ const OFF_ROUTE_SCORE_TO_RECALC = 6;
  * en chaine, chaque nouveau trace etant aussitot juge abandonne. Six secondes laissent au
  * conducteur le temps de s'engager vraiment sur le trajet propose avant qu'on en doute. */
 const RECALC_COOLDOWN_MS = 6_000;
+
+/**
+ * Au-dela, un recalcul est ANORMALEMENT lent et on le dit (point 15.A du client).
+ *
+ * Trois secondes, sa valeur. Un recalcul Valhalla prend moins de deux secondes, meme sur une
+ * 3G algerienne : au-dela, ce n'est presque jamais le calcul, c'est le reseau. En deca,
+ * l'attente est normale et l'annoncer ferait douter sans raison.
+ */
+const RECALCUL_LENT_MS = 3_000;
 
 /**
  * Types de manoeuvre Valhalla qui designent une BRETELLE ou une SORTIE.
@@ -209,6 +218,19 @@ export function useNavigationSession(params: {
    * couper l'itineraire en deux : la part deja parcourue et celle qui reste. */
   const [progress, setProgress] = useState<RouteLocation | null>(null);
   const [recalculating, setRecalculating] = useState(false);
+  /**
+   * Le recalcul dure-t-il ANORMALEMENT longtemps ? (point 15.A du client : trois secondes.)
+   *
+   * Separe de `recalculating` parce qu'il ne dit pas la meme chose. Le premier dit << je
+   * travaille >>, ce qui rassure ; celui-ci dit << ca ne devrait pas prendre si longtemps >>,
+   * ce qui informe. Les confondre obligerait a choisir entre inquieter tout de suite et ne
+   * jamais rien dire.
+   *
+   * Trois secondes, valeur du client : en deca, l'attente est normale et l'annoncer ferait
+   * douter sans raison. Au-dela, c'est presque toujours le reseau — un recalcul Valhalla prend
+   * moins de deux secondes, meme sur une 3G algerienne.
+   */
+  const [recalculLent, setRecalculLent] = useState(false);
   const [error, setError] = useState(false);
 
   const routeRef = useRef<Route | null>(null);
@@ -300,6 +322,11 @@ export function useNavigationSession(params: {
       if (!destination) return;
       const evitement = getAvoidRef.current?.() ?? { points: [], blocage: false };
       setRecalculating(true);
+      setRecalculLent(false);
+      /* Le minuteur arme l'avertissement, il n'interrompt RIEN. Couper le calcul a trois
+       * secondes ferait echouer un recalcul qui allait aboutir a la quatrieme — et le
+       * conducteur, lui, roule toujours. On previent, on n'abandonne pas. */
+      const lenteur = setTimeout(() => setRecalculLent(true), RECALCUL_LENT_MS);
       try {
         const { primary } = await fetchRoute({
           from,
@@ -323,9 +350,18 @@ export function useNavigationSession(params: {
         });
         setError(false);
         applyRoute(primary);
+        /* CONFIRMATION VOCALE D'UN RECALCUL REUSSI (point 15.A). Jamais au premier calcul : la
+         * consigne de conduite suit immediatement et dit deja que le guidage a pris. Apres un
+         * recalcul, en revanche, rien ne parlait — le conducteur voyait le trace changer sans
+         * savoir si le calcul avait abouti. */
+        if (!premier && voiceRef.current) {
+          speakGuidance(phraseItineraireRecalcule(spokenLangRef.current), spokenLangRef.current);
+        }
       } catch {
         setError(true);
       } finally {
+        clearTimeout(lenteur);
+        setRecalculLent(false);
         setRecalculating(false);
       }
     },
@@ -375,6 +411,14 @@ export function useNavigationSession(params: {
   /** Langue des annonces vocales : celle de l'application, ou le francais si le telephone n'a
    * pas la voix correspondante. Le TEXTE affiche, lui, reste toujours dans la langue choisie. */
   const spokenLang = useSpokenLanguage(lang);
+
+  /* Refs plutot que dependances : `loadRoute` est memorisee, et la recreer a chaque bascule du
+   * guidage vocal relancerait les effets qui en dependent — en pleine navigation. */
+  const spokenLangRef = useRef(spokenLang);
+  spokenLangRef.current = spokenLang;
+  /* Le reglage de voix est lu plus bas dans ce fichier : la ref est declaree ici, remplie
+   * la-bas, et lue plus tard encore — au retour d'un appel reseau, donc apres le rendu. */
+  const voiceRef = useRef(false);
 
   const narrationLang = lang === 'en' ? 'en' : 'fr';
   const previousNarrationRef = useRef(narrationLang);
@@ -602,6 +646,7 @@ export function useNavigationSession(params: {
   }, [nextManeuver, traveledM]);
 
   const voiceGuidanceEnabled = useSession((s) => s.voiceGuidanceEnabled);
+  voiceRef.current = voiceGuidanceEnabled;
 
   // Annonce vocale de la manoeuvre A VENIR, en deux temps : une premiere fois assez tot
   // pour se rabattre, une seconde au moment d'agir. Chaque etape ne parle qu'une fois —
@@ -718,6 +763,7 @@ export function useNavigationSession(params: {
     remaining,
     progress,
     recalculating,
+    recalculLent,
     recalculerPourBlocage,
     error,
   };

@@ -122,6 +122,58 @@ verifier(
     'un reglage qu\'on ne peut que desactiver est un piege',
 )
 
+# ------------------------------------------------------------------ point 15
+print('\nPOINT 15 — le recalcul doit se voir, et dire quand il traine')
+session = lire(RACINE / 'apps/mobile/src/navigation/useNavigationSession.ts')
+verifier(
+    'seuil de lenteur : 3 secondes',
+    'RECALCUL_LENT_MS = 3_000' in session,
+    valeur(session, r'RECALCUL_LENT_MS = ([\d_]+)'),
+)
+verifier(
+    "le minuteur PREVIENT, il n'interrompt pas",
+    'setRecalculLent(true)' in session and 'clearTimeout(lenteur)' in session,
+    'couper a trois secondes ferait echouer un calcul qui allait aboutir a la quatrieme',
+)
+verifier('un recalcul reussi est annonce a la voix', 'phraseItineraireRecalcule' in session)
+
+toast = lire(RACINE / 'apps/mobile/src/components/RecalcToast.tsx')
+verifier("la pastille dit « verifiez votre connexion »", 'nav.slowConnection' in toast)
+
+overlay = lire(RACINE / 'apps/mobile/src/components/NavigationOverlay.tsx')
+verifier(
+    "l'echec du calcul est AFFICHE",
+    'nav.noRoute' in overlay,
+    "il ne l'etait nulle part : l'application renoncait en silence",
+)
+
+# ------------------------------------------------------------------ point 16
+print('\nPOINT 16 — la consigne en bas, fleche de 80 points')
+panneau = lire(RACINE / 'apps/mobile/src/components/PanneauDirection.tsx')
+fleche = lire(RACINE / 'apps/mobile/src/components/FlecheManoeuvre.tsx')
+
+verifier('fleche : 80 points', 'TAILLE_FLECHE = 80' in panneau, valeur(panneau, r'TAILLE_FLECHE = (\d+)'))
+verifier('fond vert fonce WIN DZ', "VERT = '#07401F'" in panneau)
+verifier('fleche blanche', "couleur = '#FFFFFF'" in fleche)
+verifier("position : bas de l'ecran", "position: 'absolute'" in panneau and 'bottom,' in panneau)
+verifier('le nom de la rue est affiche', 'maneuver.streetName' in panneau)
+verifier('la distance est affichee', 'formatDistance(distanceM)' in panneau)
+verifier('la deuxieme consigne, en plus petit dessous', 'montrerSuivante' in panneau)
+verifier(
+    'la fleche est DESSINEE, pas un caractere de police',
+    'react-native-svg' in fleche,
+    "un caractere change d'aspect d'un Android a l'autre",
+)
+verifier(
+    'la languette « puis » a quitte le bandeau du haut',
+    'thenTab' not in overlay and 'styles.arrow' not in overlay,
+)
+verifier(
+    "le bandeau du haut garde l'horloge et les voies",
+    'clockRow' in overlay and 'LaneGuidance' in overlay,
+    'demandees dans des documents anterieurs — chantier #22 et point 05',
+)
+
 print(
     '\nLes maquettes du client sont respectees au chiffre pres.\n'
     if not fautes

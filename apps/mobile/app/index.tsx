@@ -2461,6 +2461,8 @@ export default function MapScreen() {
           subscribeFix={subscribeFix}
           remaining={nav.remaining}
           recalculating={nav.recalculating}
+          recalculLent={nav.recalculLent}
+          erreurItineraire={nav.error}
           lang={lang}
           onEnd={stopNavigation}
           onShowSteps={() => setStepsOpen(true)}

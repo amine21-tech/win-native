@@ -101,7 +101,9 @@
     "detourNo": "لا، تابع",
     "detourLocating": "جاري تحديد النقطة…",
     "detourDone": "التحويل جارٍ.",
-    "resumeOriginal": "العودة إلى المسار الأصلي"
+    "resumeOriginal": "العودة إلى المسار الأصلي",
+    "slowConnection": "تحقق من اتصالك…",
+    "noRoute": "لا يوجد مسار متاح — تحقق من الطريق."
   },
   "consent": {
     "title": "قبل أن نبدأ",

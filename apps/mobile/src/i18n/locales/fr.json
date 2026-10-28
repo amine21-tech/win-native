@@ -101,7 +101,9 @@
     "detourNo": "Non, continuer",
     "detourLocating": "Identification du point…",
     "detourDone": "Déviation en cours.",
-    "resumeOriginal": "Reprendre l'itinéraire initial"
+    "resumeOriginal": "Reprendre l'itinéraire initial",
+    "slowConnection": "Vérifiez votre connexion…",
+    "noRoute": "Aucun itinéraire disponible — vérifiez la route."
   },
   "consent": {
     "title": "Avant de commencer",
