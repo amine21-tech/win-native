@@ -662,5 +662,18 @@
     "priority": "PRIORITAIRE",
     "orPrice": "ou {{prix}} DA {{duree}}",
     "highlighted": "MIS EN AVANT"
+  },
+  "share": {
+    "title": "Position WIN DZ",
+    "addressLabel": "Adresse :",
+    "lat": "Lat :",
+    "lon": "Lon :",
+    "locating": "Recherche de l'adresse…",
+    "addressUnknown": "Adresse introuvable — les coordonnées suffisent.",
+    "whatsapp": "WhatsApp",
+    "sms": "SMS",
+    "copy": "Copier",
+    "copied": "Coordonnées copiées.",
+    "addPlace": "Ajouter ce lieu"
   }
 }

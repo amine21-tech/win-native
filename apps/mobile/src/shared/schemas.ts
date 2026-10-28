@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+﻿// ---------------------------------------------------------------------------
 // FICHIER RECOPIE - NE PAS MODIFIER ICI.
 // La source est packages/shared/src/. Recopie par build-apk.ps1.
 // ---------------------------------------------------------------------------
@@ -258,6 +258,12 @@ export const photoReportInput = z.object({
 });
 export type PhotoReportInput = z.infer<typeof photoReportInput>;
 
+/** Code remis aux contributeurs, verifie avant d'ouvrir le formulaire d'enregistrement. */
+export const contributorCheckInput = z.object({
+  code: z.string().trim().min(4).max(32),
+});
+export type ContributorCheckInput = z.infer<typeof contributorCheckInput>;
+
 export const partnerLeadInput = z.object({
   name: z.string().trim().min(2).max(160),
   phone: phone,
@@ -286,4 +292,3 @@ export type RealtimeEvent =
   | { type: 'report:new'; report: Report }
   | { type: 'report:updated'; report: Report }
   | { type: 'report:removed'; reportId: string };
-

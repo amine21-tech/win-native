@@ -49,8 +49,7 @@ export function pointAu(
   capDeg: number,
   metres: number,
 ): { lat: number; lon: number } {
-  const R = 6_371_000;
-  const d = metres / R;
+  const d = metres / EARTH_RADIUS_M;
   const cap = toRad(capDeg);
   const lat1 = toRad(lat);
   const lon1 = toRad(lon);
@@ -122,10 +121,79 @@ export function normalizeText(input: string): string {
  *
  * Boites englobantes larges, suffisantes pour trois pays que la Mediterranee separe. `null` hors
  * de ces zones : mieux vaut aucune etiquette qu'une fausse.
+ *
+ * CETTE FONCTION N'EXISTAIT QUE DANS LA COPIE MOBILE. Les deux fichiers avaient derive : la
+ * copie, censee n'etre qu'un reflet, portait du code que la source ignorait. Une recopie l'a
+ * donc effacee, et seule la compilation l'a rattrapee. Elle rejoint ici la source, ou elle
+ * aurait toujours du etre — c'est la seule facon que la copie redevienne une copie.
  */
 export function countryFromCoords(lat: number, lon: number): 'DZ' | 'TN' | 'FR' | null {
   if (lat > 41 && lat < 51.5 && lon > -5.5 && lon < 9.8) return 'FR';
   if (lat > 30 && lat < 37.6 && lon > 7.5 && lon < 11.8 && !(lat < 34 && lon < 8.3)) return 'TN';
   if (lat > 18.9 && lat < 37.5 && lon > -8.7 && lon < 12) return 'DZ';
   return null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Point 19 du client : partage d'une position                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Nombre de decimales des coordonnees partagees.
+ *
+ * Cinq, et non les quatre de l'exemple du document. Une decimale de latitude vaut environ
+ * 111 km : quatre decimales laissent onze metres d'incertitude, cinq en laissent un. Onze
+ * metres, c'est la largeur d'une route — de quoi envoyer quelqu'un sur le mauvais trottoir, ou
+ * de l'autre cote d'un terre-plein central qu'il devra contourner. Le format du client est une
+ * ILLUSTRATION du message, pas une consigne de precision ; on garde sa forme et on lui donne
+ * la precision qui rend le partage utile.
+ */
+export const DECIMALES_PARTAGE = 5;
+
+/**
+ * Lien vers la position, ouvrable par n'importe qui.
+ *
+ * LE DOMAINE DU DOCUMENT NE FONCTIONNE PAS. Le client ecrit
+ * `https://maps.app.goo.gl/?q=36.7538,3.0588` : `maps.app.goo.gl` est le domaine des liens
+ * COURTS de Google, ceux que Google genere lui-meme et resout par un identifiant. Il
+ * n'interprete pas de parametre `?q=` — le destinataire tomberait sur une page d'erreur ou sur
+ * la fiche du magasin d'applications, jamais sur le point partage.
+ *
+ * `https://www.google.com/maps?q=lat,lon` est la forme documentee et universelle : elle ouvre
+ * l'application Google Maps quand elle est installee, et le site quand elle ne l'est pas. Un
+ * lien de partage qui n'ouvre rien ne se voit qu'a l'autre bout — chez la personne a qui on
+ * vient d'envoyer sa position, et qui ne vous dira pas forcement que ca n'a pas marche.
+ */
+export function lienPosition(lat: number, lon: number): string {
+  return `https://www.google.com/maps?q=${lat.toFixed(DECIMALES_PARTAGE)},${lon.toFixed(DECIMALES_PARTAGE)}`;
+}
+
+/**
+ * Message de partage d'une position, au format du point 19.
+ *
+ *   Position WIN DZ
+ *   Adresse : Rue Didouche Mourad, Alger
+ *   Lat : 36.75380 / Lon : 3.05880
+ *   https://www.google.com/maps?q=36.75380,3.05880
+ *
+ * LA LIGNE D'ADRESSE DISPARAIT QUAND L'ADRESSE EST INCONNUE, au lieu de rester vide. Le
+ * geocodage inverse echoue regulierement — reseau coupe, point en pleine campagne, service
+ * indisponible — et << Adresse : >> suivi de rien fait douter le destinataire de tout le
+ * message, y compris des coordonnees, qui sont pourtant exactes.
+ */
+export function messagePartagePosition(o: {
+  titre: string;
+  libelleAdresse: string;
+  adresse?: string | null;
+  lat: number;
+  lon: number;
+}): string {
+  const lignes = [o.titre];
+  const adresse = (o.adresse ?? '').trim();
+  if (adresse) lignes.push(`${o.libelleAdresse} ${adresse}`);
+  lignes.push(
+    `Lat : ${o.lat.toFixed(DECIMALES_PARTAGE)} / Lon : ${o.lon.toFixed(DECIMALES_PARTAGE)}`,
+  );
+  lignes.push(lienPosition(o.lat, o.lon));
+  return lignes.join('\n');
 }

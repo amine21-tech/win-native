@@ -662,5 +662,18 @@
     "priority": "PRIORITY",
     "orPrice": "or {{prix}} DA {{duree}}",
     "highlighted": "HIGHLIGHTED"
+  },
+  "share": {
+    "title": "WIN DZ position",
+    "addressLabel": "Address:",
+    "lat": "Lat:",
+    "lon": "Lon:",
+    "locating": "Looking up the address…",
+    "addressUnknown": "Address not found — the coordinates are enough.",
+    "whatsapp": "WhatsApp",
+    "sms": "SMS",
+    "copy": "Copy",
+    "copied": "Coordinates copied.",
+    "addPlace": "Add this place"
   }
 }

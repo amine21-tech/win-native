@@ -662,5 +662,18 @@
     "priority": "أولوية",
     "orPrice": "أو {{prix}} دج {{duree}}",
     "highlighted": "مُبرَز"
+  },
+  "share": {
+    "title": "موقع WIN DZ",
+    "addressLabel": "العنوان:",
+    "lat": "خط العرض:",
+    "lon": "خط الطول:",
+    "locating": "جارٍ البحث عن العنوان…",
+    "addressUnknown": "العنوان غير موجود — الإحداثيات تكفي.",
+    "whatsapp": "واتساب",
+    "sms": "رسالة",
+    "copy": "نسخ",
+    "copied": "تم نسخ الإحداثيات.",
+    "addPlace": "أضف هذا المكان"
   }
 }

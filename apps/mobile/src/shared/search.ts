@@ -9,7 +9,7 @@
  * (Photon, Nominatim, notre API /places/search) restent cote application :
  * ce fichier ne contient que ce qui peut se tester sans reseau.
  */
-import { haversine } from './geo.js';
+import { haversine } from './geo';
 
 /* ------------------------------------------------------------------ */
 /* Categories -> tags OpenStreetMap                                    */

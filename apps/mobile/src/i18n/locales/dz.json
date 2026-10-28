@@ -662,5 +662,18 @@
     "priority": "أولوية",
     "orPrice": "ولا {{prix}} دج {{duree}}",
     "highlighted": "مُبرَز"
+  },
+  "share": {
+    "title": "موقع WIN DZ",
+    "addressLabel": "العنوان:",
+    "lat": "خط العرض:",
+    "lon": "خط الطول:",
+    "locating": "راني نلوج على العنوان…",
+    "addressUnknown": "ما لقيتش العنوان — الإحداثيات تكفي.",
+    "whatsapp": "واتساب",
+    "sms": "رسالة",
+    "copy": "نسخ",
+    "copied": "تنسخو الإحداثيات.",
+    "addPlace": "زيد هاد البلاصة"
   }
 }

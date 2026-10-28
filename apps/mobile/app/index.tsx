@@ -73,6 +73,7 @@ import { useAssistant } from '../src/assistant/useAssistant';
 import { durationInWords } from '../src/assistant/commands';
 import { formatClock24, useAutoScheme } from '../src/utils/clock';
 import { AlerteApproche } from '../src/components/AlerteApproche';
+import { PositionSheet } from '../src/components/PositionSheet';
 import { projeterSurTrace } from '../src/navigation/alerteApproche';
 import { useApproachAlerts } from '../src/navigation/useApproachAlerts';
 import { useLiveLocation } from '../src/navigation/useLiveLocation';
@@ -556,6 +557,8 @@ export default function MapScreen() {
    * d'aucun ecran (voir src/quran/player.ts). */
   const arreterCoran = useQuranPlayer((s) => s.arreter);
   const [addPlaceCoords, setAddPlaceCoords] = useState<Position | null>(null);
+  /** Point dont on partage les coordonnees, choisi par un appui long (point 19). */
+  const [partagePosition, setPartagePosition] = useState<Position | null>(null);
   // Declare avant tout le reste : la cadence du GPS en depend (1 Hz en navigation contre
   // une mesure toutes les 3 s au repos), donc la source de position aussi.
   const [navigating, setNavigating] = useState(false);
@@ -1399,13 +1402,16 @@ export default function MapScreen() {
     (event: { nativeEvent: { lngLat: [number, number] } }) => {
       const [lon, lat] = event.nativeEvent.lngLat;
       if (navigating) setDetourPoint({ lat, lon });
-      /* Hors navigation, l'appui long ouvre le formulaire d'ajout POUR TOUT LE MONDE.
+      /* HORS NAVIGATION, L'APPUI LONG OUVRE LE PARTAGE DE POSITION (point 19 du client).
        *
-       * Ce droit a ete ferme un temps, puis rouvert : la selection ne se fait plus a l'entree
-       * mais a la curation — chacun apporte ce qu'il connait, les contributeurs corrigent et
-       * retirent. Fermer l'ecriture protegeait la qualite de ce qui etait ecrit, au prix de
-       * n'avoir presque rien d'ecrit. */
-      else setAddPlaceCoords({ lat, lon });
+       * Il ouvrait directement le formulaire d'ajout — un droit ouvert a tout le monde par une
+       * decision explicite, et le seul chemin d'ajout depuis la carte. Le point 19 reclame le
+       * meme geste pour partager des coordonnees.
+       *
+       * Plutot que de choisir, le panneau porte les deux : il repond d'abord a << ou est-ce ? >>
+       * et garde l'ajout a un appui de plus. Personne ne perd son chemin, et le geste reste
+       * unique. */
+      else setPartagePosition({ lat, lon });
     },
     [navigating],
   );
@@ -2669,6 +2675,15 @@ export default function MapScreen() {
           elle laisserait moins de place a la carte que de confort gagne — la hauteur ne
           suffit pas pour dix boutons — et le cadre du bas porte alors les commandes. */}
       {navigating && landscape ? null : fabColumn}
+
+      {/* PARTAGE DE POSITION (point 19) : appui long sur la carte, hors navigation. */}
+      <PositionSheet
+        coords={partagePosition}
+        lang={lang}
+        onClose={() => setPartagePosition(null)}
+        onAjouter={(c) => setAddPlaceCoords(c)}
+        onToast={setToast}
+      />
 
       {/* CARTE D'ALERTE COMPACTE (point 17). Elle ne remplace pas la feuille de vote : elle
           remplace le fait de l'IMPOSER a l'approche. */}
