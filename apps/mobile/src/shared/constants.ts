@@ -58,7 +58,26 @@ export type ReportKind = (typeof REPORT_KINDS)[number];
  * il reste donc affiche jusqu'a ce qu'un conducteur reponde « Plus la » ou qu'un
  * administrateur le retire.
  */
-export const PERMANENT_KINDS: readonly ReportKind[] = ['radar', 'bump', 'pothole', 'police', 'gendarmerie', 'armee'];
+/* LA ROUTE BLOQUEE REJOINT LES PERMANENTS (point 12 du client, 28 octobre).
+ *
+ * Elle expirait au bout de quatre heures. Le client demande explicitement une duree
+ * << indeterminee : la route bloquee reste active jusqu'a confirmation de degagement >>, et le
+ * test terrain du 28 octobre dit pourquoi. Une route barree par un eboulement, un chantier ou
+ * un accident grave le reste souvent plusieurs jours ; l'annonce s'effacait toute seule a 4 h,
+ * et le conducteur suivant repartait droit dans la barriere. L'echeance etait une hypothese
+ * sur la duree des travaux, et c'est precisement ce qu'on ne peut pas deviner.
+ *
+ * La contrepartie est le degagement par vote : deux conducteurs qui repondent << plus la >>
+ * suffisent a reouvrir le segment (voir seuilDegagement). */
+export const PERMANENT_KINDS: readonly ReportKind[] = [
+  'radar',
+  'bump',
+  'pothole',
+  'police',
+  'gendarmerie',
+  'armee',
+  'block',
+];
 
 /**
  * Duree de vie d'un signalement temporaire, en minutes, par type.
@@ -77,7 +96,7 @@ export const TEMPORARY_TTL_MINUTES: Record<ReportKind, number> = {
   jam: 60, // bouchon
   crash: 120, // accident
   fire: 180, // incendie
-  block: 240, // route coupee
+  block: 0, // permanente depuis le point 12 — voir PERMANENT_KINDS
   flood: 360, // route inondee
   gendarmerie: 0, // permanent — voir PERMANENT_KINDS
   armee: 0, // permanent — voir PERMANENT_KINDS
@@ -95,6 +114,58 @@ export const TEMPORARY_TTL_MINUTES: Record<ReportKind, number> = {
  * retrait d'un signalement permanent. Reprend WIN_SEUIL_SUPPRESSION de la v82.
  */
 export const ABSENT_VOTE_THRESHOLD = 3;
+
+/**
+ * ROUTE BLOQUEE : DEUX TEMOINS POUR CONFIRMER (point 12 du client, 28 octobre).
+ *
+ * Un seul signalement laisse le segment EN ATTENTE : il s'affiche sur la carte, mais aucun
+ * itineraire n'est modifie. Deux temoins independants le CONFIRMENT, et le segment est alors
+ * exclu de tous les calculs.
+ *
+ * POURQUOI DEUX, ET PAS UN. Exclure une route sur la parole d'un seul appareil, c'est offrir a
+ * n'importe qui le pouvoir de couper une nationale pour tout le monde — par erreur, par
+ * plaisanterie, ou en confondant un bouchon avec un barrage. Deux temoins ne suppriment pas le
+ * risque, mais ils le rendent couteux. Et le temps d'attente n'est pas perdu : le signalement
+ * est deja VISIBLE sur la carte des le premier temoin.
+ */
+export const TEMOINS_BLOCAGE = 2;
+
+/**
+ * Distance en metres sous laquelle deux signalements de blocage se temoignent l'un l'autre.
+ *
+ * Devant une barriere, les conducteurs ne s'arretent pas au meme endroit : la queue s'etire.
+ * Le serveur fusionne deja deux signalements identiques a moins de 40 m, mais au-dela chacun
+ * reste un signalement separe — et deux signalements separes a 100 m d'ecart decrivent pourtant
+ * le MEME blocage. Cent cinquante metres couvrent une file d'attente sans aller jusqu'a
+ * confondre deux blocages distincts.
+ */
+export const RAYON_TEMOIN_M = 150;
+
+/**
+ * Votes « route degagee » necessaires pour reouvrir un segment bloque (point 12 du client).
+ *
+ * Deux, et non les trois des autres permanents. Un blocage confirme COUTE cher a tout le
+ * monde : il detourne chaque itineraire qui passait par la. Une route rendue a la circulation
+ * doit donc redevenir utilisable vite, et la dissymetrie est voulue — il est plus grave de
+ * laisser une route ouverte fermee que l'inverse, puisque le conducteur detourne ne decouvre
+ * jamais son erreur.
+ */
+export const VOTES_DEGAGEMENT = 2;
+
+/** Votes « plus la » necessaires pour retirer un signalement, selon son type. */
+export function seuilDegagement(kind: ReportKind): number {
+  return kind === 'block' ? VOTES_DEGAGEMENT : ABSENT_VOTE_THRESHOLD;
+}
+
+/**
+ * Un blocage est-il CONFIRME, au vu du nombre de temoins independants ?
+ *
+ * `temoins` est calcule par le serveur : l'auteur, plus les appareils distincts qui ont
+ * confirme, plus ceux qui ont signale un blocage a moins de RAYON_TEMOIN_M.
+ */
+export function blocageConfirme(temoins: number | null | undefined): boolean {
+  return (temoins ?? 1) >= TEMOINS_BLOCAGE;
+}
 
 /** Rayon par defaut, en metres, pour la recherche de signalements a proximite. */
 export const NEARBY_RADIUS_M = 5000;
@@ -156,4 +227,3 @@ export function realtimeCellsAround(lat: number, lon: number, radiusM = NEARBY_R
   }
   return [...cells];
 }
-

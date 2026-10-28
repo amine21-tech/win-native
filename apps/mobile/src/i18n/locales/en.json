@@ -144,6 +144,7 @@
     "myPlacesEmpty": "You have not saved any place yet.",
     "editPlace": "Edit",
     "deletePlace": "Delete",
+    "deleteQuestion": "Delete?",
     "deleteConfirmTitle": "Delete this place?",
     "deleteConfirm": "This cannot be undone: the photo, the coordinates and all related data will be removed.",
     "deleted": "Place deleted.",

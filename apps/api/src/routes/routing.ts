@@ -45,6 +45,19 @@ const routeRequest = z.object({
    * trajet releveraient de toute facon de l'evenement exceptionnel.
    */
   avoid: z.array(z.object({ lat: latitude, lon: longitude })).max(20).default([]),
+
+  /**
+   * Ce calcul contourne-t-il une ROUTE BLOQUEE confirmee ? (point 12 du client, 28 octobre.)
+   *
+   * Il ne s'agit pas d'une preference de confort mais d'une contrainte : la route normale n'est
+   * plus praticable, et le detour propose doit etre une route qu'une berline passe. Le client
+   * demande une hierarchie explicite — Nationale d'abord, autoroute si elle s'y prete, chemin
+   * de wilaya a defaut, et JAMAIS une piste ni un chemin secondaire. Voir `costingOptions`.
+   *
+   * `default(false)` : un recalcul ordinaire (sortie manquee, embouteillage) garde les reglages
+   * habituels, et une application plus ancienne continue de fonctionner a l'identique.
+   */
+  blocage: z.boolean().default(false),
 });
 
 /**
@@ -67,7 +80,7 @@ const routeRequest = z.object({
  * demande explicitement la plus courte distance. Les sens interdits, eux, n'ont jamais concerne
  * le pieton — Valhalla ne les lui applique deja pas.
  */
-function costingOptions(input: { mode: 'auto' | 'pedestrian'; autoroute: boolean }) {
+function costingOptions(input: { mode: 'auto' | 'pedestrian'; autoroute: boolean; blocage?: boolean }) {
   if (input.mode === 'pedestrian') {
     return {
       pedestrian: {
@@ -88,6 +101,49 @@ function costingOptions(input: { mode: 'auto' | 'pedestrian'; autoroute: boolean
       },
     };
   }
+  /**
+   * CONTOURNEMENT D'UNE ROUTE BLOQUEE : LA HIERARCHIE DU CLIENT (point 12, 28 octobre).
+   *
+   * << 1er choix Route Nationale, 2e l'autoroute si la RN y mene naturellement, 3e la route de
+   * wilaya, JAMAIS un chemin secondaire, une piste ou une voie non classee. >>
+   *
+   * Valhalla ne prend pas une liste de classes de routes : il prend des curseurs. Les voici,
+   * et pourquoi ceux-la.
+   *
+   * `use_highways: 0.8` — la valeur du client. Elle dit exactement ce qu'il decrit : les grands
+   * axes sont preferes, mais pas au point de faire quarante kilometres pour rejoindre une
+   * autoroute. A 1 le moteur va chercher l'autoroute presque toujours ; a 0,8 il la prend quand
+   * elle est dans la continuite du trajet, ce qui est le << 2e choix >> demande.
+   *
+   * `use_tracks: 0` et `use_living_streets: 0` — c'est ici que se joue le << JAMAIS >>. Chez
+   * Valhalla, 0 ne signifie pas interdit mais << evite autant que possible >> : le moteur
+   * n'empruntera une piste que s'il n'existe AUCUN autre moyen d'atteindre la destination. Et
+   * c'est la bonne lecture du cahier des charges : si la maison du conducteur est au bout d'un
+   * chemin de terre, il faut bien l'y conduire. Ce qu'il ne faut jamais, c'est proposer la
+   * piste comme DETOUR — et cela, 0 l'empeche.
+   *
+   * `service_penalty: 600` et `service_factor: 3` — dix minutes de detour fictif par voie de
+   * desserte. Un parking ou une allee de ferme ne sont pas un contournement de nationale.
+   *
+   * `shortest: false` est implicite : on classe par temps, et c'est ce qu'il faut. Un
+   * contournement par la nationale est plus long en kilometres et plus court en minutes qu'un
+   * raccourci de terre — le temps est ici le meilleur juge de la praticabilite.
+   *
+   * Le peage suit `autoroute`, comme toujours : accepter l'autoroute, c'est accepter son peage.
+   */
+  if (input.blocage) {
+    return {
+      auto: {
+        use_highways: 0.8,
+        use_tolls: input.autoroute ? 0.5 : 0,
+        use_tracks: 0,
+        use_living_streets: 0,
+        service_penalty: 600,
+        service_factor: 3,
+      },
+    };
+  }
+
   return {
     auto: {
       use_highways: input.autoroute ? 1 : 0,

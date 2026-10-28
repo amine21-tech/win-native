@@ -42,6 +42,13 @@ export const PALIERS_M = [200, 100] as const;
  *
  * Cinquante metres, c'est-a-dire la moitie de l'ecart entre deux paliers : au-dela, un autre
  * palier decrit mieux la distance.
+ *
+ * ELLE S'ELARGIT A LA CADENCE DU GPS. Hors navigation, le telephone ne donne sa position que
+ * toutes les trois secondes pour menager la batterie : a 90 km/h cela fait soixante-quinze
+ * metres d'un point au suivant, et aucune annonce ne peut etre plus precise que ce pas. Exiger
+ * cinquante metres y ferait taire le palier des 200 m a chaque fois. La tolerance devient donc
+ * le pas reellement parcouru quand celui-ci est plus large — la meilleure precision possible,
+ * jamais une precision inventee.
  */
 const TOLERANCE_M = 50;
 
@@ -128,7 +135,7 @@ const RIEN: Decision = { quoi: 'rien', consommes: [] };
 /**
  * Faut-il parler maintenant, et de quel palier ? Rearmer ? Ou se taire ?
  *
- * TROIS CAS, ET UN SEUL EST EVIDENT.
+ * QUATRE CAS, ET UN SEUL EST EVIDENT.
  *
  * 1. On franchit un palier : on l'annonce, et on le retient pour ne pas le repeter. Chaque
  *    palier parle une fois par passage — deux annonces par signalement, pas davantage.
@@ -137,15 +144,28 @@ const RIEN: Decision = { quoi: 'rien', consommes: [] };
  *    Le palier le plus large n'a jamais ete franchi : le prononcer mentirait (voir
  *    TOLERANCE_M). On l'abandonne en silence et l'on attend le palier suivant.
  *
- * 3. On s'est vraiment eloigne : tout se rearme, pour qu'un demi-tour previenne a nouveau.
+ * 3. On S'EN ELOIGNE. Sans itineraire, la distance est a vol d'oiseau et ne porte aucun signe :
+ *    cent metres devant et cent metres derriere se ressemblent. La seule facon de savoir est de
+ *    comparer a la mesure precedente — si la distance GRANDIT, on s'en va, et on se tait. C'est
+ *    ce qui permet d'alerter dans les DEUX SENS de circulation (point 13 du client, 28 octobre)
+ *    sans annoncer ce qu'on vient de depasser.
+ *
+ * 4. On s'est vraiment eloigne : tout se rearme, pour qu'un demi-tour previenne a nouveau.
  *
  * `dejaDits` porte les paliers deja traites POUR CE SIGNALEMENT. Un Set par signalement, et
  * non un simple booleen : c'est ce qui permet au second palier de parler apres le premier.
+ *
+ * `precedent` est le reste mesure au point GPS d'avant, ou `null` si c'est la premiere mesure
+ * pour ce signalement.
  */
-export function decisionAnnonce(
-  restant: number | null,
-  dejaDits: ReadonlySet<number>,
-): Decision {
+export function decisionAnnonce(opts: {
+  restant: number | null;
+  precedent: number | null;
+  dejaDits: ReadonlySet<number>;
+  /** La distance vient-elle de l'itineraire (signee) ou du vol d'oiseau (non signee) ? */
+  surItineraire: boolean;
+}): Decision {
+  const { restant, precedent, dejaDits, surItineraire } = opts;
   if (restant == null) return RIEN;
 
   // On s'en est eloigne pour de bon : le signalement redevient neuf.
@@ -153,8 +173,23 @@ export function decisionAnnonce(
     return dejaDits.size > 0 ? { quoi: 'rearmer', consommes: [] } : RIEN;
   }
 
-  // Derriere nous : on n'annonce pas ce qu'on vient de depasser.
+  // Derriere nous, quand l'itineraire donne le signe : on n'annonce pas ce qu'on a depasse.
   if (restant < 0) return RIEN;
+
+  if (!surItineraire) {
+    /* A VOL D'OISEAU, IL FAUT AVOIR VU LE SIGNALEMENT S'APPROCHER. La distance ne porte aucun
+     * signe : cent metres devant et cent metres derriere se ressemblent. Sans mesure
+     * precedente, on ne sait rien — et annoncer un obstacle qu'on vient de depasser est pire
+     * que se taire. On attend donc la mesure suivante, trois secondes plus tard au pire.
+     *
+     * L'egalite stricte laisse passer l'arret, ou la distance ne bouge pas. */
+    if (precedent == null || restant > precedent) return RIEN;
+  }
+
+  /* Aucune annonce ne peut etre plus precise que le pas parcouru depuis la mesure precedente :
+   * la tolerance s'elargit a ce pas quand il depasse la valeur nominale. */
+  const pas = precedent != null ? precedent - restant : 0;
+  const tolerance = Math.max(TOLERANCE_M, pas);
 
   /* Les paliers sont decroissants : on les parcourt du plus large au plus serre et l'on
    * s'arrete au premier qu'on a franchi. Ceux qu'on depasse en chemin sont abandonnes en
@@ -163,7 +198,7 @@ export function decisionAnnonce(
   for (const palier of PALIERS_M) {
     if (dejaDits.has(palier)) continue;
     if (restant > palier) break; // pas encore franchi : les plus serres non plus
-    if (palier - restant > TOLERANCE_M) {
+    if (palier - restant > tolerance) {
       abandonnes.push(palier); // franchi sans qu'on le voie : il dirait faux
       continue;
     }

@@ -144,6 +144,7 @@
     "myPlacesEmpty": "Vous n'avez encore enregistré aucun lieu.",
     "editPlace": "Modifier",
     "deletePlace": "Supprimer",
+    "deleteQuestion": "Supprimer ?",
     "deleteConfirmTitle": "Supprimer ce lieu ?",
     "deleteConfirm": "Cette action est irréversible : la photo, les coordonnées et toutes les données associées seront supprimées.",
     "deleted": "Lieu supprimé.",

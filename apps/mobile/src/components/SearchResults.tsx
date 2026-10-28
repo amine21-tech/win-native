@@ -138,10 +138,7 @@ export function SearchResults({
       <ConfirmDeleteSheet
         visible={aSupprimer !== null}
         nom={aSupprimer?.name ?? ''}
-        lat={aSupprimer?.lat}
-        lon={aSupprimer?.lon}
         titre={t('search.removeHistoryConfirmTitle')}
-        message={t('search.removeHistoryConfirmBody')}
         onCancel={() => setASupprimer(null)}
         onConfirm={() => {
           if (aSupprimer) onRemoveHistory(aSupprimer);

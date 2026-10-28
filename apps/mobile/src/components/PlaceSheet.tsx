@@ -590,13 +590,11 @@ export function PlaceSheet({
         colors={colors}
       />
 
-      {/* Confirmation de suppression — maquette du 27 octobre. Elle montre CE QU'ON SUPPRIME,
-          ce que la boite du systeme ne permettait pas. */}
+      {/* Confirmation de suppression — boite compacte et centree, point 14 du 28 octobre. Elle
+          montre CE QU'ON SUPPRIME, ce que la boite du systeme ne permettait pas. */}
       <ConfirmDeleteSheet
         visible={deleteOpen}
         nom={place.name}
-        lat={place.lat}
-        lon={place.lon}
         busy={deleting}
         onCancel={() => setDeleteOpen(false)}
         onConfirm={confirmerSuppression}

@@ -95,6 +95,9 @@ type Annonce = { id: string; palierM: number; restantM: number };
 /** Paliers deja dits, par signalement — exactement l'etat que tient le hook. */
 type Memoire = Map<string, Set<number>>;
 
+/** Reste mesure au point GPS precedent, par signalement — l'autre etat du hook. */
+type Precedents = Map<string, number>;
+
 /**
  * Fait rouler le vehicule de `departM` a `arriveeM` par pas de `pasM`, en appelant la vraie
  * chaine de l'application a chaque point GPS, et rend la liste des annonces declenchees.
@@ -106,8 +109,11 @@ function rouler(opts: {
   surTrace: Map<string, { id: string; distanceDepuisDepart: number }>;
   memoire: Memoire;
   avecItineraire: boolean;
+  /** Partage entre deux appels successifs quand on veut enchainer sans perdre la direction. */
+  precedents?: Precedents;
 }): Annonce[] {
   const { departM, arriveeM, pasM, surTrace, memoire, avecItineraire } = opts;
+  const precedents = opts.precedents ?? new Map<string, number>();
   const annonces: Annonce[] = [];
   const sens = arriveeM >= departM ? 1 : -1;
 
@@ -127,7 +133,14 @@ function rouler(opts: {
 
       // Le hook ne fait rien d'autre que ceci, a la voix et a la carte pres.
       const dejaDits = memoire.get(s.id) ?? new Set<number>();
-      const decision = decisionAnnonce(restant, dejaDits);
+      const precedent = precedents.get(s.id) ?? null;
+      const decision = decisionAnnonce({
+        restant,
+        precedent,
+        dejaDits,
+        surItineraire: avecItineraire,
+      });
+      if (restant != null) precedents.set(s.id, restant);
       if (decision.quoi === 'rearmer') {
         memoire.delete(s.id);
         continue;
@@ -274,19 +287,75 @@ const arret = rouler({
 });
 verifier('aucune repetition sur place', arret.length === 0, `${arret.length} annonce(s)`);
 
-console.log('\nSANS ITINERAIRE (il se calcule encore) : DISTANCE DIRECTE');
-const sansRoute = rouler({
-  departM: 830,
-  arriveeM: 830,
-  pasM: 1,
+/* POINT 13 DU CLIENT, 28 octobre. Un dos-d'ane signale sur une route a deux sens est dangereux
+ * dans les DEUX sens, et personne ne lance d'itineraire sur le trajet qu'il fait tous les
+ * jours. Sans itineraire, la distance est a vol d'oiseau : elle ne dit pas si l'obstacle est
+ * devant ou derriere. Seule la comparaison avec la mesure precedente le dit. */
+console.log('\nSANS GUIDAGE, DANS LE SENS OUEST -> EST');
+const ouestEst = rouler({
+  departM: 700,
+  arriveeM: 990,
+  pasM: 33,
+  surTrace: new Map(),
+  memoire: new Map(),
+  avecItineraire: false,
+});
+const oe = ouestEst.filter((a) => a.id === 'sur-la-route');
+verifier(
+  'les deux paliers parlent sans aucun itineraire',
+  oe.length === 2 && oe[0]!.palierM === 200 && oe[1]!.palierM === 100,
+  oe.map((a) => `${a.palierM} m a ${a.restantM.toFixed(0)} m`).join(' puis ') || 'rien',
+);
+
+console.log('\nSANS GUIDAGE, DANS L\'AUTRE SENS : EST -> OUEST');
+const estOuest = rouler({
+  departM: 1300,
+  arriveeM: 1010,
+  pasM: 33,
+  surTrace: new Map(),
+  memoire: new Map(),
+  avecItineraire: false,
+});
+const eo = estOuest.filter((a) => a.id === 'sur-la-route');
+verifier(
+  'le MEME signalement parle aussi dans l\'autre sens',
+  eo.length === 2 && eo[0]!.palierM === 200 && eo[1]!.palierM === 100,
+  eo.map((a) => `${a.palierM} m a ${a.restantM.toFixed(0)} m`).join(' puis ') || 'rien',
+);
+
+console.log('\nSANS GUIDAGE, ON S\'EN ELOIGNE');
+const enPartant = rouler({
+  departM: 1050,
+  arriveeM: 1400,
+  pasM: 33,
   surTrace: new Map(),
   memoire: new Map(),
   avecItineraire: false,
 });
 verifier(
-  'le signalement a 170 m parle quand meme, au palier des 200 m',
-  sansRoute.some((a) => a.id === 'sur-la-route' && a.palierM === 200),
-  sansRoute.map((a) => `${a.id} a ${a.palierM} m`).join(', ') || 'rien',
+  'rien n\'est annonce : on ne previent pas d\'un obstacle depasse',
+  enPartant.filter((a) => a.id === 'sur-la-route').length === 0,
+  `${enPartant.filter((a) => a.id === 'sur-la-route').length} annonce(s) pour celui qu'on quitte`,
+);
+
+/* Hors navigation le telephone ne donne sa position que toutes les trois secondes : a 90 km/h
+ * cela fait soixante-quinze metres d'un point au suivant. Aucune annonce ne peut etre plus
+ * precise que ce pas, et c'est pour cela que la tolerance s'y adapte. Sans cela le palier des
+ * 200 m se taisait a chaque fois. */
+console.log('\nSANS GUIDAGE, A 90 km/h : UN POINT TOUTES LES 3 s (pas de 75 m)');
+const cadenceLente = rouler({
+  departM: 620,
+  arriveeM: 995,
+  pasM: 75,
+  surTrace: new Map(),
+  memoire: new Map(),
+  avecItineraire: false,
+});
+const lent = cadenceLente.filter((a) => a.id === 'sur-la-route');
+verifier(
+  'les deux paliers parlent malgre le pas de 75 m',
+  lent.length === 2 && lent[0]!.palierM === 200 && lent[1]!.palierM === 100,
+  lent.map((a) => `${a.palierM} m a ${a.restantM.toFixed(0)} m`).join(' puis ') || 'rien',
 );
 
 console.log(

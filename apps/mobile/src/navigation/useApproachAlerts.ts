@@ -33,6 +33,11 @@ export { PALIERS_M } from './alerteApproche';
  * n'enumere les types. Chaque signalement parle a DEUX PALIERS par passage, 200 m puis 100 m
  * (demande du client, 28 octobre) — et pas une fois de plus.
  *
+ * DANS LES DEUX SENS DE CIRCULATION, et sans guidage (point 13 du client). Un signalement est un
+ * point GPS qui appartient a la ROUTE, pas a un sens : aucun filtre de direction n'existe nulle
+ * part. Il ne manquait que de laisser l'alerte tourner hors navigation — sur le trajet qu'on
+ * fait tous les jours, personne ne lance d'itineraire.
+ *
  * DEUX FACONS DE MESURER LA DISTANCE, et c'est le coeur de cette correction.
  *
  * Avec un itineraire, la distance est mesuree LE LONG DE LA ROUTE, et seuls les signalements
@@ -69,6 +74,16 @@ export function useApproachAlerts(params: {
    * pouvoir parler alors que le premier a deja parle.
    */
   const alertedRef = useRef<Map<string, Set<number>>>(new Map());
+
+  /**
+   * Reste mesure au point GPS PRECEDENT, par signalement.
+   *
+   * Hors itineraire la distance est a vol d'oiseau et ne porte aucun signe : cent metres devant
+   * et cent metres derriere se ressemblent. Comparer a la mesure d'avant est le seul moyen de
+   * savoir si l'on s'approche ou si l'on s'en va — et c'est ce qui permet d'alerter dans les
+   * deux sens de circulation sans annoncer ce qu'on vient de depasser.
+   */
+  const precedentRef = useRef<Map<string, number>>(new Map());
   // Refs plutot que dependances : ces valeurs changent a chaque frappe GPS ou re-rendu, et
   // l'effet ne doit se declencher que sur un vrai deplacement.
   const onApproachRef = useRef(onApproach);
@@ -100,7 +115,10 @@ export function useApproachAlerts(params: {
 
   // Fin de navigation : tout se rearme pour le trajet suivant.
   useEffect(() => {
-    if (!active) alertedRef.current.clear();
+    if (!active) {
+      alertedRef.current.clear();
+      precedentRef.current.clear();
+    }
   }, [active]);
 
   useEffect(() => {
@@ -119,7 +137,16 @@ export function useApproachAlerts(params: {
       });
 
       const dejaDits = alertedRef.current.get(report.id) ?? new Set<number>();
-      const decision = decisionAnnonce(restant, dejaDits);
+      const precedent = precedentRef.current.get(report.id) ?? null;
+      const decision = decisionAnnonce({
+        restant,
+        precedent,
+        dejaDits,
+        surItineraire: route != null,
+      });
+
+      // La mesure de ce tour devient la reference du suivant, quelle que soit la decision.
+      if (restant != null) precedentRef.current.set(report.id, restant);
 
       if (decision.quoi === 'rearmer') {
         alertedRef.current.delete(report.id);

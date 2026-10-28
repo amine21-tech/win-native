@@ -179,6 +179,15 @@ export const report = z.object({
   speedLimit: z.number().int().nullable(),
   confirmCount: z.number().int(),
   absentCount: z.number().int(),
+  /* TEMOINS INDEPENDANTS, pour les seuls blocages (point 12 du client, 28 octobre) : l'auteur,
+   * plus les appareils distincts qui ont confirme ou signale un blocage tout pres. Deux temoins
+   * CONFIRMENT la route bloquee et le segment sort des calculs d'itineraire ; un seul la laisse
+   * en attente, visible sur la carte mais sans effet sur les trajets.
+   *
+   * Optionnel : une application plus ancienne que le serveur ne le recevra pas, et
+   * `blocageConfirme` traite l'absence comme un seul temoin — donc en attente. Le defaut le
+   * plus prudent. */
+  temoins: z.number().int().optional(),
   createdAt: z.string(),
   expiresAt: z.string().nullable(),
 });

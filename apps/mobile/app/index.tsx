@@ -24,7 +24,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bearing as geoBearing, countryFromCoords, formatDistance, formatDuration, haversine, NEARBY_RADIUS_M, type Language, type Place, type Report, type ReportKind } from '../src/shared';
+import { bearing as geoBearing, blocageConfirme, countryFromCoords, formatDistance, formatDuration, haversine, NEARBY_RADIUS_M, type Language, type Place, type Report, type ReportKind } from '../src/shared';
 import { api, ApiError } from '../src/api/client';
 import { AddPlaceSheet } from '../src/components/AddPlaceSheet';
 import { AssistantPanel } from '../src/components/AssistantPanel';
@@ -72,6 +72,7 @@ import { emojiForPlace } from '../src/map/placeIcons';
 import { useAssistant } from '../src/assistant/useAssistant';
 import { durationInWords } from '../src/assistant/commands';
 import { formatClock24, useAutoScheme } from '../src/utils/clock';
+import { projeterSurTrace } from '../src/navigation/alerteApproche';
 import { useApproachAlerts } from '../src/navigation/useApproachAlerts';
 import { useLiveLocation } from '../src/navigation/useLiveLocation';
 import { hasVoiceFor } from '../src/speech/voice';
@@ -699,14 +700,32 @@ export default function MapScreen() {
    */
   const liveReportsRef = useRef(liveReports);
   liveReportsRef.current = liveReports;
-  const avoidPoints = useCallback(
-    () =>
-      liveReportsRef.current
-        .filter((r) => r.kind === 'block' || r.kind === 'flood')
-        .slice(0, 20)
-        .map((r) => ({ lat: r.lat, lon: r.lon })),
-    [],
-  );
+
+  /**
+   * UN SEUL TEMOIN NE DETOURNE PERSONNE (point 12 du client, 28 octobre).
+   *
+   * C'est le changement le plus important de ce point. Jusqu'ici, un unique signalement
+   * << route bloquee >> excluait le segment de tous les calculs : un seul appareil, parfois une
+   * fausse manoeuvre, et une nationale etait coupee pour tous les conducteurs qui passaient par
+   * la. Le client demande deux temoins independants pour CONFIRMER, et c'est la bonne regle —
+   * le detour coute cher, et celui qu'on detourne a tort ne decouvre jamais son erreur.
+   *
+   * Entre-temps le signalement n'est pas perdu pour autant : il est EN ATTENTE, affiche sur la
+   * carte des le premier temoin, simplement sans effet sur les itineraires.
+   *
+   * L'INONDATION N'EST PAS CONCERNEE. Le client ne parle que de la route bloquee, et une route
+   * sous l'eau n'a pas besoin d'un second temoin : personne ne signale une inondation par
+   * erreur, et s'y engager ne se repare pas.
+   */
+  const avoidPoints = useCallback(() => {
+    const retenus = liveReportsRef.current.filter(
+      (r) => r.kind === 'flood' || (r.kind === 'block' && blocageConfirme(r.temoins)),
+    );
+    return {
+      points: retenus.slice(0, 20).map((r) => ({ lat: r.lat, lon: r.lon })),
+      blocage: retenus.some((r) => r.kind === 'block'),
+    };
+  }, []);
 
   const nav = useNavigationSession({
     active: navigating,
@@ -1209,7 +1228,16 @@ export default function MapScreen() {
   );
 
   useApproachAlerts({
-    active: navigating,
+    /* ALERTE MEME SANS GUIDAGE (point 13 du client, 28 octobre). Elle etait liee a
+     * `navigating` : sur un trajet connu, celui qu'on fait tous les jours, personne ne lance
+     * d'itineraire — et c'est precisement la qu'on connait les dos-d'ane par coeur SAUF ceux
+     * qu'un autre vient de signaler. Le test terrain du 28 octobre a montre le trou : un
+     * dos-d'ane signale, repasse dans l'autre sens, aucune alerte.
+     *
+     * Aucun filtre de direction n'a jamais existe, ni ici ni cote serveur : un signalement est
+     * un point GPS qui appartient a la ROUTE, pas a un sens de circulation. Il ne manquait que
+     * de laisser l'alerte tourner hors navigation. */
+    active: true,
     position,
     reports: liveReports,
     lang,
@@ -1217,6 +1245,54 @@ export default function MapScreen() {
     traveledM: avanceSurTraceM,
     onApproach: onApproachReport,
   });
+
+  /**
+   * ROUTE BLOQUEE CONFIRMEE SUR NOTRE TRAJET : recalcul annonce (point 12 du client).
+   *
+   * POURQUOI UNE SURVEILLANCE A PART. Tous les autres recalculs naissent d'un constat sur le
+   * vehicule : il s'est ecarte, il a rate une sortie. Celui-ci nait d'une information venue des
+   * AUTRES, pendant que le conducteur suit parfaitement son itineraire. Aucune des
+   * surveillances existantes ne peut donc le voir — c'est ce que montre le test terrain du
+   * 28 octobre entre Tizi Ouzou et Draa El Mizan : route barree sur l'autoroute, et la
+   * navigation continuait tout droit.
+   *
+   * TROIS CONDITIONS, ET CHACUNE ECARTE UN FAUX DECLENCHEMENT :
+   *
+   *   - CONFIRME par deux temoins. Un seul signalement laisse le trajet intact ; sinon un
+   *     appareil isole detournerait tout le monde.
+   *   - SUR notre trace, a moins de 35 m. `projeterSurTrace` s'en charge : un blocage sur la
+   *     route parallele ne nous concerne pas.
+   *   - DEVANT nous. Un blocage qu'on a deja passe ne justifie aucun detour, et declencherait
+   *     un recalcul en boucle a chaque mesure GPS.
+   *
+   * Chaque blocage ne declenche qu'UN recalcul : `blocagesTraitesRef` le retient. Sans cela, le
+   * meme signalement relancerait le calcul a chaque seconde — et le nouveau trajet, qui
+   * contourne deja ce blocage, le garderait pourtant dans la liste des signalements proches.
+   */
+  const blocagesTraitesRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!navigating) {
+      blocagesTraitesRef.current.clear();
+      return;
+    }
+    if (!nav.route || !position) return;
+
+    const bloquants = liveReports.filter((r) => r.kind === 'block' && blocageConfirme(r.temoins));
+    if (bloquants.length === 0) return;
+
+    const surTrace = projeterSurTrace(nav.route, bloquants);
+    for (const r of bloquants) {
+      const place = surTrace.get(r.id);
+      if (!place) continue; // pas sur notre route
+      if (place.distanceDepuisDepart - avanceSurTraceM <= 0) continue; // deja passe
+      if (blocagesTraitesRef.current.has(r.id)) continue;
+
+      blocagesTraitesRef.current.add(r.id);
+      nav.recalculerPourBlocage(position);
+      break; // un seul recalcul, meme si deux blocages apparaissent ensemble
+    }
+  }, [navigating, nav.route, nav.recalculerPourBlocage, liveReports, position, avanceSurTraceM]);
 
   /** Appui sur un lieu du fond de carte : ouvre sa fiche, comme un resultat de recherche. */
   const onPoiPress = useCallback(

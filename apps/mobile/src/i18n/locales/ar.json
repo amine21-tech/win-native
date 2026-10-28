@@ -144,6 +144,7 @@
     "myPlacesEmpty": "لم تسجل أي مكان بعد.",
     "editPlace": "تعديل",
     "deletePlace": "حذف",
+    "deleteQuestion": "حذف؟",
     "deleteConfirmTitle": "حذف هذا المكان؟",
     "deleteConfirm": "لا يمكن التراجع: ستُحذف الصورة والإحداثيات وكل البيانات المرتبطة.",
     "deleted": "تم حذف المكان.",

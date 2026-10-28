@@ -163,6 +163,15 @@ export async function fetchRoute(opts: {
   quick?: boolean;
   /** Barrages et routes coupees signales par les utilisateurs, a contourner. */
   avoid?: { lat: number; lon: number }[];
+  /**
+   * Ce calcul contourne-t-il une route bloquee CONFIRMEE ? (point 12 du client, 28 octobre.)
+   *
+   * Le serveur applique alors une hierarchie stricte — nationale d'abord, autoroute si elle
+   * s'y prete, et jamais de piste ni de chemin secondaire. Ce n'est pas une preference de
+   * confort : la route normale n'est plus praticable, et le detour doit etre une route qu'une
+   * berline passe.
+   */
+  blocage?: boolean;
 }): Promise<{ primary: Route; alternates: Route[] }> {
   const data = await api<RawRouteResponse>('/routing/route', {
     method: 'POST',
@@ -176,6 +185,7 @@ export async function fetchRoute(opts: {
       autoroute: opts.prefs?.autoroute ?? true,
       quick: opts.quick ?? false,
       avoid: opts.avoid ?? [],
+      blocage: opts.blocage ?? false,
     },
   });
   const narration = opts.narrationLanguage === 'en-US' ? 'en' : 'fr';

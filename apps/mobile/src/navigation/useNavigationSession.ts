@@ -1,5 +1,5 @@
 import { speakGuidance, stopSpeaking } from '../speech/voice';
-import { phraseSortieRatee } from './instructions';
+import { phraseRouteBloquee, phraseSortieRatee } from './instructions';
 import { useSpokenLanguage } from '../speech/useSpokenLanguage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { localizedInstruction, lowerFirst, spokenDistance } from './instructions';
@@ -184,7 +184,11 @@ export function useNavigationSession(params: {
    * chaque signalement recu en temps reel, et le guidage ne doit pas repartir de zero pour
    * autant.
    */
-  getAvoidPoints?: () => { lat: number; lon: number }[];
+  getAvoidPoints?: () => {
+    points: { lat: number; lon: number }[];
+    /** Au moins un de ces points est une route bloquee CONFIRMEE (point 12 du client). */
+    blocage: boolean;
+  };
 }) {
   const {
     active,
@@ -294,6 +298,7 @@ export function useNavigationSession(params: {
   const loadRoute = useCallback(
     async (from: Coords, premier = false) => {
       if (!destination) return;
+      const evitement = getAvoidRef.current?.() ?? { points: [], blocage: false };
       setRecalculating(true);
       try {
         const { primary } = await fetchRoute({
@@ -311,7 +316,10 @@ export function useNavigationSession(params: {
           quick: !premier,
           // Contourner ce que les utilisateurs ont signale comme coupe. Sans cela, le recalcul
           // declenche par un barrage renvoie droit sur ce meme barrage.
-          avoid: getAvoidRef.current?.() ?? [],
+          avoid: evitement.points,
+          /* Un contournement de route bloquee n'est pas un recalcul ordinaire : il exige la
+           * nationale et refuse les pistes (point 12 du client, 28 octobre). */
+          blocage: evitement.blocage,
         });
         setError(false);
         applyRoute(primary);
@@ -335,6 +343,7 @@ export function useNavigationSession(params: {
   const preparerRepli = useCallback(
     async (depart: Coords, pour: number) => {
       if (!destination) return;
+      const evitement = getAvoidRef.current?.() ?? { points: [], blocage: false };
       repliRef.current = { pour, route: null, enCours: true };
       try {
         const { primary } = await fetchRoute({
@@ -345,7 +354,8 @@ export function useNavigationSession(params: {
           alternates: 0,
           prefs: prefsRef.current,
           quick: true,
-          avoid: getAvoidRef.current?.() ?? [],
+          avoid: evitement.points,
+          blocage: evitement.blocage,
         });
         // La sortie visee a pu changer pendant l'appel : on ne garde le resultat que s'il
         // concerne toujours celle qu'on surveille.
@@ -673,6 +683,31 @@ export function useNavigationSession(params: {
     return { distanceM, durationS };
   }, [route, maneuverIndex, traveledM]);
 
+  /**
+   * ROUTE BLOQUEE CONFIRMEE DEVANT NOUS : on le dit, et on recalcule (point 12 du client).
+   *
+   * POURQUOI UNE ENTREE SEPAREE PLUTOT QUE LE RECALCUL ORDINAIRE. Les autres recalculs partent
+   * d'un constat sur le vehicule : il s'est ecarte du trace, il a rate une sortie. Celui-ci
+   * part d'une information venue des AUTRES, alors que le conducteur suit parfaitement son
+   * itineraire. Rien dans sa conduite ne le declenche, donc aucune des surveillances
+   * existantes ne peut le voir.
+   *
+   * ET SURTOUT, IL SE DIT A VOIX HAUTE. Un recalcul silencieux qui rallonge le trajet de vingt
+   * kilometres est incomprehensible : le conducteur voit l'heure d'arrivee sauter sans savoir
+   * pourquoi, et il soupconne l'application de s'etre trompee. << Route bloquee. Recalcul en
+   * cours. >> est exactement ce qu'il faut entendre, et c'est la phrase que demande le client.
+   *
+   * L'annonce passe AVANT l'appel reseau, pas apres : elle doit sortir pendant que le calcul
+   * tourne, sinon elle arrive deux secondes plus tard, une fois le nouveau trajet affiche.
+   */
+  const recalculerPourBlocage = useCallback(
+    (from: Coords) => {
+      if (voiceGuidanceEnabled) speakGuidance(phraseRouteBloquee(spokenLang), spokenLang);
+      void loadRoute(from);
+    },
+    [loadRoute, spokenLang, voiceGuidanceEnabled],
+  );
+
   return {
     route,
     maneuverIndex,
@@ -683,6 +718,7 @@ export function useNavigationSession(params: {
     remaining,
     progress,
     recalculating,
+    recalculerPourBlocage,
     error,
   };
 }

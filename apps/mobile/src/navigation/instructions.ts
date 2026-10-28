@@ -200,6 +200,27 @@ export function phraseSortieRatee(lang: Language): string {
   return SORTIE_RATEE[lang] ?? SORTIE_RATEE.fr;
 }
 
+/**
+ * Annonce d'une route bloquee confirmee devant nous (point 12 du client, 28 octobre).
+ *
+ * Elle vit ici pour la meme raison que la precedente : c'est le SUIVI qui la prononce, dans la
+ * langue que le telephone sait dire, laquelle n'est pas toujours celle de l'interface.
+ *
+ * Meme construction en deux temps que la sortie manquee — le constat, puis ce qui se passe. Un
+ * recalcul silencieux qui rallonge le trajet de vingt kilometres est incomprehensible : le
+ * conducteur voit l'heure d'arrivee sauter et soupconne l'application de s'etre trompee.
+ */
+const ROUTE_BLOQUEE: Record<Language, string> = {
+  fr: 'Route bloquée. Recalcul en cours.',
+  en: 'Road blocked. Recalculating.',
+  ar: 'الطريق مسدود. جارٍ إعادة الحساب.',
+  dz: 'الطريق مسدود. راني نحسب الطريق من جديد.',
+};
+
+export function phraseRouteBloquee(lang: Language): string {
+  return ROUTE_BLOQUEE[lang] ?? ROUTE_BLOQUEE.fr;
+}
+
 /** Instruction dans la langue active : texte Valhalla en fr/en, phrase construite en ar/dz. */
 export function localizedInstruction(maneuver: Maneuver, lang: Language): string {
   // Le texte de Valhalla est le plus riche (numero de sortie de rond-point, direction des
