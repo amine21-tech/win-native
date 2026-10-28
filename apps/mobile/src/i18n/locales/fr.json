@@ -590,13 +590,20 @@
       "transport": "Transport",
       "restauration": "Restauration",
       "industrie": "Industrie",
-      "bureaux": "Bureaux",
-      "services": "Services"
+      "services": "Services",
+      "agriculture": "Agriculture",
+      "sante": "Santé",
+      "informatique": "Informatique",
+      "securite": "Sécurité",
+      "artisanat": "Artisanat",
+      "education": "Éducation"
     },
     "contract": {
       "cdi": "CDI",
       "cdd": "CDD",
-      "mission": "Mission"
+      "mission": "Mission",
+      "interim": "Intérim",
+      "saisonnier": "Saisonnier"
     },
     "payment": {
       "baridimob": "BaridiMob",

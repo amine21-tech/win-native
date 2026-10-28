@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError, api } from '../api/client';
 import { radius, spacing } from '../theme';
 import { SECTEURS_EMPLOI } from './JobsSheet';
@@ -39,7 +40,11 @@ const TEXTE_DOUX = '#5E6B64';
 const PUCE = '#F3F4F6';
 const ROUGE = '#C0392B';
 
-const CONTRATS = ['cdi', 'cdd', 'mission'] as const;
+/* CDI / CDD / Interim / Saisonnier (doc 196, 5.2). « Mission » quitte la SAISIE sans quitter
+ * la base : des annonces le portent deja, et le serveur continue de l'accepter en lecture
+ * comme en relecture. Le proposer encore n'aurait servi qu'a creer de nouvelles annonces dans
+ * un vocabulaire que le client n'emploie plus. */
+const CONTRATS = ['cdi', 'cdd', 'interim', 'saisonnier'] as const;
 const PAIEMENTS = ['baridimob', 'virement', 'email'] as const;
 
 type Props = {
@@ -53,6 +58,8 @@ type Props = {
  * n'apparait donc dans aucune liste. Prevenir le parent ne lui donnerait rien a rafraichir. */
 export function PublishJobSheet({ visible, onClose, position }: Props) {
   const { t } = useTranslation();
+  /* La barre systeme Android ne doit JAMAIS etre couverte : le client l'ecrit deux fois. */
+  const insets = useSafeAreaInsets();
 
   const [secteur, setSecteur] = useState<string | null>(null);
   const [titre, setTitre] = useState('');
@@ -133,15 +140,15 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={fermer}>
-      <Pressable style={styles.voile} onPress={envoi ? undefined : fermer} />
-
+    /* PLEIN ECRAN, comme l'ecran des offres (doc 196 v2.0). Un formulaire de douze champs dans
+     * une feuille plafonnee a 92 % perdait ses derniers champs sous le bord de l'ecran des que
+     * le clavier s'ouvrait — et le bouton d'envoi avec eux. */
+    <Modal visible={visible} animationType="slide" onRequestClose={fermer} statusBarTranslucent>
       <KeyboardAvoidingView
-        style={styles.bas}
+        style={styles.plein}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        pointerEvents="box-none"
       >
-        <View style={styles.feuille}>
+        <View style={[styles.contenu, { paddingTop: insets.top }]}>
           {/* Bandeau vert plein, comme l'ecran des offres : les deux appartiennent au meme
               module et doivent se reconnaitre comme tels. */}
           <View style={styles.bandeau}>
@@ -284,7 +291,7 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
                   <Text style={styles.validerTexte}>☑  {t('jobs.send')}</Text>
                 )}
               </Pressable>
-              <View style={{ height: spacing.xl }} />
+              <View style={{ height: spacing.xl + insets.bottom }} />
             </ScrollView>
           )}
         </View>
@@ -346,15 +353,8 @@ function Champ({
 }
 
 const styles = StyleSheet.create({
-  voile: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(21,32,28,0.45)' },
-  bas: { flex: 1, justifyContent: 'flex-end' },
-  feuille: {
-    backgroundColor: FOND,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
-    maxHeight: '92%',
-  },
+  plein: { flex: 1, backgroundColor: FOND },
+  contenu: { flex: 1, backgroundColor: FOND },
   bandeau: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -590,13 +590,20 @@
       "transport": "Transport",
       "restauration": "Catering",
       "industrie": "Industry",
-      "bureaux": "Office",
-      "services": "Home services"
+      "services": "Home services",
+      "agriculture": "Agriculture",
+      "sante": "Healthcare",
+      "informatique": "IT",
+      "securite": "Security",
+      "artisanat": "Crafts",
+      "education": "Education"
     },
     "contract": {
       "cdi": "Permanent",
       "cdd": "Fixed-term",
-      "mission": "Assignment"
+      "mission": "Assignment",
+      "interim": "Temp work",
+      "saisonnier": "Seasonal"
     },
     "payment": {
       "baridimob": "BaridiMob",

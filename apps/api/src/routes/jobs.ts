@@ -20,13 +20,41 @@ const RAYON_M = 50_000;
 /** Duree de visibilite d'une annonce activee, en jours. */
 const DUREE_JOURS = 30;
 
-const SECTEURS = ['btp', 'commerce', 'transport', 'restauration', 'industrie', 'bureaux', 'services'] as const;
+/**
+ * LES DOUZE SECTEURS DU CLIENT (doc 196 v2.0, 29 octobre).
+ *
+ * Sa liste compte treize lignes, mais la premiere est << Tous >> : c'est le filtre par defaut
+ * de l'ecran, pas un secteur. Douze, donc.
+ *
+ * << bureaux >> disparait : il n'existe pas chez lui, et aucun des douze ne le recouvre
+ * exactement. Les annonces deposees sous ce secteur basculent vers << services >> (voir la
+ * migration 0008) — un poste de bureau est un service, la ou le ranger sous l'industrie ou le
+ * commerce serait franchement faux.
+ *
+ * L'ordre suit celui de sa maquette : c'est celui dans lequel les chips defilent a l'ecran.
+ */
+const SECTEURS = [
+  'btp',
+  'commerce',
+  'transport',
+  'restauration',
+  'agriculture',
+  'sante',
+  'informatique',
+  'industrie',
+  'securite',
+  'artisanat',
+  'education',
+  'services',
+] as const;
 
 const creationInput = z.object({
   sector: z.enum(SECTEURS),
   title: z.string().trim().min(3).max(120),
   company: z.string().trim().max(120).optional(),
-  contract: z.enum(['cdi', 'cdd', 'mission']).default('cdi'),
+  /* CDI / CDD / Interim / Saisonnier (doc 196, 5.2). << mission >> reste accepte : des
+   * annonces le portent deja, et le refuser ferait echouer leur relecture. */
+  contract: z.enum(['cdi', 'cdd', 'interim', 'saisonnier', 'mission']).default('cdi'),
   salary: z.string().trim().max(60).optional(),
   description: z.string().trim().max(2_000).optional(),
   /* Le telephone est le SEUL contact obligatoire : une annonce sans numero ne sert a personne,

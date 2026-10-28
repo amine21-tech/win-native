@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api/client';
 import { formatDistance } from '../shared';
 import { radius, spacing } from '../theme';
@@ -37,13 +38,28 @@ const TEXTE_DOUX = '#5E6B64';
 const PUCE = '#F3F4F6';
 
 /** Les sept secteurs, dans l'ordre de la maquette, avec le pictogramme de chacun. */
+/**
+ * LES DOUZE SECTEURS DU CLIENT (doc 196 v2.0, 29 octobre).
+ *
+ * Sa liste compte treize lignes, mais la premiere est « Tous » : c'est le filtre par defaut de
+ * l'ecran, pas un secteur. Douze, donc, et l'ordre est celui de sa maquette — c'est celui dans
+ * lequel les chips defilent.
+ *
+ * « Bureaux » disparait : il n'existe pas dans sa liste, et aucun des douze ne le recouvre
+ * exactement. Les annonces deja deposees basculent vers « Services » (migration 0008).
+ */
 export const SECTEURS_EMPLOI = [
   { cle: 'btp', emoji: '🔧' },
   { cle: 'commerce', emoji: '🛒' },
-  { cle: 'transport', emoji: '🚗' },
+  { cle: 'transport', emoji: '🚚' },
   { cle: 'restauration', emoji: '🍽' },
+  { cle: 'agriculture', emoji: '🌾' },
+  { cle: 'sante', emoji: '⚕️' },
+  { cle: 'informatique', emoji: '💻' },
   { cle: 'industrie', emoji: '🏭' },
-  { cle: 'bureaux', emoji: '💼' },
+  { cle: 'securite', emoji: '🛡' },
+  { cle: 'artisanat', emoji: '🪚' },
+  { cle: 'education', emoji: '📚' },
   { cle: 'services', emoji: '🏠' },
 ] as const;
 
@@ -93,6 +109,7 @@ const mail = (a: string) => void Linking.openURL(`mailto:${a}`);
 
 export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }: Props) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [secteur, setSecteur] = useState<string | null>(null);
   /* « Mes annonces » n'est pas un filtre de plus : c'est la seule facon pour un employeur de
    * savoir ou en est ce qu'il a paye. Sans cet ecran, l'ecran de confirmation lui promettait
@@ -117,11 +134,20 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
   const offres = useMemo(() => query.data?.items ?? [], [query.data]);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.voile} onPress={onClose} />
-
-      <View style={styles.bas} pointerEvents="box-none">
-        <View style={styles.feuille}>
+    /* PLEIN ECRAN, ET C'EST LE POINT BLOQUANT DU CLIENT (doc 196 v2.0, 29 octobre).
+     *
+     * C'etait une feuille basse plafonnee a 88 % : le bas de la liste passait sous le bord de
+     * l'ecran et les dernieres annonces devenaient inatteignables. Le client le decrit comme
+     * << le probleme principal a corriger en priorite >>, et il a raison — une liste qu'on ne
+     * peut pas finir de lire n'est pas une liste.
+     *
+     * `transparent` est retire : un Modal opaque occupe tout l'ecran, sans voile ni fond de
+     * carte derriere. Le retour se fait par la fleche du bandeau et par le bouton Retour
+     * d'Android (`onRequestClose`), comme sur l'ecran d'enregistrement GPS auquel le client
+     * demande de se referer. */
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <View style={styles.plein}>
+        <View style={[styles.contenu, { paddingTop: insets.top }]}>
           {/* BANDEAU VERT PLEIN, comme la maquette : l'emploi a son propre en-tete, et c'est ce
               qui le fait lire comme un module a part plutot que comme une feuille de plus. */}
           <View style={styles.bandeau}>
@@ -187,7 +213,14 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
             />
           </ScrollView>
 
-          <ScrollView style={styles.liste} keyboardShouldPersistTaps="handled">
+          {/* `flex: 1` et non plus une hauteur libre : en plein ecran, c'est cette liste qui
+              doit absorber TOUT l'espace restant entre les filtres et le bas de l'ecran. Sans
+              lui, elle se dimensionnerait sur son contenu et s'arreterait au milieu. */}
+          <ScrollView
+            style={styles.liste}
+            contentContainerStyle={styles.listeContenu}
+            keyboardShouldPersistTaps="handled"
+          >
             {mesAnnonces ? (
               miennes.isLoading ? (
                 <ActivityIndicator color={VERT} style={{ marginTop: spacing.lg }} />
@@ -209,7 +242,7 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
             ) : (
               offres.map((o) => <CarteOffre key={o.id} offre={o} onNavigate={onNavigate} />)
             )}
-            <View style={{ height: 88 }} />
+            <View style={{ height: 88 + insets.bottom }} />
           </ScrollView>
 
           {/* FAB OR — « Publier une offre », l'acces employeur. Pose PAR-DESSUS la liste et non
@@ -218,7 +251,12 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
           <Pressable
             onPress={onPublish}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.fab, { opacity: pressed ? 0.88 : 1 }]}
+            /* La barre systeme Android (Retour / Accueil / Recents) ne doit JAMAIS etre
+               couverte : le client l'ecrit deux fois. Le bouton se pose au-dessus d'elle. */
+            style={({ pressed }) => [
+              styles.fab,
+              { bottom: spacing.lg + insets.bottom, opacity: pressed ? 0.88 : 1 },
+            ]}
           >
             <Text style={styles.fabTexte}>＋  {t('jobs.publish')}</Text>
           </Pressable>
@@ -360,18 +398,14 @@ function Contact({ emoji, libelle, onPress }: { emoji: string; libelle: string; 
 }
 
 const styles = StyleSheet.create({
-  voile: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(21,32,28,0.45)' },
-  bas: { flex: 1, justifyContent: 'flex-end' },
-  feuille: {
-    backgroundColor: FOND,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
-    maxHeight: '88%',
-  },
+  /* Plein ecran : le fond couvre la totalite, barre d'etat comprise (statusBarTranslucent),
+   * et `contenu` redescend sous l'encoche grace a l'inset haut. Le bandeau vert passe ainsi
+   * SOUS la barre d'etat au lieu de s'arreter avant, comme sur la maquette. */
+  plein: { flex: 1, backgroundColor: FOND },
+  contenu: { flex: 1, backgroundColor: FOND },
 
-  /* Le bandeau et son sous-bandeau vont d'un bord a l'autre : c'est `overflow: hidden` sur la
-   * feuille qui leur donne les angles arrondis du haut, sans avoir a les repeter ici. */
+  /* Le bandeau et son sous-bandeau vont d'un bord a l'autre. Plus d'angles arrondis en haut :
+   * en plein ecran ils laisseraient deux coins de fond blanc au-dessus du vert. */
   bandeau: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -402,7 +436,8 @@ const styles = StyleSheet.create({
   chipTexte: { color: TEXTE_DOUX, fontSize: 12.5, fontWeight: '700' as const },
   chipTexteActif: { color: '#FFFFFF' },
 
-  liste: { marginTop: 2 },
+  liste: { flex: 1, marginTop: 2 },
+  listeContenu: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   vide: { color: TEXTE_DOUX, fontSize: 13, textAlign: 'center', paddingVertical: spacing.xl },
 
   carte: {

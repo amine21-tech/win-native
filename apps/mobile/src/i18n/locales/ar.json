@@ -590,13 +590,20 @@
       "transport": "النقل",
       "restauration": "الإطعام",
       "industrie": "الصناعة",
-      "bureaux": "المكاتب",
-      "services": "خدمات منزلية"
+      "services": "خدمات منزلية",
+      "agriculture": "الفلاحة",
+      "sante": "الصحة",
+      "informatique": "الإعلام الآلي",
+      "securite": "الأمن",
+      "artisanat": "الحرف",
+      "education": "التعليم"
     },
     "contract": {
       "cdi": "دائم",
       "cdd": "محدد المدة",
-      "mission": "مهمة"
+      "mission": "مهمة",
+      "interim": "عمل مؤقت",
+      "saisonnier": "موسمي"
     },
     "payment": {
       "baridimob": "بريدي موب",
