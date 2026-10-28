@@ -515,7 +515,14 @@
     "prefix": "انتبه،",
     "announce_m": "{{label}} على بُعد {{metres}} متر",
     "announce_f": "{{label}} على بُعد {{metres}} متر",
-    "announce_pl": "{{label}} على بُعد {{metres}} متر"
+    "announce_pl": "{{label}} على بُعد {{metres}} متر",
+    "ahead": "على طريقك",
+    "disableQuestion": "إيقاف التنبيهات؟",
+    "disableYes": "نعم، أوقف",
+    "disableNo": "لا، احتفظ بها",
+    "alertsOn": "التنبيهات مفعّلة",
+    "alertsOff": "التنبيهات موقفة",
+    "reenable": "إعادة تفعيل التنبيهات"
   },
   "assistant": {
     "title": "المساعد الصوتي",

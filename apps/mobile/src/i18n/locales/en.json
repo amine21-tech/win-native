@@ -515,7 +515,14 @@
     "prefix": "Caution,",
     "announce_m": "{{label}} reported in {{metres}} metres",
     "announce_f": "{{label}} reported in {{metres}} metres",
-    "announce_pl": "{{label}} reported in {{metres}} metres"
+    "announce_pl": "{{label}} reported in {{metres}} metres",
+    "ahead": "On your route",
+    "disableQuestion": "Turn alerts off?",
+    "disableYes": "YES, turn off",
+    "disableNo": "NO, keep them",
+    "alertsOn": "Alerts on",
+    "alertsOff": "Alerts off",
+    "reenable": "Turn alerts back on"
   },
   "assistant": {
     "title": "Voice assistant",

@@ -67,6 +67,16 @@ type Session = {
    * sans rien changer au reste (avancement des manoeuvres, texte affiche...). */
   voiceGuidanceEnabled: boolean;
   routePrefs: RoutePrefs;
+  /**
+   * Alertes de proximite aux signalements (point 17 du client, 29 octobre).
+   *
+   * DISTINCT du guidage vocal, et ce n'est pas un detail : `voiceGuidanceEnabled` coupe la
+   * VOIX, toutes annonces confondues, y compris les consignes de conduite. Celui-ci coupe les
+   * ALERTES aux signalements, voix ET carte, sans toucher au guidage. Un conducteur qui roule
+   * sur une route qu'il connait par coeur veut souvent le second sans le premier — c'est
+   * exactement ce que la carte d'alerte lui propose, au moment ou l'alerte l'agace.
+   */
+  approachAlertsEnabled: boolean;
   ready: boolean;
 
   /** Inscrit l'appareil au premier lancement, puis reutilise le jeton garde. */
@@ -76,6 +86,8 @@ type Session = {
   /** Interrupteur jour/nuit, comme `applyNight(!nightMode)` en v83. */
   toggleNightMode: () => void;
   toggleVoiceGuidance: () => void;
+  /** « OUI, desactiver » / « NON, garder » depuis la carte d'alerte, ou le panneau de reglages. */
+  setApproachAlerts: (on: boolean) => void;
   setAutoroute: (on: boolean) => void;
 };
 
@@ -88,6 +100,9 @@ export const useSession = create<Session>((set, get) => ({
   // consulte — le site ne le consulte pas non plus, et les deux doivent coincider.
   themeOverride: 'auto',
   voiceGuidanceEnabled: storage.getString(StorageKeys.voiceEnabled) !== '0',
+  /* Actives par defaut : c'est une fonction de securite, et une securite ne s'active pas,
+   * elle se desactive. L'absence de cle vaut donc « actives ». */
+  approachAlertsEnabled: storage.getString(StorageKeys.approachAlerts) !== '0',
   routePrefs: lireRoutePrefs(),
   ready: false,
 
@@ -130,6 +145,11 @@ export const useSession = create<Session>((set, get) => ({
     const next = !get().voiceGuidanceEnabled;
     storage.set(StorageKeys.voiceEnabled, next ? '1' : '0');
     set({ voiceGuidanceEnabled: next });
+  },
+
+  setApproachAlerts: (on) => {
+    storage.set(StorageKeys.approachAlerts, on ? '1' : '0');
+    set({ approachAlertsEnabled: on });
   },
 
   setAutoroute: (on) => {

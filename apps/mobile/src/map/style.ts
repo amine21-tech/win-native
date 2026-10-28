@@ -41,22 +41,38 @@ export const NAVIGATION_CAMERA = {
  * par le client, doc "Badges de route & signalisations communautaires" #3) ;
  * les evenements ponctuels prennent le rouge.
  */
+/* COULEURS ALIGNEES SUR LE TABLEAU DU CLIENT (point 17, synthese du 29 octobre).
+ *
+ * Son tableau corrige un defaut reel, et c'est ce qui m'a decide a le suivre : QUATRE types
+ * portaient exactement la meme couleur — accident, objet sur la route, route bloquee et
+ * incendie etaient tous `#D64545`. Sur la carte, quatre pastilles rouges identiques ne disent
+ * rien de plus qu'une seule, et le conducteur qui en voit une ne sait pas s'il doit ralentir,
+ * changer de file ou faire demi-tour. Dos d'ane et trou partageaient de meme le meme ambre.
+ *
+ * Desormais chaque famille a sa teinte : le rouge pour ce qui blesse, le brun pour ce qui est
+ * creve ou ferme, l'or pour ce qui encombre, le bleu pour l'eau et l'autorite.
+ *
+ * SEUL CHANGEMENT A FAIRE VALIDER : le radar passe du bleu au gris fonce. Le bleu avait ete
+ * demande explicitement par le client dans un document anterieur (<< Badges de route &
+ * signalisations communautaires >>, point 3) ; sa synthese du 29 octobre dit maintenant
+ * << gris fonce >>. J'applique la plus recente, mais c'est un revirement, pas une precision.
+ */
 export const REPORT_COLORS: Record<string, string> = {
-  radar: '#2F6FE0',
-  bump: '#EFB63F',
-  pothole: '#EFB63F',
-  police: '#4A7DD4',
-  crash: '#D64545',
-  jam: '#D6822C',
-  object: '#D64545',
-  fire: '#D64545',
-  flood: '#4A7DD4',
-  block: '#D64545',
+  radar: '#3A3A3A', // gris fonce (etait bleu — voir ci-dessus)
+  bump: '#F07818', // orange vif
+  pothole: '#A9703A', // brun clair : un trou n'est pas un dos d'ane
+  police: '#1E4C8A', // bleu fonce
+  crash: '#D64545', // rouge
+  jam: '#C25E10', // rouge/orange, plus sombre que le dos d'ane
+  object: '#E3B520', // or clair : il encombre, il ne blesse pas
+  fire: '#E03A10', // rouge/feu
+  flood: '#4A7DD4', // bleu
+  block: '#5A2D18', // marron tres fonce : une voie fermee, pas un barrage de l'armee
   /* Les trois forces gardent chacune leur couleur institutionnelle, celle de leur uniforme :
    * bleu pour la police, vert pour la gendarmerie, brun pour l'armee. Sur la carte, la couleur
    * suffit a reconnaitre le barrage sans lire l'etiquette. */
   gendarmerie: '#2E7D4F',
   armee: '#6B5B3E',
   // L'ambre des travaux, la meme que les panneaux de chantier.
-  works: '#E09B2D',
+  works: '#C98A1E',
 };

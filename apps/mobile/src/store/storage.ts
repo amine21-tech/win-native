@@ -27,6 +27,8 @@ export const StorageKeys = {
   routePrefs: 'routePrefs',
   /** Droit d'enregistrer des lieux, retenu pour que l'interface soit juste hors ligne. */
   contributor: 'contributor',
+  /** Alertes de proximite aux signalements : « NON, garder » / « OUI, desactiver » (point 17). */
+  approachAlerts: 'approachAlerts',
 } as const;
 
 export function readJson<T>(key: string, fallback: T): T {

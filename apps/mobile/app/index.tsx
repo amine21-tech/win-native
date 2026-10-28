@@ -72,6 +72,7 @@ import { emojiForPlace } from '../src/map/placeIcons';
 import { useAssistant } from '../src/assistant/useAssistant';
 import { durationInWords } from '../src/assistant/commands';
 import { formatClock24, useAutoScheme } from '../src/utils/clock';
+import { AlerteApproche } from '../src/components/AlerteApproche';
 import { projeterSurTrace } from '../src/navigation/alerteApproche';
 import { useApproachAlerts } from '../src/navigation/useApproachAlerts';
 import { useLiveLocation } from '../src/navigation/useLiveLocation';
@@ -453,6 +454,10 @@ export default function MapScreen() {
   const toggleNightMode = useSession((s) => s.toggleNightMode);
   const voiceGuidanceEnabled = useSession((s) => s.voiceGuidanceEnabled);
   const toggleVoiceGuidance = useSession((s) => s.toggleVoiceGuidance);
+  /* Alertes de proximite aux signalements (point 17) : distinctes du guidage vocal, qui lui
+   * coupe TOUTE la voix, consignes de conduite comprises. */
+  const approachAlertsEnabled = useSession((s) => s.approachAlertsEnabled);
+  const setApproachAlerts = useSession((s) => s.setApproachAlerts);
   const autoScheme = useAutoScheme(themeOverride === 'auto');
   const scheme = themeOverride === 'auto' ? autoScheme : themeOverride;
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
@@ -1208,12 +1213,32 @@ export default function MapScreen() {
    * bout de 6 s : au volant, on ne doit jamais avoir a fermer quoi que ce soit pour continuer.
    */
   const approachTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onApproachReport = useCallback((report: Report) => {
-    if (approachTimerRef.current) clearTimeout(approachTimerRef.current);
-    setVoteMessage(null);
-    setVotingReport(report);
-    approachTimerRef.current = setTimeout(() => setVotingReport(null), 6000);
-  }, []);
+  /**
+   * Signalement dont on s'approche, et distance au moment de l'alerte.
+   *
+   * SEPARE DE `votingReport`, et c'est tout l'objet du point 17. L'alerte d'approche ouvrait
+   * la feuille de vote : une fenetre qui monte du bas et occupe la moitie de l'ecran, en
+   * pleine conduite, sans qu'on l'ait demandee. Elle ouvre maintenant une carte compacte dans
+   * le coin bas-gauche. Le vote, lui, reste atteignable par un appui sur le MARQUEUR — on ne
+   * le subit plus, on le demande.
+   *
+   * La distance est figee a l'instant de l'alerte plutot que recalculee a chaque image : le
+   * badge doit dire a quelle distance on a ete prevenu, pas defiler comme un compteur.
+   */
+  const [approche, setApproche] = useState<{ report: Report; distanceM: number | null } | null>(null);
+  const onApproachReport = useCallback(
+    (report: Report) => {
+      if (approachTimerRef.current) clearTimeout(approachTimerRef.current);
+      setApproche({
+        report,
+        distanceM: position ? haversine(position.lat, position.lon, report.lat, report.lon) : null,
+      });
+      /* Elle se referme seule au bout de 6 s : au volant, on ne doit jamais avoir a fermer
+       * quoi que ce soit pour continuer a rouler. */
+      approachTimerRef.current = setTimeout(() => setApproche(null), 6000);
+    },
+    [position],
+  );
 
   useEffect(() => () => {
     if (approachTimerRef.current) clearTimeout(approachTimerRef.current);
@@ -1236,8 +1261,12 @@ export default function MapScreen() {
      *
      * Aucun filtre de direction n'a jamais existe, ni ici ni cote serveur : un signalement est
      * un point GPS qui appartient a la ROUTE, pas a un sens de circulation. Il ne manquait que
-     * de laisser l'alerte tourner hors navigation. */
-    active: true,
+     * de laisser l'alerte tourner hors navigation.
+     *
+     * COUPEE A LA RACINE quand le conducteur a repondu « OUI, desactiver » sur la carte
+     * d'alerte (point 17). Couper seulement l'AFFICHAGE laisserait la voix parler dans le
+     * vide — c'est precisement ce qu'il vient de demander qu'on arrete. */
+    active: approachAlertsEnabled,
     position,
     reports: liveReports,
     lang,
@@ -2640,6 +2669,19 @@ export default function MapScreen() {
           elle laisserait moins de place a la carte que de confort gagne — la hauteur ne
           suffit pas pour dix boutons — et le cadre du bas porte alors les commandes. */}
       {navigating && landscape ? null : fabColumn}
+
+      {/* CARTE D'ALERTE COMPACTE (point 17). Elle ne remplace pas la feuille de vote : elle
+          remplace le fait de l'IMPOSER a l'approche. */}
+      <AlerteApproche
+        report={approche?.report ?? null}
+        distanceM={approche?.distanceM ?? null}
+        onGarder={() => setApproche(null)}
+        onDesactiver={() => {
+          setApproche(null);
+          setApproachAlerts(false);
+          setToast(t('approach.alertsOff'));
+        }}
+      />
 
       {votingReport ? (
         /* En navigation, le bandeau d'instruction occupe le haut de l'ecran : la carte de vote

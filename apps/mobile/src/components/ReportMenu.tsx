@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ReportKind } from '../shared';
 import { FORCES, menuEmoji, REPORT_FAMILLE, REPORT_MENU_ORDER } from '../reports/kinds';
 import { RadarIcon } from './RadarIcon';
+import { useSession } from '../store/session';
 import { radius, spacing, typography, type Palette } from '../theme';
 
 type Props = {
@@ -56,6 +57,11 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
   /* Quelle force tient le barrage : le choix se fait DANS la carte, sans la quitter. Un seul
    * appui suffit a qui sait deja, deux a qui hesite. */
   const [force, setForce] = useState<ReportKind>('police');
+  /* L'etat des alertes de proximite vit ICI parce que c'est ici qu'on le cherche : le menu des
+   * signalements est le seul endroit de l'application qui parle d'eux. La colonne de droite
+   * reste a dix boutons — c'est une decision prise et tenue. */
+  const alertesActives = useSession((s) => s.approachAlertsEnabled);
+  const setAlertes = useSession((s) => s.setApproachAlerts);
 
   const choisir = (kind: ReportKind) => {
     onPick(kind === 'police' ? force : kind);
@@ -171,6 +177,33 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
                 );
               })}
             </View>
+
+            {/* ETAT DES ALERTES DE PROXIMITE, et le chemin du retour (point 17).
+                La carte d'alerte permet de les couper d'un appui, en roulant. Sans cette
+                ligne, rien ne permettrait de les RALLUMER : un reglage qu'on ne peut que
+                desactiver est un piege, pas un reglage. */}
+            <Pressable
+              onPress={() => setAlertes(!alertesActives)}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: alertesActives }}
+              style={({ pressed }) => [
+                styles.alertes,
+                { backgroundColor: pressed ? BORDURE_CARTE : FOND_CARTE, borderColor: BORDURE_CARTE },
+              ]}
+            >
+              <View
+                style={[
+                  styles.alertesPoint,
+                  { backgroundColor: alertesActives ? '#2BA84A' : TEXTE_CARTE_DOUX },
+                ]}
+              />
+              <Text style={[styles.alertesTexte, { color: TEXTE_CARTE }]} numberOfLines={1}>
+                {alertesActives ? t('approach.alertsOn') : t('approach.alertsOff')}
+              </Text>
+              <Text style={[styles.alertesAction, { color: TEXTE_CARTE_DOUX }]} numberOfLines={1}>
+                {alertesActives ? t('approach.disableQuestion') : t('approach.reenable')}
+              </Text>
+            </Pressable>
           </ScrollView>
         </Pressable>
       </Pressable>
@@ -179,6 +212,20 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
 }
 
 const styles = StyleSheet.create({
+  alertes: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  alertesPoint: { width: 8, height: 8, borderRadius: 4 },
+  alertesTexte: { fontSize: 13, fontWeight: '800' as const },
+  alertesAction: { flex: 1, fontSize: 11, textAlign: 'right' },
+
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(21,32,28,0.45)',

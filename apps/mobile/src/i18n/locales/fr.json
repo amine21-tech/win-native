@@ -515,7 +515,14 @@
     "prefix": "Attention,",
     "announce_m": "{{label}} signalé dans {{metres}} mètres",
     "announce_f": "{{label}} signalée dans {{metres}} mètres",
-    "announce_pl": "{{label}} signalés dans {{metres}} mètres"
+    "announce_pl": "{{label}} signalés dans {{metres}} mètres",
+    "ahead": "Sur votre route",
+    "disableQuestion": "Désactiver les alertes ?",
+    "disableYes": "OUI, désactiver",
+    "disableNo": "NON, garder",
+    "alertsOn": "Alertes actives",
+    "alertsOff": "Alertes désactivées",
+    "reenable": "Réactiver les alertes"
   },
   "assistant": {
     "title": "Assistant vocal",

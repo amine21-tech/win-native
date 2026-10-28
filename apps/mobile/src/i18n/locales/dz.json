@@ -515,7 +515,14 @@
     "prefix": "رد بالك،",
     "announce_m": "{{label}} على بعد {{metres}} متر",
     "announce_f": "{{label}} على بعد {{metres}} متر",
-    "announce_pl": "{{label}} على بعد {{metres}} متر"
+    "announce_pl": "{{label}} على بعد {{metres}} متر",
+    "ahead": "في طريقك",
+    "disableQuestion": "تحبس التنبيهات؟",
+    "disableYes": "إي، حبس",
+    "disableNo": "لا، خلّيها",
+    "alertsOn": "التنبيهات خدامة",
+    "alertsOff": "التنبيهات محبوسة",
+    "reenable": "رجّع التنبيهات"
   },
   "assistant": {
     "title": "المساعد الصوتي",
