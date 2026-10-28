@@ -500,7 +500,15 @@
     "statsActiveDevices": "أجهزة نشطة (30 يومًا)",
     "statsActiveReports": "بلاغات نشطة",
     "statsPartners": "شركاء VIP",
-    "statsByWilaya": "الأماكن حسب الولاية، أول ثماني"
+    "statsByWilaya": "الأماكن حسب الولاية، أول ثماني",
+    "jobsTitle": "عروض العمل",
+    "jobsHint": "الدفع يتم خارج التطبيق: فعّل الإعلان بعد التأكد من تحويل 1500 دج. مدة الثلاثين يومًا تبدأ عند التفعيل.",
+    "jobsPending": "معلّقة",
+    "jobsActive": "منشورة",
+    "jobsEmpty": "لا يوجد إعلان ينتظر الدفع.",
+    "jobsNoneActive": "لا يوجد إعلان منشور.",
+    "jobsActivate": "تفعيل",
+    "jobsExpires": "ينتهي في {{when}}"
   },
   "approach": {
     "prefix": "انتبه،",

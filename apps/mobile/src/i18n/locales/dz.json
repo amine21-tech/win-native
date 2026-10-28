@@ -500,7 +500,15 @@
     "statsActiveDevices": "تيليفونات خدّامة (30 يوم)",
     "statsActiveReports": "بلاغات خدّامة",
     "statsPartners": "شركاء VIP",
-    "statsByWilaya": "البلايص حسب الولاية، أول ثمنية"
+    "statsByWilaya": "البلايص حسب الولاية، أول ثمنية",
+    "jobsTitle": "إعلانات الخدمة",
+    "jobsHint": "الخلاص يتم برا التطبيق: فعّل الإعلان كي تتأكد من تحويل 1500 دج. الثلاثين يوم يبداو من التفعيل.",
+    "jobsPending": "معلّقة",
+    "jobsActive": "منشورة",
+    "jobsEmpty": "ما كاين حتى إعلان يستنى الخلاص.",
+    "jobsNoneActive": "ما كاين حتى إعلان منشور.",
+    "jobsActivate": "فعّل",
+    "jobsExpires": "يطيح في {{when}}"
   },
   "approach": {
     "prefix": "رد بالك،",

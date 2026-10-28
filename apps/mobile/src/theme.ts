@@ -16,14 +16,21 @@ export const palette = {
     text: '#15201C',
     textMuted: '#6B7A72',
     border: '#E2DDCD',
-    accent: '#0D6E4F',
-    accentDark: '#0A5840',
+    /* #0B5B2C : le vert des maquettes du client, au point pres. Il etait a #0D6E4F —
+     * imperceptiblement different, mais c'est exactement l'ecart qui fait qu'une application ne
+     * semble pas d'une seule main quand le bouton « C'est parti » et le tracé sont a cote. */
+    accent: '#0B5B2C',
+    accentDark: '#07401F',
     accentText: '#FFFFFF',
     gold: '#E9B949',
     goldDeep: '#D4AF6A',
     alert: '#B8860B',
     danger: '#C8102E',
   },
+  /* LA NUIT GARDE SON VERT PLUS CLAIR, et ce n'est pas un oubli : les maquettes du client sont
+   * dessinees de jour, et un vert plus sombre encore sur un fond sombre perd le contraste dont
+   * un bouton a besoin. Meme raisonnement que pour la couleur du tracé, ou il avait lui-meme
+   * signale ne plus voir l'itineraire la nuit. */
   dark: {
     background: '#0E1512',
     surface: '#1A2420',

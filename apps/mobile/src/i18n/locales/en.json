@@ -500,7 +500,15 @@
     "statsActiveDevices": "Active devices (30 d)",
     "statsActiveReports": "Active reports",
     "statsPartners": "VIP partners",
-    "statsByWilaya": "Places per wilaya, top eight"
+    "statsByWilaya": "Places per wilaya, top eight",
+    "jobsTitle": "Job offers",
+    "jobsHint": "Payment happens outside the app: activate an offer once the 1,500 DA transfer is confirmed. The 30 days start at activation.",
+    "jobsPending": "Pending",
+    "jobsActive": "Published",
+    "jobsEmpty": "No offer awaiting payment.",
+    "jobsNoneActive": "No published offer.",
+    "jobsActivate": "Activate",
+    "jobsExpires": "Expires on {{when}}"
   },
   "approach": {
     "prefix": "Caution,",

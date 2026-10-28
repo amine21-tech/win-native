@@ -130,8 +130,15 @@ const HEADER_HEIGHT = 102;
  * et l'empeche de se confondre avec une route du fond de meme teinte. Le liseré clair (`halo`)
  * reste en-dessous des deux : lui seul detache l'itineraire des nationales algeriennes, peintes
  * en orange et en beige dans ce style. */
+/* `main` de jour vaut #0B5B2C depuis le 27 octobre : c'est le vert que le client donne dans ses
+ * maquettes, au point pres, et qui est aussi celui des cartes metriques et des boutons de la
+ * feuille de navigation. Il etait a #0D6E4F, imperceptiblement different — mais c'est
+ * exactement le genre d'ecart qui fait qu'une application ne semble pas d'une seule main.
+ *
+ * LA NUIT NE SUIT PAS. Un vert fonce sur un fond sombre disparait, et c'est precisement ce que
+ * le client avait signale avant — ses maquettes sont dessinees de jour. Le turquoise reste. */
 const ROUTE_COLORS = {
-  day: { main: '#0D6E4F', casing: '#063B2A', halo: '#FFFFFF', alt: '#9AA89F' },
+  day: { main: '#0B5B2C', casing: '#063B2A', halo: '#FFFFFF', alt: '#9AA89F' },
   night: { main: '#2EE6A6', casing: '#0B6B4E', halo: '#06251C', alt: '#5B6B63' },
 } as const;
 
@@ -404,8 +411,9 @@ const ARRIVAL_RADIUS_M = 50;
  * sur une route qu'il n'emprunte peut-etre pas. */
 const SNAP_RADIUS_MIN_M = 50;
 const SNAP_RADIUS_MAX_M = 120;
-/** Diametre du marqueur de navigation, en points. */
-const NAV_PUCK_SIZE = 46;
+/** Diametre du marqueur de navigation, en points. 40 est la valeur donnee par le client le
+ * 27 octobre (« fleche position : taille 40dp ») ; il etait a 46. */
+const NAV_PUCK_SIZE = 40;
 
 /** Colonne de boutons : nombre de boutons, et place occupee en haut par le bandeau de marque,
  * la barre de recherche et la rangee de categories. Sert a calculer une taille de bouton qui

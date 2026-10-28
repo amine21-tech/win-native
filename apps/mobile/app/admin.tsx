@@ -272,6 +272,8 @@ function Dashboard({
 
       <AdminStats token={token} colors={colors} />
 
+      <JobOffers token={token} colors={colors} />
+
       <PlaceCorrections token={token} colors={colors} />
 
       <PhotoReports token={token} colors={colors} />
@@ -572,6 +574,153 @@ function Tuile({
       <Text style={[styles.tuileLibelle, { color: colors.textMuted }]} numberOfLines={2}>
         {libelle}
       </Text>
+    </View>
+  );
+}
+
+type JobOffer = {
+  id: string;
+  sector: string;
+  title: string;
+  company: string | null;
+  phone: string;
+  wilaya: string | null;
+  status: string;
+  paymentMethod: string | null;
+  paymentRef: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+};
+
+/**
+ * ANNONCES D'EMPLOI EN ATTENTE DE PAIEMENT (module Emploi, 27 octobre).
+ *
+ * SANS CET ECRAN, AUCUNE ANNONCE NE PARAIT JAMAIS. Le paiement se fait hors de l'application —
+ * BaridiMob, virement CCP, CPA, BNA, BEA — et rien ne permet de le constater automatiquement.
+ * C'est donc ici, et seulement ici, qu'une annonce devient visible.
+ *
+ * LE TELEPHONE DE L'EMPLOYEUR EST AFFICHE, et c'est volontaire : quand un versement ne
+ * correspond a aucune annonce, le rapprochement se fait en appelant. Sans le numero sous les
+ * yeux, l'administrateur devrait ouvrir une autre liste pour le retrouver.
+ */
+function JobOffers({ token, colors }: { token: string; colors: Palette }) {
+  const { t } = useTranslation();
+  const [vue, setVue] = useState<'pending' | 'active'>('pending');
+  const query = useQuery({
+    queryKey: ['admin', 'jobs', vue],
+    queryFn: () => api<{ items: JobOffer[] }>(`/admin/jobs?status=${vue}`, { adminToken: token }),
+    refetchInterval: vue === 'pending' ? 60_000 : false,
+  });
+  const [busy, setBusy] = useState<string | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  const decider = async (id: string, action: 'activate' | 'reject') => {
+    setBusy(id);
+    setErreur(null);
+    try {
+      await avecDelai((signal) =>
+        api(`/admin/jobs/${id}/${action}`, { method: 'POST', adminToken: token, signal }),
+      );
+      await query.refetch();
+    } catch (e) {
+      setErreur(messageEchec(e, t));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const items = query.data?.items ?? [];
+
+  return (
+    <View style={{ marginTop: spacing.xl }}>
+      <Text style={[typography.heading, { color: colors.text }]}>{t('admin.jobsTitle')}</Text>
+      <Text style={[typography.caption, styles.hint, { color: colors.textMuted }]}>
+        {t('admin.jobsHint')}
+      </Text>
+
+      <View style={styles.onglets}>
+        {(['pending', 'active'] as const).map((v) => (
+          <Pressable
+            key={v}
+            onPress={() => setVue(v)}
+            style={[
+              styles.onglet,
+              {
+                borderColor: vue === v ? colors.accent : colors.border,
+                backgroundColor: vue === v ? colors.accent : 'transparent',
+              },
+            ]}
+          >
+            <Text
+              style={{
+                color: vue === v ? colors.accentText : colors.textMuted,
+                fontWeight: '800',
+                fontSize: 13,
+              }}
+            >
+              {t(v === 'pending' ? 'admin.jobsPending' : 'admin.jobsActive')}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {query.isLoading ? <ActivityIndicator color={colors.accent} /> : null}
+      {!query.isLoading && items.length === 0 ? (
+        <Text style={[typography.caption, { color: colors.textMuted }]}>
+          {t(vue === 'pending' ? 'admin.jobsEmpty' : 'admin.jobsNoneActive')}
+        </Text>
+      ) : null}
+      <LigneErreur message={erreur ?? (query.isError ? messageEchec(query.error, t) : null)} colors={colors} />
+
+      {items.map((o) => (
+        <View key={o.id} style={[styles.modRow, { borderColor: colors.border }]}>
+          <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15 }} numberOfLines={2}>
+            {o.title}
+          </Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12.5, marginTop: 2 }} numberOfLines={1}>
+            {[o.company, o.wilaya, t(`jobs.sector.${o.sector}`)].filter(Boolean).join(' · ')}
+          </Text>
+          {/* Le numero est selectionnable : on le copie pour appeler, on ne le recopie pas. */}
+          <Text style={{ color: colors.text, fontSize: 13, marginTop: 4 }} selectable>
+            📞 {o.phone}
+          </Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
+            {o.paymentMethod ? t(`jobs.payment.${o.paymentMethod}`) : '—'}
+            {o.paymentRef ? ` · ${o.paymentRef}` : ''}
+            {` · ${new Date(o.createdAt).toLocaleString()}`}
+          </Text>
+          {o.expiresAt ? (
+            <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '700', marginTop: 2 }}>
+              {t('admin.jobsExpires', { when: new Date(o.expiresAt).toLocaleDateString() })}
+            </Text>
+          ) : null}
+
+          {o.status === 'pending' ? (
+            <View style={styles.modActions}>
+              {busy === o.id ? (
+                <ActivityIndicator color={colors.accent} />
+              ) : (
+                <>
+                  <Pressable
+                    onPress={() => void decider(o.id, 'reject')}
+                    style={[styles.smallBtn, { borderColor: colors.danger }]}
+                  >
+                    <Text style={{ color: colors.danger, fontWeight: '800' }}>{t('admin.reject')}</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void decider(o.id, 'activate')}
+                    style={[styles.smallBtn, { backgroundColor: colors.accent, borderColor: colors.accent }]}
+                  >
+                    <Text style={{ color: colors.accentText, fontWeight: '800' }}>
+                      {t('admin.jobsActivate')}
+                    </Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          ) : null}
+        </View>
+      ))}
     </View>
   );
 }

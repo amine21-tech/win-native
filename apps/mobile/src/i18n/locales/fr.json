@@ -500,7 +500,15 @@
     "statsActiveDevices": "Appareils actifs (30 j)",
     "statsActiveReports": "Signalements actifs",
     "statsPartners": "Partenaires VIP",
-    "statsByWilaya": "Lieux par wilaya, les huit premières"
+    "statsByWilaya": "Lieux par wilaya, les huit premières",
+    "jobsTitle": "Annonces d’emploi",
+    "jobsHint": "Le paiement se fait hors de l'application : activez une annonce une fois le versement de 1 500 DA constaté. Les 30 jours de visibilité commencent à l'activation.",
+    "jobsPending": "En attente",
+    "jobsActive": "Publiées",
+    "jobsEmpty": "Aucune annonce en attente de paiement.",
+    "jobsNoneActive": "Aucune annonce publiée.",
+    "jobsActivate": "Activer",
+    "jobsExpires": "Expire le {{when}}"
   },
   "approach": {
     "prefix": "Attention,",
