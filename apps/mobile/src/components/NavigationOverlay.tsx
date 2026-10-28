@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { localizedInstruction, maneuverArrow, roadRef } from '../navigation/instructions';
 import type { Maneuver } from '../navigation/routing';
 import { LaneGuidance } from './LaneGuidance';
+import { RecalcToast } from './RecalcToast';
 import type { FixListener } from '../navigation/useLiveLocation';
 import { formatDistance, formatDuration, type Language } from '../shared';
 import { SpeedBadge } from './SpeedBadge';
@@ -16,16 +17,6 @@ const CARD_MARGIN = spacing.sm;
 /** Ecart entre le bas du bandeau et le compteur de vitesse. */
 const BADGE_GAP = 48;
 
-/**
- * Fond du bandeau PENDANT un recalcul (point 5B du client : « aucun message visible pendant le
- * recalcul »).
- *
- * Changer la couleur du bandeau entier, et pas seulement son texte, est deliberate : au volant,
- * on ne lit pas, on reconnait. Un aplat orange qui remplace le vert se voit du coin de l'oeil et
- * dit, sans etre lu, que la consigne affichee n'est plus valable — ce qui est precisement
- * l'information utile a cette seconde-la.
- */
-const RECALC_BG = '#7D3C00';
 
 /** Hauteur de la languette « puis », sous laquelle les voies doivent passer. */
 const THEN_TAB_H = 40;
@@ -152,20 +143,18 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         onLayout={(e) => setBannerHeight(e.nativeEvent.layout.height)}
         style={[
           landscape ? styles.topBannerLandscape : styles.topBanner,
-          { backgroundColor: recalculating ? RECALC_BG : colors.accentDark },
+          /* LE BANDEAU NE CHANGE PLUS DE COULEUR pendant un recalcul (option C du client,
+             28 octobre). Il passait en orange et la consigne disparaissait : le conducteur
+             n'avait plus rien a l'ecran pendant les deux secondes du calcul, au moment precis
+             ou il en a le plus besoin. Une pastille se pose desormais par-dessus, sans rien
+             effacer — voir RecalcToast. */
+          { backgroundColor: colors.accentDark },
           landscape
             ? { top: bannerTop, left: leftInset + CARD_MARGIN, width: cardWidth }
             : { paddingTop: topInset + spacing.md },
         ]}
       >
-        {recalculating ? (
-          <View style={styles.instructionRow}>
-            <Text style={styles.arrow}>🔄</Text>
-            <Text style={[styles.instruction, { flex: 1, fontFamily: titleFontFor(lang) }]} numberOfLines={2}>
-              {t('nav.recalculating')}
-            </Text>
-          </View>
-        ) : arrived ? (
+        {arrived ? (
           <Text style={styles.instruction}>{t('nav.arrived')}</Text>
         ) : (
           <View style={styles.instructionRow}>
@@ -212,6 +201,10 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         {!arrived && !recalculating ? (
           <LaneGuidance lanes={nextManeuver?.lanes ?? []} distanceM={distanceToUpcoming} />
         ) : null}
+
+        {/* La pastille de recalcul, posee SOUS le bandeau et par-dessus la carte : elle dit que
+            l'application travaille sans effacer la consigne. Voir RecalcToast. */}
+        <RecalcToast visible={recalculating} top={bannerHeight + spacing.sm} />
 
         <View style={styles.clockRow}>
           <Text style={styles.clockItem}>🕐 {formatClock24(now)}</Text>

@@ -565,7 +565,7 @@
     "publish": "نشر عرض",
     "publishTitle": "نشر عرض",
     "price": "1500 دج",
-    "priceDetail": "إعلان ظاهر 30 يومًا، في دائرة 50 كلم حولك.",
+    "priceDetail": "ظاهر 50 كلم · 30 يومًا",
     "sectorLabel": "القطاع",
     "jobTitle": "تسمية المنصب",
     "company": "المؤسسة",
@@ -615,6 +615,17 @@
       "pending": "⏳ في انتظار الدفع",
       "active": "✅ منشور",
       "rejected": "✖ مرفوض"
-    }
+    },
+    "near": "عروض قريبة منك",
+    "count_one": "عرض واحد",
+    "count_other": "{{count}} عروض",
+    "countMine_one": "إعلان واحد",
+    "countMine_other": "{{count}} إعلانات",
+    "newOffer": "عرض جديد",
+    "employerSub": "صاحب العمل — نشر إعلان",
+    "priceLabel": "تعريفة إعلان صاحب العمل",
+    "perAd": "/ إعلان",
+    "detailsSection": "تفاصيل العرض",
+    "jobTitleHint": "مثال: بنّاء، محاسب، طبّاخ…"
   }
 }

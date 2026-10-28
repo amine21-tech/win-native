@@ -565,7 +565,7 @@
     "publish": "Publier une offre",
     "publishTitle": "Publier une offre",
     "price": "1 500 DA",
-    "priceDetail": "Annonce visible 30 jours, dans un rayon de 50 km autour de vous.",
+    "priceDetail": "Visible 50 km · 30 jours d’affichage",
     "sectorLabel": "Secteur",
     "jobTitle": "Désignation du poste",
     "company": "Entreprise",
@@ -615,6 +615,17 @@
       "pending": "⏳ En attente de paiement",
       "active": "✅ Publiée",
       "rejected": "✖ Refusée"
-    }
+    },
+    "near": "Offres près de vous",
+    "count_one": "{{count}} offre trouvée",
+    "count_other": "{{count}} offres trouvées",
+    "countMine_one": "{{count}} annonce",
+    "countMine_other": "{{count}} annonces",
+    "newOffer": "Nouvelle offre",
+    "employerSub": "Employeur — Publier une annonce",
+    "priceLabel": "Tarif annonce employeur",
+    "perAd": "/ annonce",
+    "detailsSection": "Détails de l’offre",
+    "jobTitleHint": "ex. Maçon, Comptable, Cuisinier…"
   }
 }

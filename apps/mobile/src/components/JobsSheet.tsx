@@ -122,14 +122,32 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
 
       <View style={styles.bas} pointerEvents="box-none">
         <View style={styles.feuille}>
-          <View style={styles.tete}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.titre}>{t('jobs.title')}</Text>
-              <Text style={styles.sousTitre}>{t('jobs.radius')}</Text>
-            </View>
+          {/* BANDEAU VERT PLEIN, comme la maquette : l'emploi a son propre en-tete, et c'est ce
+              qui le fait lire comme un module a part plutot que comme une feuille de plus. */}
+          <View style={styles.bandeau}>
             <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button">
-              <Text style={styles.fermer}>✕</Text>
+              <Text style={styles.retour}>←</Text>
             </Pressable>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.bandeauTitre}>💼  {t('jobs.shortTitle')}</Text>
+              <Text style={styles.bandeauSousTitre}>{t('jobs.near')}</Text>
+            </View>
+            {/* Le carre or de la maquette : l'acces employeur, atteignable sans faire defiler. */}
+            <Pressable onPress={onPublish} accessibilityRole="button" style={styles.carreOr}>
+              <Text style={styles.carreOrTexte}>✚</Text>
+            </Pressable>
+          </View>
+
+          {/* SOUS-BANDEAU : le rayon a gauche, le nombre d'offres a droite. Il repond avant
+              qu'on demande aux deux questions qu'on se pose en ouvrant : jusqu'ou cherche-t-on,
+              et y a-t-il quelque chose. */}
+          <View style={styles.sousBandeau}>
+            <Text style={styles.sousBandeauTexte}>📍  {t('jobs.radius')}</Text>
+            <Text style={styles.sousBandeauTexte}>
+              {mesAnnonces
+                ? t('jobs.countMine', { count: miennes.data?.items.length ?? 0 })
+                : t('jobs.count', { count: offres.length })}
+            </Text>
           </View>
 
           {/* FILTRES EN CHIPS DEFILANTS, comme la maquette. Horizontal et non une grille : sept
@@ -348,16 +366,37 @@ const styles = StyleSheet.create({
     backgroundColor: FOND,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    overflow: 'hidden',
     maxHeight: '88%',
   },
-  tete: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  titre: { color: TEXTE, fontSize: 20, fontWeight: '800' as const },
-  sousTitre: { color: TEXTE_DOUX, fontSize: 12.5, marginTop: 2 },
-  fermer: { color: TEXTE_DOUX, fontSize: 18 },
 
-  chips: { gap: spacing.sm, paddingVertical: spacing.md, paddingRight: spacing.lg },
+  /* Le bandeau et son sous-bandeau vont d'un bord a l'autre : c'est `overflow: hidden` sur la
+   * feuille qui leur donne les angles arrondis du haut, sans avoir a les repeter ici. */
+  bandeau: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: VERT,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  retour: { color: '#FFFFFF', fontSize: 22, fontWeight: '800' as const },
+  bandeauTitre: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' as const },
+  bandeauSousTitre: { color: 'rgba(255,255,255,0.78)', fontSize: 12, marginTop: 1 },
+  carreOr: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: OR, alignItems: 'center', justifyContent: 'center' },
+  carreOrTexte: { color: '#2A1F00', fontSize: 20, fontWeight: '800' as const },
+
+  sousBandeau: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#0A4A24',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 8,
+  },
+  sousBandeauTexte: { color: 'rgba(255,255,255,0.88)', fontSize: 12, fontWeight: '700' as const },
+
+  chips: { gap: spacing.sm, paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
   chip: { borderWidth: 1.5, borderColor: PUCE, backgroundColor: PUCE, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 7 },
   chipActif: { backgroundColor: VERT, borderColor: VERT },
   chipTexte: { color: TEXTE_DOUX, fontSize: 12.5, fontWeight: '700' as const },

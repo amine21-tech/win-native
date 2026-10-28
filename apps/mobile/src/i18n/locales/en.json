@@ -565,7 +565,7 @@
     "publish": "Post an offer",
     "publishTitle": "Post an offer",
     "price": "1,500 DA",
-    "priceDetail": "Visible for 30 days, within 50 km of you.",
+    "priceDetail": "Visible 50 km · 30 days online",
     "sectorLabel": "Sector",
     "jobTitle": "Job title",
     "company": "Company",
@@ -615,6 +615,17 @@
       "pending": "⏳ Awaiting payment",
       "active": "✅ Published",
       "rejected": "✖ Rejected"
-    }
+    },
+    "near": "Offers near you",
+    "count_one": "{{count}} offer found",
+    "count_other": "{{count}} offers found",
+    "countMine_one": "{{count}} offer",
+    "countMine_other": "{{count}} offers",
+    "newOffer": "New offer",
+    "employerSub": "Employer — Post an ad",
+    "priceLabel": "Employer ad price",
+    "perAd": "/ ad",
+    "detailsSection": "Offer details",
+    "jobTitleHint": "e.g. Mason, Accountant, Cook…"
   }
 }

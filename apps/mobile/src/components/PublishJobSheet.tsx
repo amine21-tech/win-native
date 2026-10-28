@@ -142,11 +142,16 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
         pointerEvents="box-none"
       >
         <View style={styles.feuille}>
-          <View style={styles.tete}>
-            <Text style={styles.titre}>{t('jobs.publishTitle')}</Text>
+          {/* Bandeau vert plein, comme l'ecran des offres : les deux appartiennent au meme
+              module et doivent se reconnaitre comme tels. */}
+          <View style={styles.bandeau}>
             <Pressable onPress={fermer} hitSlop={12} accessibilityRole="button">
-              <Text style={styles.fermer}>✕</Text>
+              <Text style={styles.retour}>←</Text>
             </Pressable>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.bandeauTitre}>✚  {t('jobs.newOffer')}</Text>
+              <Text style={styles.bandeauSousTitre}>{t('jobs.employerSub')}</Text>
+            </View>
           </View>
 
           {envoye ? (
@@ -164,12 +169,20 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
           ) : (
             <ScrollView keyboardShouldPersistTaps="handled" style={styles.defilant}>
               {/* LE PRIX D'ABORD. Voir la note en tete de fichier. */}
+              {/* LA CARTE DU TARIF, en or, avant tout le reste — maquette du client. Le montant
+                  est a droite et en grand : c'est ce qu'on cherche des qu'on ouvre cet ecran. */}
               <View style={styles.tarif}>
-                <Text style={styles.tarifMontant}>{t('jobs.price')}</Text>
-                <Text style={styles.tarifDetail}>{t('jobs.priceDetail')}</Text>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.tarifLibelle}>{t('jobs.priceLabel')}</Text>
+                  <Text style={styles.tarifDetail}>{t('jobs.priceDetail')}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.tarifMontant}>{t('jobs.price')}</Text>
+                  <Text style={styles.tarifUnite}>{t('jobs.perAd')}</Text>
+                </View>
               </View>
 
-              <Text style={styles.label}>{t('jobs.sectorLabel')}</Text>
+              <Bande titre={t('jobs.sectorLabel')} />
               {/* GRILLE VISUELLE, comme la maquette : on choisit un secteur en le reconnaissant,
                   pas en lisant une liste deroulante. */}
               <View style={styles.grille}>
@@ -196,7 +209,14 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
                 })}
               </View>
 
-              <Champ label={t('jobs.jobTitle')} valeur={titre} onChange={setTitre} obligatoire />
+              <Bande titre={t('jobs.detailsSection')} />
+              <Champ
+                label={t('jobs.jobTitle')}
+                valeur={titre}
+                onChange={setTitre}
+                indice={t('jobs.jobTitleHint')}
+                obligatoire
+              />
               <Champ label={t('jobs.company')} valeur={entreprise} onChange={setEntreprise} />
 
               <Text style={styles.label}>{t('jobs.contractLabel')}</Text>
@@ -219,13 +239,20 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
               <Champ label={t('jobs.salary')} valeur={salaire} onChange={setSalaire} indice={t('jobs.salaryHint')} />
               <Champ label={t('jobs.description')} valeur={description} onChange={setDescription} lignes={4} />
 
-              <Text style={styles.section}>{t('jobs.contactSection')}</Text>
-              <Champ label={t('jobs.phone')} valeur={telephone} onChange={setTelephone} clavier="phone-pad" obligatoire />
+              <Bande titre={t('jobs.contactSection')} />
+              <Champ
+                label={t('jobs.phone')}
+                valeur={telephone}
+                onChange={setTelephone}
+                indice="0550 000 000"
+                clavier="phone-pad"
+                obligatoire
+              />
               <Champ label="WhatsApp" valeur={whatsapp} onChange={setWhatsapp} clavier="phone-pad" />
               <Champ label="Viber" valeur={viber} onChange={setViber} clavier="phone-pad" />
               <Champ label="Email" valeur={email} onChange={setEmail} clavier="email-address" />
 
-              <Text style={styles.section}>{t('jobs.paymentSection')}</Text>
+              <Bande titre={t('jobs.paymentSection')} />
               <View style={styles.colonne}>
                 {PAIEMENTS.map((p) => (
                   <Pressable
@@ -252,9 +279,9 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
                 style={({ pressed }) => [styles.valider, { opacity: pressed || envoi ? 0.8 : 1 }]}
               >
                 {envoi ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color="#2A1F00" />
                 ) : (
-                  <Text style={styles.validerTexte}>{t('jobs.send')}</Text>
+                  <Text style={styles.validerTexte}>☑  {t('jobs.send')}</Text>
                 )}
               </Pressable>
               <View style={{ height: spacing.xl }} />
@@ -263,6 +290,21 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
         </View>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+/**
+ * Bande de section verte — maquette du client.
+ *
+ * Un formulaire de douze champs se lit mal d'un trait. Les bandes le decoupent en quatre temps
+ * — le secteur, l'offre, les contacts, le paiement — et chacun se remplit sans avoir a tenir
+ * les autres en tete. C'est aussi ce qui permet de savoir ou l'on en est en faisant defiler.
+ */
+function Bande({ titre }: { titre: string }) {
+  return (
+    <View style={styles.bande}>
+      <Text style={styles.bandeTexte}>{titre.toUpperCase()}</Text>
+    </View>
   );
 }
 
@@ -310,20 +352,45 @@ const styles = StyleSheet.create({
     backgroundColor: FOND,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    overflow: 'hidden',
     maxHeight: '92%',
   },
-  tete: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  titre: { flex: 1, color: TEXTE, fontSize: 20, fontWeight: '800' as const },
-  fermer: { color: TEXTE_DOUX, fontSize: 18 },
-  defilant: { flexShrink: 1, marginTop: spacing.sm },
+  bandeau: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: VERT,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  retour: { color: '#FFFFFF', fontSize: 22, fontWeight: '800' as const },
+  bandeauTitre: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' as const },
+  bandeauSousTitre: { color: 'rgba(255,255,255,0.78)', fontSize: 12, marginTop: 1 },
+  defilant: { flexShrink: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
 
-  tarif: { backgroundColor: `${OR}1F`, borderRadius: radius.md, padding: spacing.md, alignItems: 'center' },
-  tarifMontant: { color: '#8A6A10', fontSize: 20, fontWeight: '800' as const },
-  tarifDetail: { color: TEXTE_DOUX, fontSize: 12.5, marginTop: 2, textAlign: 'center' },
+  tarif: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: `${OR}1F`,
+    borderWidth: 1.5,
+    borderColor: OR,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  tarifLibelle: { color: '#8A6A10', fontSize: 13.5, fontWeight: '800' as const },
+  tarifMontant: { color: '#8A6A10', fontSize: 22, fontWeight: '800' as const },
+  tarifUnite: { color: '#8A6A10', fontSize: 11, fontWeight: '700' as const },
+  tarifDetail: { color: TEXTE_DOUX, fontSize: 12, marginTop: 2 },
 
-  section: { color: TEXTE, fontSize: 15, fontWeight: '800' as const, marginTop: spacing.lg },
+  bande: {
+    backgroundColor: VERT,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    marginTop: spacing.lg,
+  },
+  bandeTexte: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' as const, letterSpacing: 0.6 },
   label: { color: TEXTE_DOUX, fontSize: 12, fontWeight: '700' as const, marginTop: spacing.md, marginBottom: 4 },
   saisie: {
     borderWidth: 1,
@@ -366,19 +433,23 @@ const styles = StyleSheet.create({
 
   erreur: { color: ROUGE, fontSize: 13, marginTop: spacing.md, textAlign: 'center' },
 
+  /* LE BOUTON D'ENVOI EST OR, pas vert — maquette du client. Ce n'est pas une coquetterie :
+   * l'or est, dans tout le module, la couleur de ce qui concerne l'employeur et l'argent, le
+   * vert celle de ce qui concerne le conducteur. Un bouton vert ici brouillerait cette
+   * distinction au moment ou elle compte le plus. */
   valider: {
-    backgroundColor: VERT,
+    backgroundColor: OR,
     borderRadius: radius.lg,
     paddingVertical: spacing.md,
     alignItems: 'center',
     marginTop: spacing.lg,
-    elevation: 3,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
-  validerTexte: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' as const },
+  validerTexte: { color: '#2A1F00', fontSize: 15, fontWeight: '800' as const },
 
   confirme: { alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.sm },
   confirmeEmoji: { fontSize: 44 },
