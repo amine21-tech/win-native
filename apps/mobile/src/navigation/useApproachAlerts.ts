@@ -2,9 +2,18 @@ import { speakGuidance } from '../speech/voice';
 import { useSpokenLanguage } from '../speech/useSpokenLanguage';
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { haversine, type Language, type Report } from '../shared';
+import { type Language, type Report } from '../shared';
 import { REPORT_GENRE } from '../reports/kinds';
-import { locateOnRoute, traveledMeters, type Route } from './routing';
+import { type Route } from './routing';
+/* Les trois regles de l'alerte vivent a part, pour etre eprouvees hors de l'application :
+ * voir alerteApproche.ts et scripts/verifier-alertes.ts. */
+import {
+  ANNONCE_M,
+  decisionAnnonce,
+  projeterSurTrace,
+  resteAvantSignalement,
+  type SurTrace,
+} from './alerteApproche';
 import { useSession } from '../store/session';
 
 /** Le traducteur fige sur la langue PARLEE, dont le type vient d'i18next. */
@@ -12,45 +21,9 @@ type TFixe = ReturnType<ReturnType<typeof useTranslation>['i18n']['getFixedT']>;
 
 type Coords = { lat: number; lon: number };
 
-/**
- * DISTANCE D'ANNONCE : 100 METRES, ET LA VOIX LE DIT.
- *
- * Elle etait a cinquante. Le client le signale comme un defaut de securite, et il a raison :
- * a 80 km/h, cinquante metres sont deux secondes et demie — le temps de l'entendre, pas celui
- * de lever le pied, de regarder dans le retroviseur et de se rabattre. Cent metres en donnent
- * cinq, ce qui change la nature de l'information : elle cesse d'etre un constat pour redevenir
- * un avertissement.
- *
- * La valeur est aussi celle que la voix PRONONCE (<< dans 100 metres >>). Les deux ne doivent
- * pas pouvoir diverger, d'ou une seule constante pour les deux usages.
- */
-/* 150 depuis le 27 octobre. Le client demandait « 50 → 150 » : la valeur de depart n'etait
- * deja plus cinquante mais cent, portee la le 23 octobre pour la raison ci-dessus. Cent
- * cinquante metres font sept secondes a 80 km/h — de quoi lever le pied, regarder et se
- * rabattre sans hate. C'est le dernier palier raisonnable : au-dela, l'annonce arrive si tot
- * qu'on l'a oubliee en arrivant sur l'obstacle. */
-export const ANNONCE_M = 150;
+/* Re-exportee : c'est d'ici qu'on l'importait avant que les regles ne soient isolees. */
+export { ANNONCE_M } from './alerteApproche';
 
-/**
- * Au-dela, le signalement se rearme — sinon un demi-tour ne redeclencherait jamais l'alerte.
- * L'ecart avec la distance d'annonce evite qu'un GPS qui oscille autour du seuil ne repete
- * l'annonce : il faut vraiment s'en eloigner pour qu'elle puisse revenir.
- */
-const REARM_M = 300;
-
-/**
- * Ecart maximal entre un signalement et le trace pour qu'il nous concerne.
- *
- * C'est la contrepartie indispensable du passage a cent metres. A cinquante, un signalement
- * pose sur la rue parallele etait rarement assez proche pour parler ; a cent, il l'est presque
- * toujours — et le conducteur entendrait << accident dans 100 metres >> pour un accident qui
- * n'est pas sur sa route. Trente-cinq metres couvrent une chaussee large et ses abords, sans
- * attraper la voie d'a cote.
- */
-const SUR_LA_ROUTE_M = 35;
-
-/** Position d'un signalement le long de l'itineraire, calculee une fois pour toutes. */
-type SurTrace = { id: string; distanceDepuisDepart: number };
 
 /**
  * Annonce vocale a l'approche d'un signalement pendant la navigation (checkBumpApproach en v83),
@@ -111,16 +84,10 @@ export function useApproachAlerts(params: {
    * le trajet entier une fois par seconde, pour une reponse qui ne change pas : ni le trace ni
    * la position des signalements ne bougent entre deux mesures.
    */
-  const surTrace = useMemo<Map<string, SurTrace>>(() => {
-    const table = new Map<string, SurTrace>();
-    if (!route) return table;
-    for (const r of reports) {
-      const projection = locateOnRoute([r.lon, r.lat], route.geometry);
-      if (projection.distanceM > SUR_LA_ROUTE_M) continue; // il n'est pas sur notre route
-      table.set(r.id, { id: r.id, distanceDepuisDepart: traveledMeters(route, projection) });
-    }
-    return table;
-  }, [route, reports]);
+  const surTrace = useMemo<Map<string, SurTrace>>(
+    () => projeterSurTrace(route, reports),
+    [route, reports],
+  );
 
   const surTraceRef = useRef(surTrace);
   surTraceRef.current = surTrace;
@@ -134,29 +101,20 @@ export function useApproachAlerts(params: {
     if (!active || !position) return;
 
     for (const report of reportsRef.current) {
-      /* Distance restante jusqu'au signalement, et les deux seuls cas qui existent.
-       *
-       * AVEC itineraire : on ne garde que ce qui est pose SUR notre route (la table ne
-       * contient qu'eux) et la distance se compte le long de la chaussee. Un signalement
-       * absent de la table est sur une autre rue : il ne nous concerne pas, on passe.
-       *
-       * SANS itineraire : on retombe sur la distance directe. C'est approximatif, mais le
-       * conducteur roule quand meme et merite d'etre prevenu.
-       *
-       * Un signalement DERRIERE nous donne un reste negatif, ecarte par le test suivant : on
-       * n'annonce pas ce qu'on vient de depasser. */
-      let restant: number;
-      if (route) {
-        const place = surTraceRef.current.get(report.id);
-        if (!place) continue;
-        restant = place.distanceDepuisDepart - traveledRef.current;
-      } else {
-        restant = haversine(position.lat, position.lon, report.lat, report.lon);
-      }
+      /* Le calcul de la distance restante et la decision sont des fonctions pures, eprouvees
+       * hors de l'application : on n'annonce pas ce qu'on vient de depasser, ni ce qui est
+       * pose sur la rue d'a cote. */
+      const restant = resteAvantSignalement({
+        report,
+        route,
+        surTrace: surTraceRef.current,
+        traveledM: traveledRef.current,
+        position,
+      });
 
-      const dejaDit = alertedRef.current.has(report.id);
+      const decision = decisionAnnonce(restant, alertedRef.current.has(report.id));
 
-      if (restant >= 0 && restant <= ANNONCE_M && !dejaDit) {
+      if (decision === 'annoncer') {
         alertedRef.current.add(report.id);
 
         if (voiceRef.current) {
@@ -164,7 +122,7 @@ export function useApproachAlerts(params: {
         }
 
         onApproachRef.current(report);
-      } else if (restant > REARM_M && dejaDit) {
+      } else if (decision === 'rearmer') {
         alertedRef.current.delete(report.id);
       }
     }
