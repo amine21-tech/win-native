@@ -503,13 +503,14 @@
     "statsPartners": "VIP partners",
     "statsByWilaya": "Places per wilaya, top eight",
     "jobsTitle": "Job offers",
-    "jobsHint": "Payment happens outside the app: activate an offer once the 1,500 DA transfer is confirmed. The 30 days start at activation.",
+    "jobsHint": "Payment happens outside the app: activate a listing once you have confirmed the transfer. The amount due is shown under each listing. Visibility starts at activation.",
     "jobsPending": "Pending",
     "jobsActive": "Published",
     "jobsEmpty": "No offer awaiting payment.",
     "jobsNoneActive": "No published offer.",
     "jobsActivate": "Activate",
-    "jobsExpires": "Expires on {{when}}"
+    "jobsExpires": "Expires on {{when}}",
+    "jobsDays": "days"
   },
   "approach": {
     "prefix": "Caution,",
@@ -572,8 +573,6 @@
     "route": "Directions",
     "publish": "Post an offer",
     "publishTitle": "Post an offer",
-    "price": "1,500 DA",
-    "priceDetail": "Visible 50 km · 30 days online",
     "sectorLabel": "Sector",
     "jobTitle": "Job title",
     "company": "Company",
@@ -590,7 +589,7 @@
     "needTitle": "The job title is required.",
     "needPhone": "A phone number is required.",
     "sentTitle": "Offer recorded",
-    "sentBody": "It will be published once your 1,500 DA payment has been confirmed. You will find it under \"My offers\".",
+    "sentBody": "It will go live once your payment of {{prix}} DA is confirmed. The {{jours}} days of visibility start then. You will find it under “My listings”.",
     "sector": {
       "btp": "Construction",
       "commerce": "Retail",
@@ -639,8 +638,29 @@
     "newOffer": "New offer",
     "employerSub": "Employer — Post an ad",
     "priceLabel": "Employer ad price",
-    "perAd": "/ ad",
     "detailsSection": "Offer details",
-    "jobTitleHint": "e.g. Mason, Accountant, Cook…"
+    "jobTitleHint": "e.g. Mason, Accountant, Cook…",
+    "formula": {
+      "essentiel": "ESSENTIAL",
+      "standard": "STANDARD",
+      "premium": "PREMIUM"
+    },
+    "formulaDetail": {
+      "essentiel": "50 km radius · Standard listing",
+      "standard": "100 km radius · Highlighted",
+      "premium": "All of Algeria · Top of the list"
+    },
+    "duration": {
+      "semaine": "Weekly",
+      "mois": "Monthly"
+    },
+    "durationShort": {
+      "semaine": "/ week",
+      "mois": "/ month"
+    },
+    "popular": "POPULAR",
+    "priority": "PRIORITY",
+    "orPrice": "or {{prix}} DA {{duree}}",
+    "highlighted": "HIGHLIGHTED"
   }
 }

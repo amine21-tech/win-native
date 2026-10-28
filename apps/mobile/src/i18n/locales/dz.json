@@ -503,13 +503,14 @@
     "statsPartners": "شركاء VIP",
     "statsByWilaya": "البلايص حسب الولاية، أول ثمنية",
     "jobsTitle": "إعلانات الخدمة",
-    "jobsHint": "الخلاص يتم برا التطبيق: فعّل الإعلان كي تتأكد من تحويل 1500 دج. الثلاثين يوم يبداو من التفعيل.",
+    "jobsHint": "الخلاص يكون برّا من التطبيق: فعّل الإعلان كي تتأكد من الدفع. المبلغ مكتوب تحت كل إعلان. المدة تبدا من وقت التفعيل.",
     "jobsPending": "معلّقة",
     "jobsActive": "منشورة",
     "jobsEmpty": "ما كاين حتى إعلان يستنى الخلاص.",
     "jobsNoneActive": "ما كاين حتى إعلان منشور.",
     "jobsActivate": "فعّل",
-    "jobsExpires": "يطيح في {{when}}"
+    "jobsExpires": "يطيح في {{when}}",
+    "jobsDays": "يوم"
   },
   "approach": {
     "prefix": "رد بالك،",
@@ -572,8 +573,6 @@
     "route": "الطريق",
     "publish": "انشر عرض",
     "publishTitle": "انشر عرض",
-    "price": "1500 دج",
-    "priceDetail": "يبان 50 كلم · 30 يوم",
     "sectorLabel": "القطاع",
     "jobTitle": "تسمية الخدمة",
     "company": "المؤسسة",
@@ -590,7 +589,7 @@
     "needTitle": "تسمية الخدمة لازمة.",
     "needPhone": "رقم التيليفون لازم.",
     "sentTitle": "الإعلان تسجّل",
-    "sentBody": "يتنشر كي نتأكدو من خلاصك 1500 دج. تلقاه في «إعلاناتي».",
+    "sentBody": "يتنشر كي يتأكد دفع {{prix}} دج. {{jours}} يوم تبدا من ذيك الوقت. تلقاه في « إعلاناتي ».",
     "sector": {
       "btp": "البناء",
       "commerce": "التجارة",
@@ -639,8 +638,29 @@
     "newOffer": "عرض جديد",
     "employerSub": "صاحب الخدمة — انشر إعلان",
     "priceLabel": "تعريفة الإعلان",
-    "perAd": "/ إعلان",
     "detailsSection": "تفاصيل العرض",
-    "jobTitleHint": "مثلا: بنّاي، محاسب، طيّاب…"
+    "jobTitleHint": "مثلا: بنّاي، محاسب، طيّاب…",
+    "formula": {
+      "essentiel": "الأساسي",
+      "standard": "العادي",
+      "premium": "الممتاز"
+    },
+    "formulaDetail": {
+      "essentiel": "50 كلم · إعلان عادي",
+      "standard": "100 كلم · يبان أكثر",
+      "premium": "كامل الجزائر · فوق القائمة"
+    },
+    "duration": {
+      "semaine": "بالسيمانة",
+      "mois": "بالشهر"
+    },
+    "durationShort": {
+      "semaine": "/ سيمانة",
+      "mois": "/ شهر"
+    },
+    "popular": "الأكثر طلبا",
+    "priority": "أولوية",
+    "orPrice": "ولا {{prix}} دج {{duree}}",
+    "highlighted": "مُبرَز"
   }
 }

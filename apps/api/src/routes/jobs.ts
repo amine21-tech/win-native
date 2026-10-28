@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { db } from '../db/client.js';
+import { DUREES, DUREES_EMPLOI, FORMULES, FORMULES_EMPLOI, type DureeEmploi, type FormuleEmploi } from '@win/shared';
 import { HttpError, notFound, parse } from '../lib/http.js';
 
 /**
@@ -66,6 +67,11 @@ const creationInput = z.object({
   lat: z.number().min(-90).max(90),
   lon: z.number().min(-180).max(180),
   wilaya: z.string().trim().max(60).optional(),
+  /* FORMULE ET DUREE : ce que l'employeur achete (doc 196, 5.1). Le RAYON n'est pas ici —
+   * c'est une consequence de la formule, calculee par la base (colonne generee, migration
+   * 0009), jamais une donnee qu'on transmet et qui pourrait diverger. */
+  formule: z.enum(FORMULES as unknown as [FormuleEmploi, ...FormuleEmploi[]]).default('essentiel'),
+  duree: z.enum(DUREES as unknown as [DureeEmploi, ...DureeEmploi[]]).default('mois'),
   paymentMethod: z.enum(['baridimob', 'virement', 'email']).optional(),
   paymentRef: z.string().trim().max(80).optional(),
 });
@@ -107,11 +113,25 @@ const routes: FastifyPluginAsync = async (app) => {
       FROM job_offers
       WHERE status = 'active'
         AND (expires_at IS NULL OR expires_at > now())
-        AND ST_DWithin(geom, ${moi}, ${RAYON_M})
+        /* LA PORTEE EST CELLE DE L'ANNONCE, PAS CELLE DU CHERCHEUR. Une offre Premium
+         * publiee a Oran doit apparaitre a Annaba ; une offre Essentiel publiee dans la rue
+         * d'a cote ne doit pas sortir de ses cinquante kilometres. Le chercheur, lui, ne
+         * regle rien — il ne sait meme pas que des formules existent.
+         *
+         * Une portee NULLE est l'Algerie entiere : aucune condition geographique du tout.
+         * C'est pour cela que le test est ecrit dans cet ordre, et non comme une distance
+         * infinie — une distance infinie reste une comparaison, et PostGIS la calculerait. */
+        AND (portee_m IS NULL OR ST_DWithin(geom, ${moi}, portee_m))
         ${filtreSecteur}
-      ORDER BY ST_Distance(geom, ${moi})
+      /* LE PREMIUM PASSE DEVANT, c'est ce qu'il achete (<< Top liste >>). A l'interieur de
+       * chaque groupe, la distance reprend ses droits : entre deux annonces Premium, la plus
+       * proche d'abord. */
+      ORDER BY (formule = 'premium') DESC, ST_Distance(geom, ${moi})
       LIMIT 100
     `);
+    /* `radiusM` reste le rayon de reference affiche a l'ecran (<< offres dans un rayon de
+     * 50 km >>). Il ne decrit plus a lui seul ce qui est renvoye, puisque les formules
+     * superieures portent plus loin — mais c'est bien la promesse faite au chercheur. */
     return { items: rows, radiusM: RAYON_M };
   });
 
@@ -128,30 +148,37 @@ const routes: FastifyPluginAsync = async (app) => {
       INSERT INTO job_offers (
         sector, title, company, contract, salary, description,
         phone, whatsapp, viber, email, wilaya, geom,
-        payment_method, payment_ref, created_by
+        formule, duree, payment_method, payment_ref, created_by
       ) VALUES (
         ${input.sector}, ${input.title}, ${input.company ?? null}, ${input.contract},
         ${input.salary ?? null}, ${input.description ?? null},
         ${input.phone}, ${input.whatsapp ?? null}, ${input.viber ?? null}, ${input.email ?? null},
         ${input.wilaya ?? null},
         ST_SetSRID(ST_MakePoint(${input.lon}, ${input.lat}), 4326)::geography,
+        ${input.formule}, ${input.duree},
         ${input.paymentMethod ?? null}, ${input.paymentRef ?? null}, ${req.deviceId!}
       )
       RETURNING id
     `)) as unknown as { id: string }[];
 
+    /* LE PRIX ANNONCE EST CELUI DE LA FORMULE CHOISIE, pas un tarif unique. L'employeur vient
+     * de remplir douze champs : lui dire << 1 500 DA >> quand il a choisi Premium a 5 000 est
+     * la facon la plus sure de ne jamais le revoir. */
     return reply.code(201).send({
       id: rows[0]!.id,
       status: 'pending',
-      priceDa: 1_500,
-      durationDays: DUREE_JOURS,
+      formule: input.formule,
+      duree: input.duree,
+      priceDa: FORMULES_EMPLOI[input.formule][input.duree],
+      durationDays: DUREES_EMPLOI[input.duree],
     });
   });
 
   /** Mes annonces : un employeur doit pouvoir suivre ce qu'il a publie et son etat. */
   app.get('/jobs/mine', { preHandler: [app.requireDevice] }, async (req) => {
     const rows = await db.execute(sql`
-      SELECT id, sector, title, status, created_at AS "createdAt", expires_at AS "expiresAt"
+      SELECT id, sector, title, status, formule, duree,
+             created_at AS "createdAt", expires_at AS "expiresAt"
       FROM job_offers
       WHERE created_by = ${req.deviceId!}
       ORDER BY created_at DESC
@@ -170,6 +197,7 @@ const routes: FastifyPluginAsync = async (app) => {
     }
     const rows = await db.execute(sql`
       SELECT j.id, j.sector, j.title, j.company, j.phone, j.wilaya, j.status,
+             j.formule, j.duree,
              j.payment_method AS "paymentMethod", j.payment_ref AS "paymentRef",
              j.created_at AS "createdAt", j.expires_at AS "expiresAt",
              a.display_name AS "activatedByName"
@@ -193,14 +221,22 @@ const routes: FastifyPluginAsync = async (app) => {
     '/admin/jobs/:id/activate',
     { preHandler: [app.requireAdmin] },
     async (req) => {
+      /* LA DUREE EST CELLE QUI A ETE ACHETEE, lue dans l'annonce elle-meme (doc 196 : sept
+       * jours a la semaine, trente au mois). Elle est calculee EN BASE, dans la meme requete
+       * que la mise a jour : la lire d'abord puis ecrire ensuite laisserait, entre les deux,
+       * la place a une modification de la formule — et une annonce payee a la semaine pourrait
+       * recevoir trente jours. */
       const rows = (await db.execute(sql`
         UPDATE job_offers
         SET status = 'active',
             activated_by = ${req.admin!.id},
             activated_at = now(),
-            expires_at = now() + ${`${DUREE_JOURS} days`}::interval
+            expires_at = now() + (
+              CASE duree WHEN 'semaine' THEN ${DUREES_EMPLOI.semaine} ELSE ${DUREES_EMPLOI.mois} END
+              || ' days'
+            )::interval
         WHERE id = ${req.params.id} AND status = 'pending'
-        RETURNING id, expires_at AS "expiresAt"
+        RETURNING id, formule, duree, expires_at AS "expiresAt"
       `)) as unknown as { id: string; expiresAt: string }[];
       if (rows.length === 0) throw notFound();
       return rows[0];

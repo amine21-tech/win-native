@@ -16,6 +16,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError, api } from '../api/client';
 import { radius, spacing } from '../theme';
 import { SECTEURS_EMPLOI } from './JobsSheet';
+import {
+  DUREES,
+  FORMULES,
+  FORMULES_EMPLOI,
+  DUREES_EMPLOI,
+  prixEmploi,
+  type DureeEmploi,
+  type FormuleEmploi,
+} from '../shared';
 
 /**
  * MODULE EMPLOI — publication d'une annonce par un employeur (point 11, 27 octobre).
@@ -65,6 +74,11 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
   const [titre, setTitre] = useState('');
   const [entreprise, setEntreprise] = useState('');
   const [contrat, setContrat] = useState<(typeof CONTRATS)[number]>('cdi');
+  /* LA FORMULE ET LA DUREE sont deux choix separes, et c'est ce que demande le document :
+   * << semaine ou mois au choix >> vaut pour les TROIS formules. Les melanger en six boutons
+   * ferait relire six prix pour en comparer deux. */
+  const [formule, setFormule] = useState<FormuleEmploi>('essentiel');
+  const [duree, setDuree] = useState<DureeEmploi>('mois');
   const [salaire, setSalaire] = useState('');
   const [description, setDescription] = useState('');
   const [telephone, setTelephone] = useState('');
@@ -93,6 +107,8 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
           title: titre.trim(),
           company: entreprise.trim() || undefined,
           contract: contrat,
+          formule,
+          duree,
           salary: salaire.trim() || undefined,
           description: description.trim() || undefined,
           phone: telephone.trim(),
@@ -126,6 +142,8 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
       setTitre('');
       setEntreprise('');
       setContrat('cdi');
+      setFormule('essentiel');
+      setDuree('mois');
       setSalaire('');
       setDescription('');
       setTelephone('');
@@ -168,7 +186,15 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
             <View style={styles.confirme}>
               <Text style={styles.confirmeEmoji}>📨</Text>
               <Text style={styles.confirmeTitre}>{t('jobs.sentTitle')}</Text>
-              <Text style={styles.confirmeTexte}>{t('jobs.sentBody')}</Text>
+              {/* LE PRIX CITE EST CELUI DE SA FORMULE. Un message fige a 1 500 DA promettait
+                  le tarif Essentiel a un employeur qui vient de choisir Premium a 5 000 — et
+                  ce genre d'ecart ne se decouvre qu'au moment de payer. */}
+              <Text style={styles.confirmeTexte}>
+                {t('jobs.sentBody', {
+                  prix: prixEmploi(formule, duree),
+                  jours: DUREES_EMPLOI[duree],
+                })}
+              </Text>
               <Pressable onPress={fermer} style={styles.valider}>
                 <Text style={styles.validerTexte}>{t('jobs.close')}</Text>
               </Pressable>
@@ -178,16 +204,82 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
               {/* LE PRIX D'ABORD. Voir la note en tete de fichier. */}
               {/* LA CARTE DU TARIF, en or, avant tout le reste — maquette du client. Le montant
                   est a droite et en grand : c'est ce qu'on cherche des qu'on ouvre cet ecran. */}
-              <View style={styles.tarif}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.tarifLibelle}>{t('jobs.priceLabel')}</Text>
-                  <Text style={styles.tarifDetail}>{t('jobs.priceDetail')}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.tarifMontant}>{t('jobs.price')}</Text>
-                  <Text style={styles.tarifUnite}>{t('jobs.perAd')}</Text>
-                </View>
+              <Bande titre={t('jobs.priceLabel')} />
+
+              {/* SEMAINE OU MOIS, au-dessus des formules et non dans chacune d'elles. Le
+                  document dit << semaine ou mois au choix >> pour les TROIS : le demander une
+                  fois evite de relire six prix pour en comparer deux, et le montant affiche
+                  dans chaque carte suit immediatement ce choix. */}
+              <View style={styles.durees}>
+                {DUREES.map((d) => {
+                  const actif = duree === d;
+                  return (
+                    <Pressable
+                      key={d}
+                      onPress={() => setDuree(d)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: actif }}
+                      style={[
+                        styles.duree,
+                        actif ? { backgroundColor: VERT, borderColor: VERT } : { borderColor: PUCE },
+                      ]}
+                    >
+                      <Text style={[styles.dureeTexte, { color: actif ? '#FFFFFF' : TEXTE }]}>
+                        {t(`jobs.duration.${d}`)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
+
+              {/* LES TROIS FORMULES, en cartes. Le prix de la duree choisie est en grand a
+                  droite ; l'autre est rappele en petit, parce qu'on compare toujours les deux
+                  avant de se decider. */}
+              {FORMULES.map((f) => {
+                const actif = formule === f;
+                const autre = duree === 'mois' ? 'semaine' : 'mois';
+                return (
+                  <Pressable
+                    key={f}
+                    onPress={() => setFormule(f)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: actif }}
+                    style={[
+                      styles.formule,
+                      { borderColor: actif ? OR : PUCE, backgroundColor: actif ? '#FFF9E8' : FOND },
+                    ]}
+                  >
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <View style={styles.formuleTitreLigne}>
+                        <Text style={styles.formuleNom}>{t(`jobs.formula.${f}`)}</Text>
+                        {/* Le badge POPULAIRE se pose TOUT SEUL sur Standard : c'est une regle
+                            du document, pas un choix d'ecran. */}
+                        {f === 'standard' ? (
+                          <View style={styles.badgePopulaire}>
+                            <Text style={styles.badgeTexte}>{t('jobs.popular')}</Text>
+                          </View>
+                        ) : null}
+                        {FORMULES_EMPLOI[f].prioritaire ? (
+                          <View style={styles.badgePrioritaire}>
+                            <Text style={styles.badgeTexte}>{t('jobs.priority')}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={styles.formuleDetail}>{t(`jobs.formulaDetail.${f}`)}</Text>
+                      <Text style={styles.formuleAutre}>
+                        {t('jobs.orPrice', {
+                          prix: prixEmploi(f, autre),
+                          duree: t(`jobs.durationShort.${autre}`),
+                        })}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={styles.tarifMontant}>{prixEmploi(f, duree)} DA</Text>
+                      <Text style={styles.tarifUnite}>{t(`jobs.durationShort.${duree}`)}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
 
               <Bande titre={t('jobs.sectorLabel')} />
               {/* GRILLE VISUELLE, comme la maquette : on choisit un secteur en le reconnaissant,
@@ -367,6 +459,33 @@ const styles = StyleSheet.create({
   bandeauTitre: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' as const },
   bandeauSousTitre: { color: 'rgba(255,255,255,0.78)', fontSize: 12, marginTop: 1 },
   defilant: { flexShrink: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+
+  durees: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  duree: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  dureeTexte: { fontSize: 14, fontWeight: '800' as const },
+
+  formule: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderWidth: 1.5,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  formuleTitreLigne: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  formuleNom: { color: TEXTE, fontSize: 15, fontWeight: '800' as const },
+  formuleDetail: { color: TEXTE_DOUX, fontSize: 12, marginTop: 2 },
+  formuleAutre: { color: TEXTE_DOUX, fontSize: 11, marginTop: 2, fontStyle: 'italic' },
+  badgePopulaire: { backgroundColor: OR, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
+  badgePrioritaire: { backgroundColor: VERT, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
+  badgeTexte: { color: '#FFFFFF', fontSize: 9, fontWeight: '800' as const },
 
   tarif: {
     flexDirection: 'row',

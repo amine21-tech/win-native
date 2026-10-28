@@ -48,6 +48,12 @@ def bloc(texte, debut, fin=']'):
     return texte[i:j] if j > 0 else None
 
 
+def valeur(texte, motif):
+    """Premier groupe capture par `motif`, ou None."""
+    m = re.search(motif, texte)
+    return m.group(1) if m else None
+
+
 def verifier(nom, ok, detail=''):
     print(f"  {'ok  ' if ok else 'FAUX'}  {nom}{('  — ' + detail) if detail else ''}")
     if not ok:
@@ -139,6 +145,76 @@ verifier(
     'tout contrat accepte par le serveur l\'est aussi par la base',
     set(contrats_srv) <= set(contrats_sql),
     f'acceptes par le serveur mais refuses par la base : {sorted(set(contrats_srv) - set(contrats_sql))}',
+)
+
+# ------------------------------------------------------------------ les formules
+#
+# Les trois formules du doc 196 (5.1). Le tableau ci-dessous est recopie du PDF, a la main et
+# une seule fois : c'est la reference contre laquelle le code est verifie. Si le client change
+# ses prix, c'est ICI qu'on le constate — et le script dira exactement ou le code ne suit pas.
+#
+#   ESSENTIEL   500 / 1 500 DA    50 km
+#   STANDARD  1 000 / 3 000 DA   100 km
+#   PREMIUM   1 500 / 5 000 DA   Algerie entiere
+print('\nFORMULES — les prix du document, au dinar pres')
+PARTAGE = RACINE / 'packages/shared/src/constants.ts'
+partage = lire(PARTAGE)
+
+ATTENDU = {
+    'essentiel': (500, 1500, '50_000'),
+    'standard': (1000, 3000, '100_000'),
+    'premium': (1500, 5000, 'null'),
+}
+
+for nom, (semaine, mois, portee) in ATTENDU.items():
+    m = re.search(rf'{nom}: \{{([^}}]*)\}}', partage)
+    ligne = m.group(1) if m else ''
+    sem = valeur(ligne, r'semaine: ([\d_]+)')
+    moi = valeur(ligne, r'mois: ([\d_]+)')
+    por = valeur(ligne, r'porteeM: ([\w_]+)')
+    verifier(
+        f'{nom} : {semaine} DA / semaine, {mois} DA / mois',
+        (sem or '').replace('_', '') == str(semaine) and (moi or '').replace('_', '') == str(mois),
+        f'trouve {sem} et {moi}',
+    )
+    verifier(f'{nom} : portee {portee}', por == portee, f'trouve {por}')
+
+verifier('une semaine vaut 7 jours', 'semaine: 7' in partage)
+verifier('un mois vaut 30 jours', 'mois: 30' in partage)
+
+# La contrainte SQL doit accepter exactement ces trois formules et ces deux durees.
+formules_sql, durees_sql = [], []
+for fichier in sorted(MIGRATIONS.glob('*.sql')):
+    texte = lire(fichier)
+    m = re.search(r'CHECK\s*\(\s*formule\s+IN\s*\((.*?)\)\s*\)', texte, re.S)
+    if m:
+        formules_sql = re.findall(r"'([a-z]+)'", m.group(1))
+    m = re.search(r'CHECK\s*\(\s*duree\s+IN\s*\((.*?)\)\s*\)', texte, re.S)
+    if m:
+        durees_sql = re.findall(r"'([a-z]+)'", m.group(1))
+
+verifier('la base accepte les trois formules', sorted(formules_sql) == sorted(ATTENDU), f'{formules_sql}')
+verifier('la base accepte les deux durees', sorted(durees_sql) == ['mois', 'semaine'], f'{durees_sql}')
+
+# LE RAYON EST CALCULE PAR LA BASE, jamais transmis : c'est ce qui le rend indivergeable.
+verifier(
+    'le rayon est une colonne GENEREE, pas une donnee transmise',
+    'GENERATED ALWAYS AS' in ''.join(lire(f) for f in MIGRATIONS.glob('*.sql')),
+    'sinon une annonce Essentiel pourrait garder une portee Premium',
+)
+serveur = lire(SERVEUR)
+verifier(
+    "le serveur n'ecrit jamais portee_m lui-meme",
+    'portee_m)' not in serveur.split('INSERT INTO job_offers')[1].split('VALUES')[0]
+    if 'INSERT INTO job_offers' in serveur else False,
+)
+verifier(
+    'la visibilite utilise la portee de l\'ANNONCE',
+    'portee_m IS NULL OR ST_DWithin' in serveur,
+)
+verifier(
+    'le Premium passe en tete de liste',
+    "(formule = 'premium') DESC" in serveur,
 )
 
 print(

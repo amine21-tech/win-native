@@ -18,6 +18,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError, api } from '../src/api/client';
+import {
+  DUREES_EMPLOI,
+  prixEmploi,
+  type DureeEmploi,
+  type FormuleEmploi,
+} from '../src/shared';
 import { useAdminSession } from '../src/store/admin';
 import { palette, radius, spacing, typography, type Palette } from '../src/theme';
 
@@ -588,6 +594,8 @@ type JobOffer = {
   status: string;
   paymentMethod: string | null;
   paymentRef: string | null;
+  formule: FormuleEmploi;
+  duree: DureeEmploi;
   createdAt: string;
   expiresAt: string | null;
 };
@@ -683,6 +691,16 @@ function JobOffers({ token, colors }: { token: string; colors: Palette }) {
           {/* Le numero est selectionnable : on le copie pour appeler, on ne le recopie pas. */}
           <Text style={{ color: colors.text, fontSize: 13, marginTop: 4 }} selectable>
             📞 {o.phone}
+          </Text>
+          {/* CE QU'IL FAUT AVOIR ENCAISSE, en toutes lettres.
+              L'administrateur active une annonce apres avoir constate un versement. Tant qu'il
+              n'y avait qu'un tarif, 1 500 DA allait de soi ; avec trois formules et deux
+              durees, six montants sont possibles et il n'a aucun moyen de deviner lequel
+              attendre. Le lui faire chercher, c'est garantir qu'une annonce Premium sera
+              activee contre un versement Essentiel. */}
+          <Text style={{ color: colors.accent, fontSize: 13, fontWeight: '800', marginTop: 4 }}>
+            {t(`jobs.formula.${o.formule}`)} · {prixEmploi(o.formule, o.duree)} DA ·{' '}
+            {DUREES_EMPLOI[o.duree]} {t('admin.jobsDays')}
           </Text>
           <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
             {o.paymentMethod ? t(`jobs.payment.${o.paymentMethod}`) : '—'}

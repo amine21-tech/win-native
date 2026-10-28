@@ -227,3 +227,49 @@ export function realtimeCellsAround(lat: number, lon: number, radiusM = NEARBY_R
   }
   return [...cells];
 }
+
+/* ------------------------------------------------------------------ */
+/* Module Emploi : les trois formules                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * LES TROIS FORMULES EMPLOYEUR (doc 196 v2.0, 29 octobre).
+ *
+ * UNE SEULE SOURCE POUR LES PRIX, LES RAYONS ET LES DUREES. Ces chiffres apparaissent sur la
+ * carte de tarif, dans le message de confirmation, dans l'ecran d'administration, dans la
+ * requete geographique du serveur et dans le calcul de la date d'expiration. Ecrits a cinq
+ * endroits, ils auraient diverge au premier changement de prix — et un employeur a qui l'on
+ * annonce 1 500 DA puis que l'on facture 3 000 ne revient pas.
+ *
+ * `porteeM: null` veut dire ALGERIE ENTIERE : pas de limite de distance, et non pas un rayon
+ * inconnu. Le serveur le traduit par l'absence de condition geographique.
+ */
+export const FORMULES_EMPLOI = {
+  essentiel: { semaine: 500, mois: 1_500, porteeM: 50_000, prioritaire: false },
+  standard: { semaine: 1_000, mois: 3_000, porteeM: 100_000, prioritaire: false },
+  premium: { semaine: 1_500, mois: 5_000, porteeM: null, prioritaire: true },
+} as const;
+
+export type FormuleEmploi = keyof typeof FORMULES_EMPLOI;
+export const FORMULES: readonly FormuleEmploi[] = ['essentiel', 'standard', 'premium'];
+
+/** Duree d'affichage choisie par l'employeur, et ce qu'elle vaut en jours. */
+export const DUREES_EMPLOI = { semaine: 7, mois: 30 } as const;
+export type DureeEmploi = keyof typeof DUREES_EMPLOI;
+export const DUREES: readonly DureeEmploi[] = ['semaine', 'mois'];
+
+/** Prix en dinars d'une formule pour une duree donnee. */
+export function prixEmploi(formule: FormuleEmploi, duree: DureeEmploi): number {
+  return FORMULES_EMPLOI[formule][duree];
+}
+
+/**
+ * Rayon de visibilite d'une annonce, en metres — `null` pour l'Algerie entiere.
+ *
+ * C'est le rayon de l'ANNONCE et non celui du chercheur : une offre Premium publiee a Oran
+ * doit apparaitre a Annaba, et une offre Essentiel publiee dans la meme rue ne doit pas sortir
+ * de ses cinquante kilometres. Le chercheur, lui, ne regle rien.
+ */
+export function porteeEmploi(formule: FormuleEmploi): number | null {
+  return FORMULES_EMPLOI[formule].porteeM;
+}

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api/client';
-import { formatDistance } from '../shared';
+import { formatDistance, type DureeEmploi, type FormuleEmploi } from '../shared';
 import { radius, spacing } from '../theme';
 
 /**
@@ -69,6 +69,8 @@ export type MyJobOffer = {
   sector: string;
   title: string;
   status: 'pending' | 'active' | 'rejected';
+  formule: FormuleEmploi;
+  duree: DureeEmploi;
   createdAt: string;
   expiresAt: string | null;
 };
@@ -78,7 +80,9 @@ export type JobOffer = {
   sector: string;
   title: string;
   company: string | null;
-  contract: 'cdi' | 'cdd' | 'mission';
+  contract: 'cdi' | 'cdd' | 'interim' | 'saisonnier' | 'mission';
+  /** Formule achetee par l'employeur : elle decide du badge et du rang dans la liste. */
+  formule: FormuleEmploi;
   salary: string | null;
   description: string | null;
   phone: string;
@@ -287,6 +291,25 @@ function CarteOffre({ offre, onNavigate }: { offre: JobOffer; onNavigate: (o: Jo
 
   return (
     <View style={styles.carte}>
+      {/* LE BADGE DE LA FORMULE, en tete de carte.
+          Il ne sert pas qu'a decorer : c'est ce que l'employeur a paye, et c'est ce qui
+          explique au chercheur pourquoi cette offre est en haut de sa liste alors qu'elle est
+          plus loin que la suivante. Une mise en avant qui ne se voit pas se lit comme un tri
+          casse. Rien pour Essentiel : la majorite des annonces, et un badge sur toutes les
+          cartes ne distingue plus rien. */}
+      {offre.formule !== 'essentiel' ? (
+        <View
+          style={[
+            styles.badgeFormule,
+            { backgroundColor: offre.formule === 'premium' ? VERT : OR },
+          ]}
+        >
+          <Text style={styles.badgeFormuleTexte}>
+            {t(offre.formule === 'premium' ? 'jobs.priority' : 'jobs.highlighted')}
+          </Text>
+        </View>
+      ) : null}
+
       <View style={styles.carteTete}>
         <Text style={styles.carteEmoji}>{emoji}</Text>
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -439,6 +462,15 @@ const styles = StyleSheet.create({
   liste: { flex: 1, marginTop: 2 },
   listeContenu: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   vide: { color: TEXTE_DOUX, fontSize: 13, textAlign: 'center', paddingVertical: spacing.xl },
+
+  badgeFormule: {
+    alignSelf: 'flex-start',
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginBottom: 2,
+  },
+  badgeFormuleTexte: { color: '#FFFFFF', fontSize: 9, fontWeight: '800' as const },
 
   carte: {
     borderWidth: 1,

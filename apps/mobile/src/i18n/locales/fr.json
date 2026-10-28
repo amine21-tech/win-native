@@ -503,13 +503,14 @@
     "statsPartners": "Partenaires VIP",
     "statsByWilaya": "Lieux par wilaya, les huit premières",
     "jobsTitle": "Annonces d’emploi",
-    "jobsHint": "Le paiement se fait hors de l'application : activez une annonce une fois le versement de 1 500 DA constaté. Les 30 jours de visibilité commencent à l'activation.",
+    "jobsHint": "Le paiement se fait hors de l'application : activez une annonce une fois le versement constaté. Le montant dû est indiqué sous chaque annonce. La durée de visibilité commence à l'activation.",
     "jobsPending": "En attente",
     "jobsActive": "Publiées",
     "jobsEmpty": "Aucune annonce en attente de paiement.",
     "jobsNoneActive": "Aucune annonce publiée.",
     "jobsActivate": "Activer",
-    "jobsExpires": "Expire le {{when}}"
+    "jobsExpires": "Expire le {{when}}",
+    "jobsDays": "jours"
   },
   "approach": {
     "prefix": "Attention,",
@@ -572,8 +573,6 @@
     "route": "Itinéraire",
     "publish": "Publier une offre",
     "publishTitle": "Publier une offre",
-    "price": "1 500 DA",
-    "priceDetail": "Visible 50 km · 30 jours d’affichage",
     "sectorLabel": "Secteur",
     "jobTitle": "Désignation du poste",
     "company": "Entreprise",
@@ -590,7 +589,7 @@
     "needTitle": "La désignation du poste est nécessaire.",
     "needPhone": "Un numéro de téléphone est nécessaire.",
     "sentTitle": "Annonce enregistrée",
-    "sentBody": "Elle sera publiée dès que votre paiement de 1 500 DA aura été constaté. Vous la retrouverez dans « Mes annonces ».",
+    "sentBody": "Elle sera publiée dès que votre paiement de {{prix}} DA aura été constaté. Les {{jours}} jours de visibilité commencent à ce moment-là. Vous la retrouverez dans « Mes annonces ».",
     "sector": {
       "btp": "BTP",
       "commerce": "Commerce",
@@ -639,8 +638,29 @@
     "newOffer": "Nouvelle offre",
     "employerSub": "Employeur — Publier une annonce",
     "priceLabel": "Tarif annonce employeur",
-    "perAd": "/ annonce",
     "detailsSection": "Détails de l’offre",
-    "jobTitleHint": "ex. Maçon, Comptable, Cuisinier…"
+    "jobTitleHint": "ex. Maçon, Comptable, Cuisinier…",
+    "formula": {
+      "essentiel": "ESSENTIEL",
+      "standard": "STANDARD",
+      "premium": "PREMIUM"
+    },
+    "formulaDetail": {
+      "essentiel": "Rayon 50 km · Offre standard",
+      "standard": "Rayon 100 km · Mise en avant",
+      "premium": "Algérie entière · En tête de liste"
+    },
+    "duration": {
+      "semaine": "À la semaine",
+      "mois": "Au mois"
+    },
+    "durationShort": {
+      "semaine": "/ semaine",
+      "mois": "/ mois"
+    },
+    "popular": "POPULAIRE",
+    "priority": "PRIORITAIRE",
+    "orPrice": "ou {{prix}} DA {{duree}}",
+    "highlighted": "MIS EN AVANT"
   }
 }
