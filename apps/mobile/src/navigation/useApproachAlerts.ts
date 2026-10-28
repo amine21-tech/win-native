@@ -8,7 +8,6 @@ import { type Route } from './routing';
 /* Les trois regles de l'alerte vivent a part, pour etre eprouvees hors de l'application :
  * voir alerteApproche.ts et scripts/verifier-alertes.ts. */
 import {
-  ANNONCE_M,
   decisionAnnonce,
   projeterSurTrace,
   resteAvantSignalement,
@@ -21,8 +20,8 @@ type TFixe = ReturnType<ReturnType<typeof useTranslation>['i18n']['getFixedT']>;
 
 type Coords = { lat: number; lon: number };
 
-/* Re-exportee : c'est d'ici qu'on l'importait avant que les regles ne soient isolees. */
-export { ANNONCE_M } from './alerteApproche';
+/* Re-exportes : c'est d'ici qu'on les importait avant que les regles ne soient isolees. */
+export { PALIERS_M } from './alerteApproche';
 
 
 /**
@@ -31,14 +30,15 @@ export { ANNONCE_M } from './alerteApproche';
  * ENTEND l'alerte au meme instant, comme le demande le client.
  *
  * Vaut pour TOUS les types de signalement, et pour ceux qui seront ajoutes plus tard : rien ici
- * n'enumere les types. Chaque signalement ne parle qu'une fois par passage.
+ * n'enumere les types. Chaque signalement parle a DEUX PALIERS par passage, 200 m puis 100 m
+ * (demande du client, 28 octobre) — et pas une fois de plus.
  *
  * DEUX FACONS DE MESURER LA DISTANCE, et c'est le coeur de cette correction.
  *
  * Avec un itineraire, la distance est mesuree LE LONG DE LA ROUTE, et seuls les signalements
  * poses sur cette route, DEVANT le vehicule, comptent. C'est la seule mesure qui corresponde a
- * ce que la voix annonce : << dans 100 metres >> veut dire cent metres de conduite, pas cent
- * metres a vol d'oiseau par-dessus un immeuble.
+ * ce que la voix annonce : << dans 200 metres >> veut dire deux cents metres de conduite, pas
+ * deux cents metres a vol d'oiseau par-dessus un immeuble.
  *
  * Sans itineraire — le temps qu'il se calcule, ou apres un ecart — on retombe sur la distance
  * directe. Mieux vaut une annonce approximative que pas d'annonce du tout.
@@ -61,8 +61,14 @@ export function useApproachAlerts(params: {
   const t = i18n.getFixedT(spokenLang);
   const voiceGuidanceEnabled = useSession((s) => s.voiceGuidanceEnabled);
 
-  /** Signalements deja annonces pendant ce passage, par identifiant serveur. */
-  const alertedRef = useRef<Set<string>>(new Set());
+  /**
+   * Paliers deja traites pendant ce passage, par identifiant de signalement.
+   *
+   * Un ENSEMBLE DE PALIERS par signalement, et non un simple « deja dit » : depuis le
+   * 28 octobre la voix previent deux fois, a 200 m puis a 100 m. Le second palier doit donc
+   * pouvoir parler alors que le premier a deja parle.
+   */
+  const alertedRef = useRef<Map<string, Set<number>>>(new Map());
   // Refs plutot que dependances : ces valeurs changent a chaque frappe GPS ou re-rendu, et
   // l'effet ne doit se declencher que sur un vrai deplacement.
   const onApproachRef = useRef(onApproach);
@@ -112,25 +118,34 @@ export function useApproachAlerts(params: {
         position,
       });
 
-      const decision = decisionAnnonce(restant, alertedRef.current.has(report.id));
+      const dejaDits = alertedRef.current.get(report.id) ?? new Set<number>();
+      const decision = decisionAnnonce(restant, dejaDits);
 
-      if (decision === 'annoncer') {
-        alertedRef.current.add(report.id);
+      if (decision.quoi === 'rearmer') {
+        alertedRef.current.delete(report.id);
+        continue;
+      }
 
+      if (decision.consommes.length > 0) {
+        for (const palier of decision.consommes) dejaDits.add(palier);
+        alertedRef.current.set(report.id, dejaDits);
+      }
+
+      if (decision.quoi === 'annoncer') {
         if (voiceRef.current) {
-          speakGuidance(phraseAnnonce(tRef.current, report), spokenLang);
+          speakGuidance(phraseAnnonce(tRef.current, report, decision.palierM!), spokenLang);
         }
 
+        /* La carte « Toujours la ? » se rouvre au second palier. Le signalement est le MEME
+         * objet : la fenetre ne se demonte pas, son minuteur de six secondes repart. */
         onApproachRef.current(report);
-      } else if (decision === 'rearmer') {
-        alertedRef.current.delete(report.id);
       }
     }
   }, [active, position, spokenLang, route]);
 }
 
 /**
- * « Barrage de police signale dans 100 metres. »
+ * « Barrage de police signale dans 200 metres. »
  *
  * LE FRANCAIS ACCORDE LE PARTICIPE, ce que la concatenation ne sait pas faire : on dit
  * << travaux signalES >>, << inondation signalEE >>, << accident signalE >>. Coller un mot
@@ -142,10 +157,11 @@ export function useApproachAlerts(params: {
  * le demande le client. S'il oublie de declarer son genre, il sera masculin singulier — la
  * forme la plus courante, et une phrase correcte dans le doute.
  */
-function phraseAnnonce(t: TFixe, report: Report): string {
+function phraseAnnonce(t: TFixe, report: Report, metres: number): string {
   // Certains types portent un libelle different a l'oral : la carte affiche << Barrage >> avec
   // les trois ecussons, la voix doit dire laquelle des trois forces le tient.
   const label = t(`report.voice_${report.kind}`, { defaultValue: t(`report.${report.kind}`) });
   const genre = REPORT_GENRE[report.kind] ?? 'm';
-  return t(`approach.announce_${genre}`, { label, metres: ANNONCE_M });
+  // `metres` est le palier ATTEINT, pas une constante : la voix dit 200 puis 100.
+  return t(`approach.announce_${genre}`, { label, metres });
 }
