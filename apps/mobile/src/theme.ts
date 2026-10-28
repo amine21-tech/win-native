@@ -96,5 +96,7 @@ export const typography = {
   /** Consigne de navigation : lisible d'un coup d'oeil, au volant. */
   instruction: { fontFamily: fonts.sansExtraBold, fontSize: 26 },
   /** Nom du lieu dans la fiche destination — seule touche editoriale (Playfair italique). */
-  destinationName: { fontFamily: fonts.destinationName, fontSize: 23 },
+  // 24 points, valeur donnee par le client le 27 octobre (« nom destination 24sp Bold »). La
+  // police est deja un gras italique : seule la taille manquait, d'un point.
+  destinationName: { fontFamily: fonts.destinationName, fontSize: 24 },
 } as const;
