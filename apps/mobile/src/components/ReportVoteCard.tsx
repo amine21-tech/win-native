@@ -3,7 +3,7 @@ import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'rea
 import type { Report } from '../shared';
 import { REPORT_EMOJI } from '../reports/kinds';
 import { REPORT_COLORS } from '../map/style';
-import { formatDistance } from '../shared';
+import { dateDepuisServeur, formatDistance, millisecondesDepuisServeur } from '../shared';
 import { radius, spacing, type Palette } from '../theme';
 
 /**
@@ -38,9 +38,19 @@ type Props = {
   colors: Palette;
 };
 
-/** « il y a 12 min », « il y a 3 h » — l'anciennete, qui dit ce que vaut l'information. */
-function depuis(iso: string, t: (k: string, o?: Record<string, unknown>) => string): string {
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+/**
+ * « il y a 12 min », « il y a 3 h » — l'anciennete, qui dit ce que vaut l'information.
+ *
+ * `dateDepuisServeur` et non `new Date` : le serveur renvoie l'horodatage de PostgreSQL, qu'Hermes
+ * refuse. Sans elle, ce calcul rendait NaN et la puce affichait « il y a NaN min ».
+ */
+function depuis(
+  quand: string,
+  t: (k: string, o?: Record<string, unknown>) => string,
+): string | null {
+  const date = dateDepuisServeur(quand);
+  if (!date) return null;
+  const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
   if (minutes < 60) return t('report.agoMin', { n: minutes });
   return t('report.agoHour', { n: Math.round(minutes / 60) });
 }
@@ -48,9 +58,13 @@ function depuis(iso: string, t: (k: string, o?: Record<string, unknown>) => stri
 /** Part du temps de vie deja ecoulee, entre 0 et 1. `null` quand le signalement est permanent. */
 function partEcoulee(report: Report): number | null {
   if (!report.expiresAt) return null;
-  const debut = new Date(report.createdAt).getTime();
-  const fin = new Date(report.expiresAt).getTime();
-  if (!Number.isFinite(debut) || !Number.isFinite(fin) || fin <= debut) return null;
+  /* LA JAUGE N'A JAMAIS ETE AFFICHEE, et c'est le defaut le plus sournois de cette serie :
+   * `new Date` rendait NaN sur Android, `Number.isFinite` renvoyait donc `null`, et la jauge
+   * disparaissait en silence. Rien ne signalait l'erreur — on croyait simplement que tous les
+   * signalements etaient permanents. */
+  const debut = millisecondesDepuisServeur(report.createdAt);
+  const fin = millisecondesDepuisServeur(report.expiresAt);
+  if (debut === null || fin === null || fin <= debut) return null;
   return Math.min(1, Math.max(0, (Date.now() - debut) / (fin - debut)));
 }
 
@@ -65,11 +79,12 @@ export function ReportVoteCard({
 }: Props) {
   const { t } = useTranslation();
   const couleur = REPORT_COLORS[report.kind] ?? VERT;
+  /* Calculee une fois : elle apparait en sous-titre ET en puce. `null` quand la date est
+   * illisible — on n'affiche alors rien plutot qu'un « il y a NaN min ». */
+  const anciennete = depuis(report.createdAt, t);
   const ecoule = partEcoulee(report);
-  const restantMin =
-    report.expiresAt != null
-      ? Math.max(0, Math.round((new Date(report.expiresAt).getTime() - Date.now()) / 60000))
-      : null;
+  const finMs = millisecondesDepuisServeur(report.expiresAt);
+  const restantMin = finMs !== null ? Math.max(0, Math.round((finMs - Date.now()) / 60000)) : null;
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -89,7 +104,7 @@ export function ReportVoteCard({
                 {t(`report.${report.kind}`)}
               </Text>
               <Text style={styles.sousTitre} numberOfLines={2}>
-                {depuis(report.createdAt, t)}
+                {anciennete ?? ''}
                 {typeof distanceM === 'number'
                   ? ` · ${t('report.aheadOfYou', { distance: formatDistance(distanceM) })}`
                   : ''}
@@ -112,7 +127,7 @@ export function ReportVoteCard({
 
           <View style={styles.puces}>
             <Puce texte={t('report.confirmations', { n: report.confirmCount })} />
-            <Puce texte={depuis(report.createdAt, t)} />
+            {anciennete ? <Puce texte={anciennete} /> : null}
             {restantMin !== null ? <Puce texte={t('report.expiresIn', { n: restantMin })} /> : null}
           </View>
 

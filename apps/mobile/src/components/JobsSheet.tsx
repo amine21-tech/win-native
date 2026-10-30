@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api/client';
-import { formatDistance, type DureeEmploi, type FormuleEmploi } from '../shared';
+import { dateDepuisServeur, formatDistance, type DureeEmploi, type FormuleEmploi } from '../shared';
 import { radius, spacing } from '../theme';
 
 /**
@@ -183,9 +183,15 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
           {/* FILTRES EN CHIPS DEFILANTS, comme la maquette. Horizontal et non une grille : sept
               secteurs plus « Tous » prendraient trois lignes au-dessus de la liste, et
               repousseraient les offres hors de l'ecran. */}
+          {/* `flexGrow: 0` N'EST PAS UNE COQUETTERIE. Un ScrollView pose dans une colonne
+              `flex: 1` prend TOUTE la hauteur restante : en passant le module en plein ecran,
+              la rangee de chips s'est mise a occuper les trois quarts de l'ecran, et chaque
+              secteur est devenu une gelule verticale de huit cents points. Elle ne doit
+              mesurer que ce que mesurent les chips. */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.rangeeChips}
             contentContainerStyle={styles.chips}
             keyboardShouldPersistTaps="handled"
           >
@@ -373,6 +379,7 @@ function MienneLigne({ annonce }: { annonce: MyJobOffer }) {
   const emoji = SECTEURS_EMPLOI.find((s) => s.cle === annonce.sector)?.emoji ?? '💼';
   const couleur =
     annonce.status === 'active' ? VERT : annonce.status === 'rejected' ? '#C0392B' : '#8A6A10';
+  const expire = dateDepuisServeur(annonce.expiresAt);
 
   return (
     <View style={styles.carte}>
@@ -382,11 +389,13 @@ function MienneLigne({ annonce }: { annonce: MyJobOffer }) {
           <Text style={styles.carteTitre} numberOfLines={2}>
             {annonce.title}
           </Text>
+          {/* `dateDepuisServeur` et non `new Date` : le serveur renvoie l'horodatage de
+              PostgreSQL, qu'Hermes refuse. C'est ce qui affichait « Invalid Date » sous
+              chaque annonce. Une date illisible n'affiche plus rien plutot qu'un mot
+              anglais incomprehensible. */}
           <Text style={styles.carteEntreprise}>
-            {new Date(annonce.createdAt).toLocaleDateString()}
-            {annonce.expiresAt
-              ? ` · ${t('jobs.until', { when: new Date(annonce.expiresAt).toLocaleDateString() })}`
-              : ''}
+            {dateDepuisServeur(annonce.createdAt)?.toLocaleDateString() ?? ''}
+            {expire ? ` · ${t('jobs.until', { when: expire.toLocaleDateString() })}` : ''}
           </Text>
         </View>
       </View>
@@ -453,6 +462,7 @@ const styles = StyleSheet.create({
   },
   sousBandeauTexte: { color: 'rgba(255,255,255,0.88)', fontSize: 12, fontWeight: '700' as const },
 
+  rangeeChips: { flexGrow: 0, flexShrink: 0 },
   chips: { gap: spacing.sm, paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
   chip: { borderWidth: 1.5, borderColor: PUCE, backgroundColor: PUCE, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 7 },
   chipActif: { backgroundColor: VERT, borderColor: VERT },

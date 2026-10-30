@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError, api } from '../src/api/client';
 import {
+  dateDepuisServeur,
   DUREES_EMPLOI,
   prixEmploi,
   type DureeEmploi,
@@ -705,11 +706,11 @@ function JobOffers({ token, colors }: { token: string; colors: Palette }) {
           <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
             {o.paymentMethod ? t(`jobs.payment.${o.paymentMethod}`) : '—'}
             {o.paymentRef ? ` · ${o.paymentRef}` : ''}
-            {` · ${new Date(o.createdAt).toLocaleString()}`}
+            {` · ${dateDepuisServeur(o.createdAt)?.toLocaleString() ?? '—'}`}
           </Text>
           {o.expiresAt ? (
             <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '700', marginTop: 2 }}>
-              {t('admin.jobsExpires', { when: new Date(o.expiresAt).toLocaleDateString() })}
+              {t('admin.jobsExpires', { when: dateDepuisServeur(o.expiresAt)?.toLocaleDateString() ?? '—' })}
             </Text>
           ) : null}
 
@@ -895,7 +896,7 @@ function PlaceCorrections({ token, colors }: { token: string; colors: Palette })
               {c.message}
             </Text>
             <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
-              {new Date(c.createdAt).toLocaleString()}
+              {dateDepuisServeur(c.createdAt)?.toLocaleString() ?? '—'}
               {c.lat !== null && c.lon !== null ? ` · ${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}` : ''}
             </Text>
             {/* LA TRACE DU TRAITEMENT : c'est precisement ce qui manquait. Qui a classe la
@@ -911,7 +912,7 @@ function PlaceCorrections({ token, colors }: { token: string; colors: Palette })
               >
                 {t(c.status === 'accepted' ? 'admin.correctionWasDone' : 'admin.correctionWasRejected', {
                   who: c.reviewedByName ?? '—',
-                  when: c.reviewedAt ? new Date(c.reviewedAt).toLocaleString() : '—',
+                  when: dateDepuisServeur(c.reviewedAt)?.toLocaleString() ?? '—',
                 })}
               </Text>
             ) : null}
@@ -1138,7 +1139,7 @@ function UnlockRequests({ token, colors }: { token: string; colors: Palette }) {
               {r.phone ?? '—'}
             </Text>
             <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-              {r.amountDa} DA · {new Date(r.createdAt).toLocaleString()}
+              {r.amountDa} DA · {dateDepuisServeur(r.createdAt)?.toLocaleString() ?? '—'}
             </Text>
           </View>
           {busy === r.id ? (
