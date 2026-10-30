@@ -31,6 +31,14 @@ import { radius, spacing } from '../theme';
  */
 
 const VERT = '#0B5B2C';
+/* LES COULEURS DE LA MAQUETTE DU 29 OCTOBRE. Celles des canaux de contact sont celles qu'on
+ * leur connait ailleurs — le vert de WhatsApp, le violet de Viber : elles se reconnaissent sans
+ * lire l'etiquette, et c'est tout leur interet sur un bouton de trente points de large. */
+const VERT_WHATSAPP = '#25D366';
+const VIOLET_VIBER = '#7360F2';
+const ROUGE_MAIL = '#C0392B';
+/** Le bleu marine du bouton « Naviguer » : le seul bouton qui fait quitter la liste. */
+const BLEU_MARINE = '#1E3A5F';
 const OR = '#D4A017';
 const FOND = '#FFFFFF';
 const TEXTE = '#15201C';
@@ -159,8 +167,10 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
               <Text style={styles.retour}>←</Text>
             </Pressable>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.bandeauTitre}>💼  {t('jobs.shortTitle')}</Text>
-              <Text style={styles.bandeauSousTitre}>{t('jobs.near')}</Text>
+              {/* « Emploi - WIN DZ », le titre exact de la maquette : le module porte le nom
+                  de l'application parce qu'il est une partie d'elle, pas une autre application. */}
+              <Text style={styles.bandeauTitre}>{t('jobs.headerTitle')}</Text>
+              <Text style={styles.bandeauSousTitre}>{t('jobs.headerSub')}</Text>
             </View>
             {/* Le carre or de la maquette : l'acces employeur, atteignable sans faire defiler. */}
             <Pressable onPress={onPublish} accessibilityRole="button" style={styles.carreOr}>
@@ -172,7 +182,13 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
               qu'on demande aux deux questions qu'on se pose en ouvrant : jusqu'ou cherche-t-on,
               et y a-t-il quelque chose. */}
           <View style={styles.sousBandeau}>
-            <Text style={styles.sousBandeauTexte}>📍  {t('jobs.radius')}</Text>
+            {/* « Localisation active » avec sa puce or, comme la maquette : le chercheur veut
+                d'abord savoir que l'application sait OU il est. Le rayon, lui, est rappele
+                dans le message qui s'affiche quand la liste est vide. */}
+            <View style={styles.localisation}>
+              <View style={styles.puceOr} />
+              <Text style={styles.sousBandeauTexte}>{t('jobs.locationActive')}</Text>
+            </View>
             <Text style={styles.sousBandeauTexte}>
               {mesAnnonces
                 ? t('jobs.countMine', { count: miennes.data?.items.length ?? 0 })
@@ -293,8 +309,6 @@ function Chip({ actif, libelle, onPress }: { actif: boolean; libelle: string; on
 
 function CarteOffre({ offre, onNavigate }: { offre: JobOffer; onNavigate: (o: JobOffer) => void }) {
   const { t } = useTranslation();
-  const emoji = SECTEURS_EMPLOI.find((s) => s.cle === offre.sector)?.emoji ?? '💼';
-
   return (
     <View style={styles.carte}>
       {/* LE BADGE DE LA FORMULE, en tete de carte.
@@ -317,54 +331,104 @@ function CarteOffre({ offre, onNavigate }: { offre: JobOffer; onNavigate: (o: Jo
       ) : null}
 
       <View style={styles.carteTete}>
-        <Text style={styles.carteEmoji}>{emoji}</Text>
+        {/* LA PASTILLE A L'INITIALE, comme la maquette. Elle remplace l'emoji du secteur, et
+            ce n'est pas qu'une question de gout : sur une liste, douze emoji se ressemblent
+            de loin, tandis qu'une lettre dans un rond colore se distingue du premier coup
+            d'oeil et se rattache au NOM de l'entreprise, qui est ce qu'on cherche. */}
+        <View style={[styles.pastille, { backgroundColor: couleurPastille(offre.title) }]}>
+          <Text style={styles.pastilleLettre}>{initiale(offre.company ?? offre.title)}</Text>
+        </View>
+
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.carteTitre} numberOfLines={2}>
             {offre.title}
           </Text>
-          {offre.company ? (
+          {offre.company || offre.wilaya ? (
             <Text style={styles.carteEntreprise} numberOfLines={1}>
-              {offre.company}
+              {[offre.company, offre.wilaya].filter(Boolean).join(' - ')}
             </Text>
           ) : null}
         </View>
-        {/* La distance en tete : c'est le premier critere de tri d'un chercheur d'emploi, bien
-            avant le salaire — une annonce a quarante kilometres ne se postule pas. */}
-        <Text style={styles.carteDistance}>{formatDistance(offre.distanceM)}</Text>
+
+        {/* La distance en chip vert, en haut a droite — c'est le premier critere de tri d'un
+            chercheur d'emploi, bien avant le salaire : une annonce a quarante kilometres ne se
+            postule pas. */}
+        <View style={styles.chipDistance}>
+          <Text style={styles.chipDistanceTexte}>{formatDistance(offre.distanceM)}</Text>
+        </View>
       </View>
 
+      {/* TROIS ETIQUETTES, DANS L'ORDRE DE LA MAQUETTE : secteur et contrat reunis par un
+          point median, le temps de travail, puis le salaire EN OR. L'or n'est pas decoratif —
+          c'est la couleur de l'argent dans tout le module, et le salaire est la seule chose
+          qu'on cherche des yeux avant de lire le reste. */}
       <View style={styles.tags}>
-        <Tag texte={t(`jobs.sector.${offre.sector}`)} />
-        <Tag texte={t(`jobs.contract.${offre.contract}`)} />
-        {offre.salary ? <Tag texte={offre.salary} fort /> : null}
+        <Tag texte={`${t(`jobs.sector.${offre.sector}`)} · ${t(`jobs.contract.${offre.contract}`)}`} />
+        {offre.salary ? <Text style={styles.salaire}>{offre.salary}</Text> : null}
       </View>
 
       {offre.description ? (
-        <Text style={styles.carteDescription} numberOfLines={3}>
+        <Text style={styles.carteDescription} numberOfLines={2}>
           {offre.description}
         </Text>
       ) : null}
 
+      {/* LES QUATRE CONTACTS, CHACUN A SA COULEUR. La maquette leur donne les couleurs qu'on
+          leur connait ailleurs — le vert de WhatsApp, le violet de Viber — parce qu'elles se
+          reconnaissent sans lire l'etiquette. */}
       <View style={styles.contacts}>
-        <Contact emoji="📞" libelle={t('jobs.call')} onPress={() => tel(offre.phone)} />
+        <Contact libelle={t('jobs.call')} fond={VERT} onPress={() => tel(offre.phone)} />
         {offre.whatsapp ? (
-          <Contact emoji="💬" libelle="WhatsApp" onPress={() => whatsapp(offre.whatsapp!)} />
+          <Contact libelle="WhatsApp" fond={VERT_WHATSAPP} onPress={() => whatsapp(offre.whatsapp!)} />
         ) : null}
-        {offre.viber ? <Contact emoji="📱" libelle="Viber" onPress={() => viber(offre.viber!)} /> : null}
-        {offre.email ? <Contact emoji="✉️" libelle="Email" onPress={() => mail(offre.email!)} /> : null}
+        {offre.viber ? (
+          <Contact libelle="Viber" fond={VIOLET_VIBER} onPress={() => viber(offre.viber!)} />
+        ) : null}
+        {offre.email ? (
+          <Contact libelle="Email" fond={ROUGE_MAIL} onPress={() => mail(offre.email!)} />
+        ) : null}
       </View>
 
+      {/* « Naviguer vers Tizi Ouzou — WIN DZ », en BLEU MARINE et pleine largeur.
+          Le bleu le separe de tout le reste du module, qui est vert ou or : c'est le seul
+          bouton qui fait QUITTER la liste pour entrer en navigation. */}
       <Pressable
         onPress={() => onNavigate(offre)}
         accessibilityRole="button"
-        style={({ pressed }) => [styles.itineraire, { opacity: pressed ? 0.88 : 1 }]}
+        style={({ pressed }) => [styles.naviguer, { opacity: pressed ? 0.88 : 1 }]}
       >
-        <Text style={styles.itineraireTexte}>
-          🧭  {t('jobs.route')} · {formatDistance(offre.distanceM)}
+        <Text style={styles.naviguerTexte} numberOfLines={1}>
+          {offre.wilaya
+            ? t('jobs.navigateTo', { lieu: offre.wilaya })
+            : t('jobs.navigate')}
         </Text>
       </Pressable>
+
+      <Text style={styles.distanceExacte}>
+        {t('jobs.exactDistance', { distance: formatDistance(offre.distanceM) })}
+      </Text>
     </View>
   );
+}
+
+/** Premiere lettre significative, pour la pastille. */
+function initiale(texte: string): string {
+  const lettre = texte.trim().replace(/^[^\p{L}]+/u, '').charAt(0);
+  return (lettre || '?').toUpperCase();
+}
+
+/**
+ * Couleur de la pastille, tiree du texte lui-meme.
+ *
+ * Deterministe et non aleatoire : la meme entreprise garde la meme couleur d'un
+ * rafraichissement a l'autre, ce qui est tout l'interet — une pastille qui change de couleur
+ * a chaque chargement ne sert plus a reconnaitre quoi que ce soit.
+ */
+const COULEURS_PASTILLE = ['#8E4B2E', '#2E7D4F', '#8C2F39', '#1E4C8A', '#6B5B3E', '#5B3E7D'];
+function couleurPastille(texte: string): string {
+  let somme = 0;
+  for (let i = 0; i < texte.length; i++) somme = (somme + texte.charCodeAt(i)) % 997;
+  return COULEURS_PASTILLE[somme % COULEURS_PASTILLE.length]!;
 }
 
 /**
@@ -384,7 +448,7 @@ function MienneLigne({ annonce }: { annonce: MyJobOffer }) {
   return (
     <View style={styles.carte}>
       <View style={styles.carteTete}>
-        <Text style={styles.carteEmoji}>{emoji}</Text>
+        <Text style={styles.mienneEmoji}>{emoji}</Text>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.carteTitre} numberOfLines={2}>
             {annonce.title}
@@ -414,14 +478,15 @@ function Tag({ texte, fort = false }: { texte: string; fort?: boolean }) {
   );
 }
 
-function Contact({ emoji, libelle, onPress }: { emoji: string; libelle: string; onPress: () => void }) {
+/** Un bouton de contact : fond plein a la couleur du canal, texte blanc — comme la maquette. */
+function Contact({ libelle, fond, onPress }: { libelle: string; fond: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      style={({ pressed }) => [styles.contact, { opacity: pressed ? 0.8 : 1 }]}
+      accessibilityLabel={libelle}
+      style={({ pressed }) => [styles.contact, { backgroundColor: fond, opacity: pressed ? 0.8 : 1 }]}
     >
-      <Text style={styles.contactEmoji}>{emoji}</Text>
       <Text style={styles.contactTexte} numberOfLines={1}>
         {libelle}
       </Text>
@@ -460,6 +525,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: 8,
   },
+  localisation: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  puceOr: { width: 9, height: 9, borderRadius: 4.5, backgroundColor: OR },
   sousBandeauTexte: { color: 'rgba(255,255,255,0.88)', fontSize: 12, fontWeight: '700' as const },
 
   rangeeChips: { flexGrow: 0, flexShrink: 0 },
@@ -491,33 +558,46 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   carteTete: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  carteEmoji: { fontSize: 24 },
+  /* LA PASTILLE A L'INITIALE : 34 points, comme la maquette. */
+  pastille: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  pastilleLettre: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' as const },
+  mienneEmoji: { fontSize: 24 },
   carteTitre: { color: TEXTE, fontSize: 15.5, fontWeight: '800' as const },
   carteEntreprise: { color: TEXTE_DOUX, fontSize: 12.5, marginTop: 1 },
-  carteDistance: { color: VERT, fontSize: 13, fontWeight: '800' as const },
+  /* La distance en CHIP vert, et non en simple texte : la maquette en fait une etiquette,
+   * ce qui la detache du titre et la rend lisible sans la chercher. */
+  chipDistance: { backgroundColor: VERT, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 3 },
+  chipDistanceTexte: { color: '#FFFFFF', fontSize: 11.5, fontWeight: '800' as const },
   carteDescription: { color: TEXTE_DOUX, fontSize: 12.5, lineHeight: 17 },
 
   etat: { fontSize: 12.5, fontWeight: '800' as const },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   tag: { backgroundColor: PUCE, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 4 },
   tagTexte: { color: TEXTE_DOUX, fontSize: 11, fontWeight: '700' as const },
+  /* LE SALAIRE EN OR, sans cadre : la maquette le pose comme un texte fort a cote des
+   * etiquettes, pas comme une etiquette de plus. C'est ce qui le fait ressortir. */
+  salaire: { color: '#8A6A10', fontSize: 12.5, fontWeight: '800' as const, alignSelf: 'center' },
 
   contacts: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  /* Fond PLEIN a la couleur du canal, comme la maquette — l'ancien bouton etait un cadre vert
+   * pour les quatre, ce qui ne distinguait rien. */
   contact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderWidth: 1.5,
-    borderColor: VERT,
     borderRadius: radius.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  contactEmoji: { fontSize: 13 },
-  contactTexte: { color: VERT, fontSize: 12, fontWeight: '800' as const },
+  contactTexte: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' as const },
 
-  itineraire: { backgroundColor: VERT, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },
-  itineraireTexte: { color: '#FFFFFF', fontSize: 13.5, fontWeight: '800' as const },
+  /* BLEU MARINE, valeur de la maquette : le seul bouton du module qui ne soit ni vert ni or,
+   * parce qu'il est le seul a faire QUITTER la liste pour entrer en navigation. */
+  naviguer: {
+    backgroundColor: BLEU_MARINE,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  naviguerTexte: { color: '#FFFFFF', fontSize: 13.5, fontWeight: '800' as const },
+  distanceExacte: { color: TEXTE_DOUX, fontSize: 11, marginTop: 2 },
 
   fab: {
     position: 'absolute',

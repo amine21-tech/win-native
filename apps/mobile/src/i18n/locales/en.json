@@ -585,7 +585,7 @@
     "contactSection": "Contact details",
     "phone": "Phone",
     "paymentSection": "Payment method",
-    "send": "Submit the offer",
+    "send": "Submit the ad",
     "close": "Close",
     "needSector": "Choose a sector.",
     "needTitle": "The job title is required.",
@@ -663,7 +663,13 @@
     "popular": "POPULAR",
     "priority": "PRIORITY",
     "orPrice": "or {{prix}} DA {{duree}}",
-    "highlighted": "HIGHLIGHTED"
+    "highlighted": "HIGHLIGHTED",
+    "headerTitle": "Jobs - WIN DZ",
+    "headerSub": "Job offers near you",
+    "locationActive": "Location active",
+    "navigateTo": "Navigate to {{lieu}} — WIN DZ",
+    "navigate": "Navigate — WIN DZ",
+    "exactDistance": "Exact distance: {{distance}}"
   },
   "share": {
     "title": "WIN DZ position",

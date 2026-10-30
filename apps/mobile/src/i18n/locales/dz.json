@@ -585,7 +585,7 @@
     "contactSection": "الاتصال",
     "phone": "التيليفون",
     "paymentSection": "كيفاش تخلّص",
-    "send": "ابعث الإعلان",
+    "send": "أرسل الإعلان",
     "close": "سكّر",
     "needSector": "اختار قطاع.",
     "needTitle": "تسمية الخدمة لازمة.",
@@ -663,7 +663,13 @@
     "popular": "الأكثر طلبا",
     "priority": "أولوية",
     "orPrice": "ولا {{prix}} دج {{duree}}",
-    "highlighted": "مُبرَز"
+    "highlighted": "مُبرَز",
+    "headerTitle": "WIN DZ - الخدمة",
+    "headerSub": "عروض خدمة قريبة منك",
+    "locationActive": "الموقع خدّام",
+    "navigateTo": "روح ل {{lieu}} — WIN DZ",
+    "navigate": "روح — WIN DZ",
+    "exactDistance": "المسافة بالضبط: {{distance}}"
   },
   "share": {
     "title": "موقع WIN DZ",

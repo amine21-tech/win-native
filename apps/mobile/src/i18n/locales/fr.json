@@ -585,7 +585,7 @@
     "contactSection": "Coordonnées",
     "phone": "Téléphone",
     "paymentSection": "Mode de paiement",
-    "send": "Envoyer l’annonce",
+    "send": "Soumettre l'annonce",
     "close": "Fermer",
     "needSector": "Choisissez un secteur.",
     "needTitle": "La désignation du poste est nécessaire.",
@@ -663,7 +663,13 @@
     "popular": "POPULAIRE",
     "priority": "PRIORITAIRE",
     "orPrice": "ou {{prix}} DA {{duree}}",
-    "highlighted": "MIS EN AVANT"
+    "highlighted": "MIS EN AVANT",
+    "headerTitle": "Emploi - WIN DZ",
+    "headerSub": "Offres d'emploi près de vous",
+    "locationActive": "Localisation active",
+    "navigateTo": "Naviguer vers {{lieu}} — WIN DZ",
+    "navigate": "Naviguer — WIN DZ",
+    "exactDistance": "Distance exacte : {{distance}}"
   },
   "share": {
     "title": "Position WIN DZ",

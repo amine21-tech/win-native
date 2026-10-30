@@ -53,6 +53,13 @@ const ROUGE = '#C0392B';
  * la base : des annonces le portent deja, et le serveur continue de l'accepter en lecture
  * comme en relecture. Le proposer encore n'aurait servi qu'a creer de nouvelles annonces dans
  * un vocabulaire que le client n'emploie plus. */
+/** Les trois fonds de carte de la maquette du 29 octobre. */
+const FONDS_FORMULE: Record<string, string> = {
+  essentiel: '#F2F8F4',
+  standard: '#FFF8E6',
+  premium: '#FDF1F1',
+};
+
 const CONTRATS = ['cdi', 'cdd', 'interim', 'saisonnier'] as const;
 const PAIEMENTS = ['baridimob', 'virement', 'email'] as const;
 
@@ -174,7 +181,7 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
               <Text style={styles.retour}>←</Text>
             </Pressable>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.bandeauTitre}>✚  {t('jobs.newOffer')}</Text>
+              <Text style={styles.bandeauTitre}>{t('jobs.publishTitle')}</Text>
               <Text style={styles.bandeauSousTitre}>{t('jobs.employerSub')}</Text>
             </View>
           </View>
@@ -204,12 +211,22 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
               {/* LE PRIX D'ABORD. Voir la note en tete de fichier. */}
               {/* LA CARTE DU TARIF, en or, avant tout le reste — maquette du client. Le montant
                   est a droite et en grand : c'est ce qu'on cherche des qu'on ouvre cet ecran. */}
-              <Bande titre={t('jobs.priceLabel')} />
+              {/* LABEL EN TEXTE SIMPLE, pas en bande verte — c'est la maquette du 29 octobre.
+                  Les bandes vertes decoupaient bien un formulaire de douze champs, mais elles
+                  donnaient a « Tarif » le meme poids qu'a « Coordonnees », alors que le tarif
+                  est la seule chose qu'on regarde en arrivant. Un simple intitule laisse les
+                  trois cartes porter le regard. */}
+              <Text style={styles.intituleSection}>{t('jobs.priceLabel')}</Text>
 
               {/* SEMAINE OU MOIS, au-dessus des formules et non dans chacune d'elles. Le
                   document dit << semaine ou mois au choix >> pour les TROIS : le demander une
                   fois evite de relire six prix pour en comparer deux, et le montant affiche
                   dans chaque carte suit immediatement ce choix. */}
+              {/* LA MAQUETTE NE MONTRE AUCUN SELECTEUR DE DUREE : chaque carte y affiche les
+                  deux prix separes par « ou ». Il en faut pourtant un, sans quoi l'application
+                  ne peut pas savoir quel montant attendre — et l'administrateur non plus au
+                  moment d'activer. Il est donc garde, mais ramene a deux petites pastilles
+                  discretes, sous l'intitule qui parle deja de duree. */}
               <View style={styles.durees}>
                 {DUREES.map((d) => {
                   const actif = duree === d;
@@ -246,7 +263,13 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
                     accessibilityState={{ selected: actif }}
                     style={[
                       styles.formule,
-                      { borderColor: actif ? OR : PUCE, backgroundColor: actif ? '#FFF9E8' : FOND },
+                      {
+                        borderColor: actif ? OR : PUCE,
+                        /* Les trois fonds de la maquette : vert tres pale pour Essentiel, or
+                           pale pour Standard, rose pour Premium. Ils rangent les formules
+                           avant qu'on ait lu un seul prix. */
+                        backgroundColor: FONDS_FORMULE[f],
+                      },
                     ]}
                   >
                     <View style={{ flex: 1, minWidth: 0 }}>
@@ -277,14 +300,26 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
                       <Text style={styles.tarifMontant}>{prixEmploi(f, duree) ?? '—'} DA</Text>
                       <Text style={styles.tarifUnite}>{t(`jobs.durationShort.${duree}`)}</Text>
                     </View>
+
+                    {/* LA PASTILLE RADIO, A DROITE, comme la maquette. Elle dit ce que la
+                        bordure or seule disait mal : qu'on CHOISIT une formule parmi trois, et
+                        non qu'on en consulte une mise en avant. */}
+                    <View style={[styles.radio, actif ? styles.radioActif : null]}>
+                      {actif ? <View style={styles.radioPoint} /> : null}
+                    </View>
                   </Pressable>
                 );
               })}
 
-              <Bande titre={t('jobs.sectorLabel')} />
+              <Text style={styles.intituleSection}>{t('jobs.sectorLabel')}</Text>
               {/* GRILLE VISUELLE, comme la maquette : on choisit un secteur en le reconnaissant,
                   pas en lisant une liste deroulante. */}
-              <View style={styles.grille}>
+              {/* DES CHIPS QUI S'ENROULENT, et non une grille de tuiles — c'est la maquette.
+                  La grille donnait a chaque secteur une tuile de la taille d'un bouton, soit
+                  quatre rangees pour douze secteurs : le formulaire commencait sous la ligne
+                  de flottaison. Les chips tiennent en trois lignes et se lisent comme ce
+                  qu'ils sont, une liste de choix. */}
+              <View style={styles.chipsSecteurs}>
                 {SECTEURS_EMPLOI.map((s) => {
                   const actif = secteur === s.cle;
                   return (
@@ -293,13 +328,11 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
                       onPress={() => setSecteur(s.cle)}
                       accessibilityRole="button"
                       accessibilityState={{ selected: actif }}
-                      style={[styles.caseSecteur, actif ? styles.caseSecteurActive : null]}
+                      style={[styles.chipSecteur, actif ? styles.chipSecteurActif : null]}
                     >
-                      <Text style={styles.caseEmoji}>{s.emoji}</Text>
                       <Text
-                        style={[styles.caseTexte, actif ? styles.caseTexteActif : null]}
+                        style={[styles.chipSecteurTexte, actif ? styles.chipSecteurTexteActif : null]}
                         numberOfLines={1}
-                        adjustsFontSizeToFit
                       >
                         {t(`jobs.sector.${s.cle}`)}
                       </Text>
@@ -308,7 +341,7 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
                 })}
               </View>
 
-              <Bande titre={t('jobs.detailsSection')} />
+              <Text style={styles.intituleSection}>{t('jobs.detailsSection')}</Text>
               <Champ
                 label={t('jobs.jobTitle')}
                 valeur={titre}
@@ -318,7 +351,7 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
               />
               <Champ label={t('jobs.company')} valeur={entreprise} onChange={setEntreprise} />
 
-              <Text style={styles.label}>{t('jobs.contractLabel')}</Text>
+              <Text style={styles.intituleSection}>{t('jobs.contractLabel')}</Text>
               <View style={styles.rangee}>
                 {CONTRATS.map((c) => (
                   <Pressable
@@ -338,7 +371,7 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
               <Champ label={t('jobs.salary')} valeur={salaire} onChange={setSalaire} indice={t('jobs.salaryHint')} />
               <Champ label={t('jobs.description')} valeur={description} onChange={setDescription} lignes={4} />
 
-              <Bande titre={t('jobs.contactSection')} />
+              <Text style={styles.intituleSection}>{t('jobs.contactSection')}</Text>
               <Champ
                 label={t('jobs.phone')}
                 valeur={telephone}
@@ -351,7 +384,7 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
               <Champ label="Viber" valeur={viber} onChange={setViber} clavier="phone-pad" />
               <Champ label="Email" valeur={email} onChange={setEmail} clavier="email-address" />
 
-              <Bande titre={t('jobs.paymentSection')} />
+              <Text style={styles.intituleSection}>{t('jobs.paymentSection')}</Text>
               <View style={styles.colonne}>
                 {PAIEMENTS.map((p) => (
                   <Pressable
@@ -380,7 +413,7 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
                 {envoi ? (
                   <ActivityIndicator color="#2A1F00" />
                 ) : (
-                  <Text style={styles.validerTexte}>☑  {t('jobs.send')}</Text>
+                  <Text style={styles.validerTexte}>{t('jobs.send')}</Text>
                 )}
               </Pressable>
               <View style={{ height: spacing.xl + insets.bottom }} />
@@ -460,6 +493,23 @@ const styles = StyleSheet.create({
   bandeauSousTitre: { color: 'rgba(255,255,255,0.78)', fontSize: 12, marginTop: 1 },
   defilant: { flexShrink: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
 
+  /* L'intitule de section : gras, sombre, suivi de deux-points — la maquette n'a plus de
+   * bandes vertes. */
+  chipsSecteurs: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chipSecteur: {
+    borderWidth: 1.5,
+    borderColor: PUCE,
+    backgroundColor: FOND,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  chipSecteurActif: { backgroundColor: VERT, borderColor: VERT },
+  chipSecteurTexte: { color: TEXTE_DOUX, fontSize: 12.5, fontWeight: '700' as const },
+  chipSecteurTexteActif: { color: '#FFFFFF' },
+
+  intituleSection: { color: TEXTE, fontSize: 14.5, fontWeight: '800' as const, marginTop: spacing.md, marginBottom: spacing.sm },
+
   durees: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
   duree: {
     flex: 1,
@@ -479,6 +529,18 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: PUCE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioActif: { borderColor: OR },
+  radioPoint: { width: 10, height: 10, borderRadius: 5, backgroundColor: OR },
+
   formuleTitreLigne: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   formuleNom: { color: TEXTE, fontSize: 15, fontWeight: '800' as const },
   formuleDetail: { color: TEXTE_DOUX, fontSize: 12, marginTop: 2 },

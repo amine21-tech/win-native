@@ -585,7 +585,7 @@
     "contactSection": "وسائل الاتصال",
     "phone": "الهاتف",
     "paymentSection": "طريقة الدفع",
-    "send": "إرسال الإعلان",
+    "send": "أرسل الإعلان",
     "close": "إغلاق",
     "needSector": "اختر قطاعًا.",
     "needTitle": "تسمية المنصب ضرورية.",
@@ -663,7 +663,13 @@
     "popular": "الأكثر طلبا",
     "priority": "أولوية",
     "orPrice": "أو {{prix}} دج {{duree}}",
-    "highlighted": "مُبرَز"
+    "highlighted": "مُبرَز",
+    "headerTitle": "WIN DZ - التشغيل",
+    "headerSub": "عروض عمل قريبة منك",
+    "locationActive": "الموقع مفعّل",
+    "navigateTo": "الاتجاه إلى {{lieu}} — WIN DZ",
+    "navigate": "الاتجاه — WIN DZ",
+    "exactDistance": "المسافة الدقيقة: {{distance}}"
   },
   "share": {
     "title": "موقع WIN DZ",
