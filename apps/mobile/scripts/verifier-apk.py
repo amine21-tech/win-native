@@ -21,11 +21,33 @@ Usage :
   python -I scripts/verifier-apk.py <reference.apk> <a-verifier.apk> [taille_attendue]
   python -I scripts/verifier-apk.py <reference.apk> <a-verifier.apk> --chaines "Statut" "Overview"
 """
+import re
 import struct
 import sys
 import zipfile
 
 ID_SIGNATURE_V2 = 0x7109871A
+
+
+def declarations(manifeste):
+    """Permissions et composants declares par le manifeste binaire.
+
+    POURQUOI PAS SA TAILLE. On comparait le manifeste OCTET POUR OCTET, ce qui parait prudent
+    et ne l'est pas : sa taille change des que le NOM DE VERSION change de longueur. Le passage
+    de << 1.0.99 >> a << 1.0.100 >> a ainsi fait refuser une livraison parfaitement saine —
+    quatre octets d'ecart, soit un caractere de plus en UTF-16.
+
+    Un controle qui se declenche sur un changement anodin finit par etre ignore, et le jour ou
+    il attrape une vraie permission ajoutee en douce, plus personne ne le lit. On compare donc
+    ce qu'on voulait reellement surveiller : ce que l'application DEMANDE a Android.
+
+    Releve par lecture du pool de chaines UTF-16 du manifeste binaire : approximatif, mais il
+    ne rate aucune permission, et c'est tout ce qu'on lui demande.
+    """
+    texte = manifeste.decode('utf-16-le', 'ignore')
+    mots = set(re.findall(r'[A-Za-z0-9_.]{6,}', texte))
+    return sorted(m for m in mots if 'permission' in m.lower() or m.startswith('android.intent')
+                  or m.endswith('Activity') or m.endswith('Service') or m.endswith('Receiver'))
 
 
 def bloc_signature_v2(donnees):
@@ -54,6 +76,7 @@ def etat(chemin):
         'octets': len(donnees),
         'entrees': len(z.namelist()),
         'manifeste': len(z.read('AndroidManifest.xml')),
+        'declare': declarations(z.read('AndroidManifest.xml')),
         'arsc_compresse': arsc.compress_type != 0,
         'signature_v2': bloc_signature_v2(donnees),
         'bundle': z.read('assets/index.android.bundle'),
@@ -101,9 +124,16 @@ def main():
     if v['entrees'] != r['entrees']:
         fautes.append('ENTREES : %d contre %d dans la reference — la chaine de compilation a change.'
                       % (v['entrees'], r['entrees']))
-    if v['manifeste'] != r['manifeste']:
-        fautes.append('MANIFESTE : %d octets contre %d — permissions ou composants modifies.'
-                      % (v['manifeste'], r['manifeste']))
+    if v['declare'] != r['declare']:
+        ajoutees = [d for d in v['declare'] if d not in r['declare']]
+        retirees = [d for d in r['declare'] if d not in v['declare']]
+        fautes.append('MANIFESTE : les declarations ont change. Ajoutees : %s · Retirees : %s'
+                      % (ajoutees or 'aucune', retirees or 'aucune'))
+    elif v['manifeste'] != r['manifeste']:
+        # Taille differente mais memes declarations : c'est le nom de version qui a change de
+        # longueur. On le DIT, sans refuser la livraison.
+        print('  note : manifeste %d o contre %d — meme permissions, meme composants '
+              '(le nom de version a change de longueur).' % (v['manifeste'], r['manifeste']))
 
     for texte in chaines:
         if not present(v['bundle'], texte):
