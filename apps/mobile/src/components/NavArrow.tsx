@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 /**
  * Fleche de position pendant le guidage.
@@ -20,12 +20,33 @@ import Svg, { Path } from 'react-native-svg';
 /** Repere de dessin. Seule `size` fixe l'echelle reelle. */
 const BOX = 128;
 const CX = BOX / 2;
+
+/**
+ * LE DISQUE BLANC EST LE CORRECTIF, PAS UN ORNEMENT.
+ *
+ * La fleche etait remplie de la couleur de l'itineraire, et posee SUR cet itineraire : deux
+ * surfaces de la meme teinte l'une sur l'autre ne font qu'une seule forme. Il ne restait d'elle
+ * que son liseré blanc — deux pixels de large a l'ecran — ce qui donnait le trait fin et
+ * incertain que le client a releve. Le commentaire d'origine avait vu le risque et comptait sur
+ * ce liseré pour y parer ; il etait trop mince pour cela.
+ *
+ * Un disque blanc OPAQUE dessous regle le probleme a la source : quoi qu'il y ait sous le
+ * curseur — le trace vert, une route jaune, un parc — la fleche se detache toujours, puisque
+ * ce n'est plus le fond de carte qui la porte mais un fond a nous.
+ *
+ * L'anneau sombre qui le borde sert au cas inverse : sur le beige clair du fond de carte, un
+ * disque blanc sans contour se dissout a son tour.
+ */
+const RAYON_DISQUE = 52;
+const EPAISSEUR_ANNEAU = 3;
+
 /** Pointe, base et creux arriere : un triangle dont le bas est legerement rentre, ce qui lui
- * donne sa direction d'un coup d'oeil la ou un triangle plat parait pose au hasard. */
-const TIP_Y = 16;
-const BASE_Y = 108;
-const HALF_WIDTH = 40;
-const NOTCH_Y = 88;
+ * donne sa direction d'un coup d'oeil la ou un triangle plat parait pose au hasard.
+ * Il est RETRECI pour tenir dans le disque, avec de la marge blanche tout autour. */
+const TIP_Y = 30;
+const BASE_Y = 100;
+const HALF_WIDTH = 30;
+const NOTCH_Y = 84;
 
 const PATH = [
   `M ${CX} ${TIP_Y}`,
@@ -73,9 +94,16 @@ export function NavArrow({ size, color = '#0D6E4F' }: { size: number; color?: st
         ]}
       />
       <Svg width={size} height={size} viewBox={`0 0 ${BOX} ${BOX}`}>
-        {/* Le contour blanc n'est pas decoratif : sans lui, le triangle se perd des que la route
-            sous lui est de la meme teinte — c'est le cas du trace lui-meme. */}
-        <Path d={PATH} fill={color} stroke="#FFFFFF" strokeWidth="7" strokeLinejoin="round" />
+        {/* Le disque, puis la fleche par-dessus : voir la note en tete de fichier. */}
+        <Circle
+          cx={CX}
+          cy={CX}
+          r={RAYON_DISQUE}
+          fill="#FFFFFF"
+          stroke="rgba(0,0,0,0.22)"
+          strokeWidth={EPAISSEUR_ANNEAU}
+        />
+        <Path d={PATH} fill={color} strokeLinejoin="round" />
       </Svg>
     </View>
   );

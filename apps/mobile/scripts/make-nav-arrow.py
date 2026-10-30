@@ -38,15 +38,21 @@ COULEURS = {
     'night': (46, 230, 166),
 }
 
-# Cote de l'image en points. 46 est la taille du marqueur en mode suivi (NAV_PUCK_SIZE) : la
-# fleche garde donc la meme corpulence que le suivi s'interrompe ou non.
-TAILLE_DP = 46
+# Cote de l'image en points : la MEME que NAV_PUCK_SIZE dans app/index.tsx, pour que la fleche
+# garde exactement la meme corpulence que le suivi s'interrompe ou non.
+#
+# Les deux avaient derive — 46 ici contre 40 la-bas — et le commentaire affirmait pourtant
+# qu'elles etaient egales. Personne ne pouvait le voir : les deux fleches ne s'affichent jamais
+# en meme temps, et un ecart de six points ne saute aux yeux que si on les compare cote a cote.
+TAILLE_DP = 40
 
 # Le triangle, repris trait pour trait de NavArrow.tsx (repere 0-128) : pointe haute, base
 # large, et un creux a l'arriere — c'est ce creux qui donne la direction au premier coup d'oeil
 # la ou un triangle plat parait pose au hasard.
 BOX = 128.0
-TIP_Y, BASE_Y, NOTCH_Y, HALF_WIDTH = 16.0, 108.0, 88.0, 40.0
+TIP_Y, BASE_Y, NOTCH_Y, HALF_WIDTH = 30.0, 100.0, 84.0, 30.0
+RAYON_DISQUE = 52.0
+EPAISSEUR_ANNEAU = 3.0
 
 
 def make_arrow(nom, couleur, scale):
@@ -68,7 +74,14 @@ def make_arrow(nom, couleur, scale):
         dessin_halo.ellipse([c - r, c - r, c + r, c + r], fill=couleur + (a,))
     img.alpha_composite(halo)
 
-    # 2) la fleche. Le trace occupe 70 % du cote : le reste est la place du halo.
+    # 2) LE DISQUE BLANC, puis la fleche par-dessus.
+    #
+    #    La fleche etait remplie de la couleur de l'itineraire et posee SUR cet itineraire :
+    #    deux surfaces de la meme teinte l'une sur l'autre ne font qu'une seule forme, et il ne
+    #    restait d'elle que son liseré blanc de deux pixels. Un disque blanc OPAQUE regle cela a
+    #    la source — ce n'est plus le fond de carte qui porte la fleche mais un fond a nous.
+    #    L'anneau sombre sert au cas inverse : sur le beige clair du fond, un disque blanc sans
+    #    contour se dissout a son tour.
     k = (S * 0.70) / BOX
     ox = c - (BOX / 2.0) * k
     oy = c - (BOX / 2.0) * k
@@ -82,14 +95,15 @@ def make_arrow(nom, couleur, scale):
         pt(BOX / 2, NOTCH_Y),
         pt(BOX / 2 - HALF_WIDTH, BASE_Y),
     ]
-    # Le contour blanc n'est pas decoratif : sans lui, le triangle se perd des que la route
-    # sous lui est de la meme teinte — c'est le cas du trace lui-meme.
-    ImageDraw.Draw(img).polygon(
-        triangle,
-        fill=couleur + (255,),
-        outline=(255, 255, 255, 255),
-        width=max(1, int(7 * k)),
+    dessin = ImageDraw.Draw(img)
+    r = RAYON_DISQUE * k
+    dessin.ellipse(
+        [c - r, c - r, c + r, c + r],
+        fill=(255, 255, 255, 255),
+        outline=(0, 0, 0, 56),
+        width=max(1, int(EPAISSEUR_ANNEAU * k)),
     )
+    dessin.polygon(triangle, fill=couleur + (255,))
 
     suffix = '' if scale == 1 else '@%dx' % scale
     petit = img.resize((S // SS, S // SS), Image.LANCZOS)
