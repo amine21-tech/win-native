@@ -20,11 +20,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError, api } from '../src/api/client';
 import {
   dateDepuisServeur,
-  DUREES_EMPLOI,
+  joursEmploi,
   prixEmploi,
   type DureeEmploi,
   type FormuleEmploi,
 } from '../src/shared';
+import { SectionSure } from '../src/components/SectionSure';
 import { useAdminSession } from '../src/store/admin';
 import { palette, radius, spacing, typography, type Palette } from '../src/theme';
 
@@ -277,17 +278,33 @@ function Dashboard({
         {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{t('admin.save')}</Text>}
       </Pressable>
 
-      <AdminStats token={token} colors={colors} />
+      {/* CHAQUE SECTION EST ISOLEE. Elles s'affichent les unes sous les autres : sans cette
+          enveloppe, une exception dans l'une efface TOUT l'ecran — c'est exactement ce qui est
+          arrive avec la liste des annonces, et l'administrateur n'a vu qu'un ecran noir, sans
+          un mot, sans pouvoir atteindre les autres sections pourtant intactes. */}
+      <SectionSure nom={t('admin.statsTitle')}>
+        <AdminStats token={token} colors={colors} />
+      </SectionSure>
 
-      <JobOffers token={token} colors={colors} />
+      <SectionSure nom={t('admin.jobsTitle')}>
+        <JobOffers token={token} colors={colors} />
+      </SectionSure>
 
-      <PlaceCorrections token={token} colors={colors} />
+      <SectionSure nom={t('admin.correctionsTitle')}>
+        <PlaceCorrections token={token} colors={colors} />
+      </SectionSure>
 
-      <PhotoReports token={token} colors={colors} />
+      <SectionSure nom={t('admin.photoReportsTitle')}>
+        <PhotoReports token={token} colors={colors} />
+      </SectionSure>
 
-      <ContributorCodes token={token} colors={colors} />
+      <SectionSure nom={t('admin.codesTitle')}>
+        <ContributorCodes token={token} colors={colors} />
+      </SectionSure>
 
-      <UnlockRequests token={token} colors={colors} />
+      <SectionSure nom={t('admin.unlocksTitle')}>
+        <UnlockRequests token={token} colors={colors} />
+      </SectionSure>
 
       <Pressable onPress={onLogout} style={styles.logout}>
         <Text style={[typography.caption, { color: colors.textMuted }]}>{t('admin.logout')}</Text>
@@ -700,8 +717,8 @@ function JobOffers({ token, colors }: { token: string; colors: Palette }) {
               attendre. Le lui faire chercher, c'est garantir qu'une annonce Premium sera
               activee contre un versement Essentiel. */}
           <Text style={{ color: colors.accent, fontSize: 13, fontWeight: '800', marginTop: 4 }}>
-            {t(`jobs.formula.${o.formule}`)} · {prixEmploi(o.formule, o.duree)} DA ·{' '}
-            {DUREES_EMPLOI[o.duree]} {t('admin.jobsDays')}
+            {t(`jobs.formula.${o.formule}`)} · {prixEmploi(o.formule, o.duree) ?? '—'} DA ·{' '}
+            {joursEmploi(o.duree) ?? '—'} {t('admin.jobsDays')}
           </Text>
           <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
             {o.paymentMethod ? t(`jobs.payment.${o.paymentMethod}`) : '—'}

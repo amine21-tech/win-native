@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import { DeviceMotion } from 'expo-sensors';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import Svg, { Path } from 'react-native-svg';
 import {
   Modal,
   Pressable,
@@ -253,7 +254,23 @@ export function QiblaPanel({ visible, onClose, onReduce, position }: Props) {
                 accessibilityLabel={t('qibla.reduce')}
                 style={styles.reduce}
               >
-                <Text style={styles.reduceGlyph}>⌄</Text>
+                {/* LE CHEVRON EST DESSINE, plus emprunte a la police.
+                    Trois reglages successifs n'ont pas suffi a le centrer : `⌄` (U+2304) est
+                    dessine tres bas dans sa case par la plupart des polices Android, et aucun
+                    `lineHeight` ne corrige cela — on deplace la BOITE, jamais l'encre qu'elle
+                    contient. Un trace est centre par construction, identique sur tous les
+                    telephones, et se met a l'echelle sans flou. Meme raison que pour la fleche
+                    de manoeuvre et pour le radar. */}
+                <Svg width={22} height={22} viewBox="0 0 24 24">
+                  <Path
+                    d="M5 9 L12 16 L19 9"
+                    stroke={GOLD_TEXT}
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                </Svg>
               </Pressable>
 
               <Pressable
@@ -458,23 +475,9 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center',
   },
 
-  /* LE CHEVRON A BESOIN D'UNE TAILLE A LUI, et ce n'est pas un caprice de reglage.
-   *
-   * « ⌄ » (U+2304) et « ✕ » (U+2715) sont dessines tres differemment dans la police : a corps
-   * EGAL, le chevron occupe a peine la moitie de la hauteur de la croix. Les deux pastilles
-   * font pourtant la meme taille — le client a donc vu, a juste titre, un bouton plus petit
-   * que l'autre alors que seuls les caracteres differaient.
-   *
-   * Trente points pour le chevron contre vingt pour la croix : c'est ce qui les rend
-   * OPTIQUEMENT egaux, ce qui est la seule egalite qui compte ici. */
-  reduceGlyph: {
-    color: GOLD_TEXT,
-    fontSize: 30,
-    lineHeight: 30,
-    includeFontPadding: false,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-  },
+  /* `reduceGlyph` a disparu avec le caractere qu'il mettait en forme : le chevron est
+   * desormais un trace SVG, centre par le `alignItems` / `justifyContent` de sa pastille
+   * comme n'importe quelle vue. Il n'y a plus de metriques de police a corriger. */
 
   // `#qiblaDates{position:absolute;top:9px;left:13px;right:50px}` — decale de la marge interne
   // de l'encadre, puisqu'il est ici pose dans la zone deja marginee.

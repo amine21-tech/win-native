@@ -254,9 +254,37 @@ export const DUREES_EMPLOI = { semaine: 7, mois: 30 } as const;
 export type DureeEmploi = keyof typeof DUREES_EMPLOI;
 export const DUREES: readonly DureeEmploi[] = ['semaine', 'mois'];
 
-/** Prix en dinars d'une formule pour une duree donnee. */
-export function prixEmploi(formule: FormuleEmploi, duree: DureeEmploi): number {
-  return FORMULES_EMPLOI[formule][duree];
+/**
+ * Prix en dinars d'une formule pour une duree donnee — `null` si l'un des deux est inconnu.
+ *
+ * POURQUOI `null` ET NON UNE EXCEPTION. Cette fonction lisait `FORMULES_EMPLOI[formule][duree]`
+ * sans rien verifier. TypeScript garantit les types a la COMPILATION ; il ne garantit rien de
+ * ce qui arrive du reseau, qui est simplement transtype a l'arrivee. Une formule inconnue —
+ * champ absent, serveur plus ancien, annonce ecrite a la main en base — faisait donc lire une
+ * propriete sur `undefined`, ce qui leve une exception pendant le rendu.
+ *
+ * Et une exception pendant le rendu d'un ecran React Native n'affiche pas un message : elle
+ * efface TOUT. L'ecran d'administration affiche ses sections les unes sous les autres, la
+ * liste des annonces comprise : une seule valeur inattendue suffisait a le rendre entierement
+ * noir, sans la moindre indication de ce qui s'etait passe.
+ *
+ * Rendre `null` oblige l'appelant a decider quoi afficher — et le pire qu'il puisse arriver
+ * est alors un tiret a la place d'un montant.
+ */
+export function prixEmploi(
+  formule: FormuleEmploi | string | null | undefined,
+  duree: DureeEmploi | string | null | undefined,
+): number | null {
+  const tarifs = FORMULES_EMPLOI[formule as FormuleEmploi];
+  if (!tarifs) return null;
+  const prix = tarifs[duree as DureeEmploi];
+  return typeof prix === 'number' ? prix : null;
+}
+
+/** Jours d'affichage d'une duree — `null` si elle est inconnue. Meme raison que ci-dessus. */
+export function joursEmploi(duree: DureeEmploi | string | null | undefined): number | null {
+  const jours = DUREES_EMPLOI[duree as DureeEmploi];
+  return typeof jours === 'number' ? jours : null;
 }
 
 /**
@@ -266,6 +294,6 @@ export function prixEmploi(formule: FormuleEmploi, duree: DureeEmploi): number {
  * doit apparaitre a Annaba, et une offre Essentiel publiee dans la meme rue ne doit pas sortir
  * de ses cinquante kilometres. Le chercheur, lui, ne regle rien.
  */
-export function porteeEmploi(formule: FormuleEmploi): number | null {
-  return FORMULES_EMPLOI[formule].porteeM;
+export function porteeEmploi(formule: FormuleEmploi | string | null | undefined): number | null {
+  return FORMULES_EMPLOI[formule as FormuleEmploi]?.porteeM ?? null;
 }

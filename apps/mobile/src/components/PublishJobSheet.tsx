@@ -20,7 +20,7 @@ import {
   DUREES,
   FORMULES,
   FORMULES_EMPLOI,
-  DUREES_EMPLOI,
+  joursEmploi,
   prixEmploi,
   type DureeEmploi,
   type FormuleEmploi,
@@ -191,8 +191,8 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
                   ce genre d'ecart ne se decouvre qu'au moment de payer. */}
               <Text style={styles.confirmeTexte}>
                 {t('jobs.sentBody', {
-                  prix: prixEmploi(formule, duree),
-                  jours: DUREES_EMPLOI[duree],
+                  prix: prixEmploi(formule, duree) ?? '—',
+                  jours: joursEmploi(duree) ?? '—',
                 })}
               </Text>
               <Pressable onPress={fermer} style={styles.valider}>
@@ -268,13 +268,13 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
                       <Text style={styles.formuleDetail}>{t(`jobs.formulaDetail.${f}`)}</Text>
                       <Text style={styles.formuleAutre}>
                         {t('jobs.orPrice', {
-                          prix: prixEmploi(f, autre),
+                          prix: prixEmploi(f, autre) ?? '—',
                           duree: t(`jobs.durationShort.${autre}`),
                         })}
                       </Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={styles.tarifMontant}>{prixEmploi(f, duree)} DA</Text>
+                      <Text style={styles.tarifMontant}>{prixEmploi(f, duree) ?? '—'} DA</Text>
                       <Text style={styles.tarifUnite}>{t(`jobs.durationShort.${duree}`)}</Text>
                     </View>
                   </Pressable>
