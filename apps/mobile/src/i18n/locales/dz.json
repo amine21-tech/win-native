@@ -163,12 +163,12 @@
     "manage": "إدارة هاد البطاقة",
     "needPosition": "بلاصتك ما نعرفوهاش، على هذا ما نقدروش نحسبو المسافة ولا الطريق.",
     "enableLocation": "لقى بلاصتي",
-    "reportIssueTitle": "بلّغ على مشكل",
-    "reportIssueSub": "معلومات ماشي صحيحة ولا بلاصة خطيرة",
-    "editPlaceTitle": "بدّل",
-    "editPlaceSub": "صلّح الاسم ولا العنوان ولا الفئة",
-    "deletePlaceTitle": "امسح هذي البلاصة",
-    "deletePlaceSub": "البلاصة ما كاينش ولا سكرات نهائي",
+    "reportIssueTitle": "بلّغ على عنوان غالط",
+    "reportIssueSub": "الموقع ولا الاسم غالط",
+    "editPlaceTitle": "بدّل هاد البلاصة",
+    "editPlaceSub": "صلّح الاسم ولا العنوان ولا التصويرة",
+    "deletePlaceTitle": "امسح هاد البلاصة",
+    "deletePlaceSub": "امسح البلاصة والتصويرة نهائيا",
     "editOtherSub": "بطاقة مستخدم آخر — التصحيح تاعك مسجّل",
     "deleteOtherSub": "بطاقة مستخدم آخر — المسح مسجّل ويتراجع عليه",
     "gpsCoords": "إحداثيات GPS",
@@ -177,7 +177,10 @@
     "changePhoto": "بدّل التصويرة",
     "addPhoto": "زيد تصويرة",
     "partnerProtectedTitle": "بطاقة شريك",
-    "partnerProtectedBody": "هذا العنوان تاع شريك مع WIN: المسح يدّي عبر الفريق. تقدر تبلّغ على مشكل ونوصلنا الخبر دغيا."
+    "partnerProtectedBody": "هذا العنوان تاع شريك مع WIN: المسح يدّي عبر الفريق. تقدر تبلّغ على مشكل ونوصلنا الخبر دغيا.",
+    "photoByUser": "تصويرة زادها مستعمل WIN",
+    "startRoute": "ابدا الطريق",
+    "manageSection": "سير هاد البلاصة"
   },
   "categories": {
     "groups": {

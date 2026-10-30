@@ -163,12 +163,12 @@
     "manage": "Manage this place",
     "needPosition": "Your position is unknown, so distance and route cannot be computed.",
     "enableLocation": "Locate me",
-    "reportIssueTitle": "Report a problem",
-    "reportIssueSub": "Wrong information, unsafe place",
-    "editPlaceTitle": "Edit",
-    "editPlaceSub": "Correct the name, address or category",
+    "reportIssueTitle": "Report a wrong address",
+    "reportIssueSub": "The position or the displayed name is wrong",
+    "editPlaceTitle": "Edit this place",
+    "editPlaceSub": "Correct the name, the address or the photo",
     "deletePlaceTitle": "Delete this place",
-    "deletePlaceSub": "Place does not exist or has closed for good",
+    "deletePlaceSub": "Delete the place and its photo permanently",
     "editOtherSub": "Someone else's listing — your correction is logged",
     "deleteOtherSub": "Someone else's listing — removal is logged and reversible",
     "gpsCoords": "GPS coordinates",
@@ -177,7 +177,10 @@
     "changePhoto": "Change photo",
     "addPhoto": "Add a photo",
     "partnerProtectedTitle": "Partner listing",
-    "partnerProtectedBody": "This address belongs to a WIN partner: removing it goes through the team. You can report a problem — we are notified straight away."
+    "partnerProtectedBody": "This address belongs to a WIN partner: removing it goes through the team. You can report a problem — we are notified straight away.",
+    "photoByUser": "Photo added by a WIN user",
+    "startRoute": "Start the route",
+    "manageSection": "Manage this place"
   },
   "categories": {
     "groups": {

@@ -163,12 +163,12 @@
     "manage": "Gérer cette fiche",
     "needPosition": "Votre position est inconnue : impossible de calculer la distance ni l'itinéraire.",
     "enableLocation": "Me localiser",
-    "reportIssueTitle": "Signaler un problème",
-    "reportIssueSub": "Informations incorrectes, lieu dangereux",
-    "editPlaceTitle": "Modifier",
-    "editPlaceSub": "Corriger le nom, l'adresse ou la catégorie",
-    "deletePlaceTitle": "Supprimer ce lieu",
-    "deletePlaceSub": "Lieu inexistant ou définitivement fermé",
+    "reportIssueTitle": "Signaler une adresse incorrecte",
+    "reportIssueSub": "La position ou le nom affiché est faux",
+    "editPlaceTitle": "Modifier cette fiche",
+    "editPlaceSub": "Corriger le nom, l'adresse ou la photo",
+    "deletePlaceTitle": "Supprimer cette fiche",
+    "deletePlaceSub": "Supprimer le lieu et sa photo définitivement",
     "editOtherSub": "Fiche d'un autre utilisateur — votre correction est tracée",
     "deleteOtherSub": "Fiche d'un autre utilisateur — le retrait est tracé et réversible",
     "gpsCoords": "Coordonnées GPS",
@@ -177,7 +177,10 @@
     "changePhoto": "Changer la photo",
     "addPhoto": "Ajouter une photo",
     "partnerProtectedTitle": "Fiche partenaire",
-    "partnerProtectedBody": "Cette adresse appartient a un partenaire WIN : son retrait passe par l'equipe. Vous pouvez signaler un probleme, nous sommes prevenus tout de suite."
+    "partnerProtectedBody": "Cette adresse appartient a un partenaire WIN : son retrait passe par l'equipe. Vous pouvez signaler un probleme, nous sommes prevenus tout de suite.",
+    "photoByUser": "Photo ajoutée par un utilisateur WIN",
+    "startRoute": "Démarrer l'itinéraire",
+    "manageSection": "Gérer cette fiche"
   },
   "categories": {
     "groups": {

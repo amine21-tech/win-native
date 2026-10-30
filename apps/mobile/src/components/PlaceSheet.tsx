@@ -16,6 +16,7 @@ import { ReportPhotoSheet } from './ReportPhotoSheet';
 import { ApiError, api } from '../api/client';
 import { clearSearchCache } from '../search/usePlaceSearch';
 import { ConfirmDeleteSheet } from './ConfirmDeleteSheet';
+import { GererFiche } from './GererFiche';
 import { usePlaces } from '../store/places';
 import { fonts, radius, spacing, typography, type Palette } from '../theme';
 import { AdminEditPlaceSheet } from './AdminEditPlaceSheet';
@@ -516,20 +517,22 @@ export function PlaceSheet({
          * cela ne s'affiche sur un resultat OpenStreetMap, qu'on ne peut ni corriger ni retirer
          * d'ici. */}
         {place.placeId ? (
-          <Pressable
-            onPress={() => setManageOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel={t('place.manage')}
-            style={({ pressed }) => [
-              styles.gerer,
-              { borderColor: colors.border, backgroundColor: pressed ? colors.surfaceAlt : 'transparent' },
-            ]}
-          >
-            <Text style={[styles.gererText, { color: colors.text }]} numberOfLines={1}>
-              ⚙️  {t('place.manage')}
-            </Text>
-            <Text style={[styles.gererChevron, { color: colors.textMuted }]}>›</Text>
-          </Pressable>
+          /* LES TROIS GESTES, DANS LA FICHE — maquette du client. Ils etaient derriere un
+             bouton qui ouvrait une seconde feuille ; un geste cache derriere un appui n'est pas
+             prudent, il est introuvable. La feuille subsiste pour l'affichage COMPACT pendant
+             la navigation, et les deux partagent le meme composant : les ecrire deux fois
+             aurait garanti qu'ils divergent au premier changement de formulation. */
+          <GererFiche
+            peutGerer={peutGerer}
+            peutSupprimer={peutSupprimer}
+            estLaMienne={isMine}
+            suppressionEnCours={deleting}
+            onReport={() => setCorrectionOpen(true)}
+            onEdit={() => setMyEditOpen(true)}
+            onDelete={askDelete}
+            onSansDroit={expliquerDroit}
+            colors={colors}
+          />
         ) : (
           <Pressable onPress={() => setCorrectionOpen(true)} style={styles.reportIssue}>
             <Text style={[typography.caption, { color: colors.textMuted }]}>{t('place.reportIssue')}</Text>
@@ -764,17 +767,6 @@ const styles = StyleSheet.create({
    * au-dessous d'elle — assez pour que l'oeil comme le pouce les separent. */
   sousLaCroix: { paddingTop: 26 },
   defilant: { flexShrink: 1 },
-  gerer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.md,
-  },
-  gererText: { flex: 1, fontSize: 13.5, fontWeight: '700' as const },
-  gererChevron: { fontSize: 20, fontWeight: '300' as const },
   badge: {
     ...typography.caption,
     alignSelf: 'flex-start',

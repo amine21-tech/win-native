@@ -91,6 +91,17 @@ export function WinPlaceCard({
               <ActivityIndicator color={colors.accent} />
             </View>
           ) : null}
+          {/* « Photo ajoutee par un utilisateur WIN », pose EN BAS de l'image — maquette du
+              client. Il dit d'ou vient ce qu'on regarde, ce qu'aucune photo ne dit d'elle-meme :
+              une facade prise par un contributeur n'engage pas l'application de la meme facon
+              qu'une image officielle, et l'utilisateur a le droit de le savoir avant de se
+              fier a ce qu'il voit. */}
+          <View style={styles.photoCredit}>
+            <Text style={styles.photoCreditTexte} numberOfLines={1}>
+              📷  {t('place.photoByUser')}
+            </Text>
+          </View>
+
           {/* La photo est MODIFIABLE, et il faut que cela se voie sans l'expliquer : un crayon
               pose dessus suffit. Il mene au meme formulaire que << Modifier cette adresse >>. */}
           {peutGerer ? (
@@ -219,7 +230,7 @@ export function WinPlaceActions({
         ]}
       >
         <Text style={[styles.startBtnText, hasUserPosition ? null : { color: colors.text }]}>
-          {hasUserPosition ? `➤ ${t('nav.start')}` : `📍 ${t('place.enableLocation')}`}
+          {hasUserPosition ? `🧭  ${t('place.startRoute')}` : `📍 ${t('place.enableLocation')}`}
         </Text>
       </Pressable>
 
@@ -252,6 +263,18 @@ const styles = StyleSheet.create({
   photoBox: { width: '100%', height: 150, borderRadius: radius.lg, overflow: 'hidden' },
   photo: { width: '100%', height: '100%' },
   photoLoading: { alignItems: 'center', justifyContent: 'center' },
+  /* Le bandeau de credit : pose sur le bas de l'image, fond sombre translucide pour rester
+   * lisible quelle que soit la photo — une facade claire avalerait un texte blanc pose nu. */
+  photoCredit: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+  },
+  photoCreditTexte: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' as const },
   photoEdit: {
     position: 'absolute',
     top: 8,
@@ -276,7 +299,15 @@ const styles = StyleSheet.create({
   photoVideText: { fontSize: 13, fontWeight: '700' as const },
 
   nameRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.sm },
-  name: { ...typography.destinationName, flex: 1, fontFamily: fonts.destinationName },
+  /* Gras ITALIQUE, valeur de la maquette : l'italique distingue le nom du lieu de l'adresse
+   * qui le suit, laquelle est droite et grise. Deux lignes de texte sombre l'une sur l'autre
+   * se lisaient comme un seul bloc. */
+  name: {
+    ...typography.destinationName,
+    flex: 1,
+    fontFamily: fonts.destinationName,
+    fontStyle: 'italic',
+  },
   favBtn: { width: 38, height: 38, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   address: { marginTop: 2 },
   tag: {
