@@ -69,6 +69,19 @@ export function AlerteApproche({ report, distanceM, onGarder, onDesactiver }: Pr
       pointerEvents="box-none"
     >
       <View style={styles.carte}>
+        {/* LA CROIX DE FERMETURE (correction C7 du 31 octobre). La carte se referme deja
+            seule au bout de six secondes ; la croix sert a celui qui veut la retirer TOUT DE
+            SUITE, parce qu'elle masque justement ce qu'il regardait. */}
+        <Pressable
+          onPress={onGarder}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={t('addPlace.cancel')}
+          style={styles.fermer}
+        >
+          <Text style={styles.fermerGlyphe}>✕</Text>
+        </Pressable>
+
         {/* BARRE DE COULEUR DU TYPE, en tete. Elle fait le travail que ferait une icone en
             couleur, mais sur toute la largeur : reconnaissable du coin de l'oeil, sans avoir
             a distinguer un pictogramme de quinze points. */}
@@ -138,7 +151,12 @@ const styles = StyleSheet.create({
     width: LARGEUR,
     minHeight: HAUTEUR_MIN,
     backgroundColor: FOND,
-    borderRadius: radius.md,
+    /* BORDURE VERTE FINE, coins de 12 (correction C6 du 31 octobre). Un point d'epaisseur
+     * suffit : la carte est posee sur une carte routiere dont les teintes changent sans arret,
+     * et c'est le trait qui en marque le bord, pas une ombre que le fond peut avaler. */
+    borderWidth: 1,
+    borderColor: VERT,
+    borderRadius: 12,
     overflow: 'hidden',
     elevation: 8,
     shadowColor: '#000',
@@ -147,6 +165,17 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
   },
   barre: { height: BARRE },
+  fermer: {
+    position: 'absolute',
+    top: BARRE + 2,
+    right: 2,
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  fermerGlyphe: { color: TEXTE_DOUX, fontSize: 13, fontWeight: '800' as const },
   corps: { paddingHorizontal: spacing.sm, paddingTop: spacing.sm, paddingBottom: 6, gap: 5 },
 
   entete: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

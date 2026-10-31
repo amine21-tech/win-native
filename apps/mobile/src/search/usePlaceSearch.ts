@@ -191,6 +191,45 @@ async function chercherDehors(
   }
 }
 
+/**
+ * LA MEME RECHERCHE, MAIS SANS LA POSITION — et c'est la correction du 31 octobre.
+ *
+ * LE DEFAUT N'ETAIT PAS DANS LE CLASSEMENT. Le client tape << Constantine >> depuis Alger et
+ * n'obtient que des rues d'Alger ; il en conclut que le tri ignore les villes. Verifie sur le
+ * geocodeur de production, le defaut est ailleurs et bien pire : en lui transmettant la
+ * position de l'utilisateur, on demande des resultats AUTOUR DE LUI. Les douze places
+ * disponibles sont alors prises par le Gue de Constantine, la rue de Constantine, la route du
+ * Gue de Constantine — tous a Alger. La ville de Constantine, a quatre cents kilometres,
+ * N'EST PAS DANS LA LISTE DU TOUT.
+ *
+ * Aucun classement ne peut remonter un resultat absent. On pose donc la meme question une
+ * seconde fois, sans position : le serveur se rabat alors sur une boite englobante qui couvre
+ * l'Algerie et la Tunisie, et la ville revient en tete. Les deux listes sont ensuite fusionnees
+ * et dedoublonnees, et c'est le classement existant qui place la ville en premier.
+ *
+ * DEUX REQUETES ET NON UNE SEULE SANS POSITION : la recherche de proximite reste indispensable.
+ * Quelqu'un qui cherche << pharmacie >> ou << Rue Didouche >> veut ce qui est pres de lui, pas
+ * la premiere correspondance du pays. Les deux questions n'ont pas la meme reponse, et il faut
+ * les deux.
+ *
+ * Le cout est une requete de plus par recherche, lancee EN PARALLELE des deux autres et mise en
+ * cache par le serveur comme les autres : l'attente ne change pas.
+ */
+async function chercherPartout(
+  q: string,
+  here: Coords | null,
+  lang: Language,
+): Promise<GeocodedResult[]> {
+  // Sans position connue, la recherche ordinaire est deja sans biais : inutile de la refaire.
+  if (!here) return [];
+  try {
+    return await fetchPhoton(q, { lang, limit: 6 });
+  } catch {
+    // Un echec ici n'est pas une panne : on a toujours la liste de proximite.
+    return [];
+  }
+}
+
 /** Deux fiches a moins de cette distance, portant le meme nom, designent le meme lieu. */
 const MEME_LIEU_M = 120;
 
@@ -367,12 +406,15 @@ async function runTextSearch(
    * cote seulement reviendrait a les faire chercher deux choses differentes. */
   const q = corrigerLieu(CITY_ALIASES[normalizeCity(qRaw)] ?? qRaw);
 
-  const [win, dehors] = await Promise.all([
+  const [win, dehors, partout] = await Promise.all([
     fetchWinPlaces(q, here, lang),
     chercherDehors(q, here, lang),
+    chercherPartout(q, here, lang),
   ]);
 
-  const combined = dedupe([...win.items, ...dehors.items]);
+  /* L'ordre du melange n'a aucune importance : `dedupe` garde la meilleure fiche de chaque
+   * lieu, et c'est `rankSearchResults` qui decide ensuite du classement. */
+  const combined = dedupe([...win.items, ...dehors.items, ...partout]);
   const ranked = rankSearchResults(combined, q, here);
 
   /* Le repli vers Nominatim a quitte ce fichier : le serveur y bascule lui-meme des que Photon

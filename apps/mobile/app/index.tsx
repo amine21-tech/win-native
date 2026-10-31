@@ -2696,6 +2696,9 @@ ${t(`report.badge_${report.kind}`)}`,
           onSelectBookmark={openBookmark}
           onRemoveHistory={places.removeFromHistory}
           onClearHistory={places.clearHistory}
+          /* La croix du client (C7) : elle referme le panneau ET rend le clavier, ce que
+             `closeSearchPanel` faisait deja — il ne manquait qu'un endroit ou appuyer. */
+          onClose={closeSearchPanel}
           colors={colors}
         />
         {!resultsVisible ? (

@@ -111,7 +111,20 @@ export function PositionSheet({ coords, lang, onClose, onAjouter, onToast }: Pro
         <View style={[styles.feuille, { paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.poignee} />
 
-          <Text style={styles.titre}>📍  {t('share.title')}</Text>
+          <View style={styles.titreLigne}>
+            <Text style={styles.titre}>📍  {t('share.title')}</Text>
+            {/* LA CROIX (correction C7). Le voile derriere la feuille la fermait deja, mais
+                rien ne le disait : une croix se voit, un voile se devine. */}
+            <Pressable
+              onPress={onClose}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={t('addPlace.cancel')}
+              style={styles.fermer}
+            >
+              <Text style={styles.fermerGlyphe}>✕</Text>
+            </Pressable>
+          </View>
 
           {/* L'ADRESSE, ou son absence assumee. Trois etats, et chacun dit la verite : on
               cherche, on a trouve, on n'a pas trouve. Laisser la ligne vide dans le dernier
@@ -217,7 +230,17 @@ const styles = StyleSheet.create({
     backgroundColor: PUCE,
     marginBottom: spacing.sm,
   },
+  titreLigne: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titre: { color: TEXTE, fontSize: 17, fontWeight: '800' as const },
+  fermer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: PUCE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fermerGlyphe: { color: TEXTE_DOUX, fontSize: 14, fontWeight: '800' as const },
 
   adresseLigne: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   adresse: { color: TEXTE, fontSize: 14, lineHeight: 19 },

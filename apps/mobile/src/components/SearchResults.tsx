@@ -20,6 +20,8 @@ type Props = {
   onSelectBookmark: (b: Bookmark) => void;
   onRemoveHistory: (b: Bookmark) => void;
   onClearHistory: () => void;
+  /** Referme le panneau. Absent quand il est pose dans un cadre qui le ferme deja. */
+  onClose?: () => void;
   colors: Palette;
 };
 
@@ -69,6 +71,8 @@ export function SearchResults({
   onSelectBookmark,
   onRemoveHistory,
   onClearHistory,
+  /** Referme le panneau et rend le clavier — la croix du client (correction C7). */
+  onClose,
   colors,
 }: Props) {
   const { t } = useTranslation();
@@ -93,6 +97,21 @@ export function SearchResults({
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surface }]}>
+      {/* LA CROIX (correction C7 du 31 octobre). Le panneau se fermait en appuyant ailleurs,
+          ce qui se devine mais ne se voit pas — et pendant qu'il est ouvert il recouvre la
+          carte. Elle rend aussi le clavier, sans quoi l'ecran reste a moitie mange. */}
+      {onClose ? (
+        <Pressable
+          onPress={onClose}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={t('search.cancel')}
+          style={[styles.fermer, { backgroundColor: colors.surfaceAlt }]}
+        >
+          <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: '800' }}>✕</Text>
+        </Pressable>
+      ) : null}
+
       <ScrollView keyboardShouldPersistTaps="handled" style={styles.scroll}>
         {showBookmarks ? (
           <BookmarksView
@@ -282,6 +301,17 @@ function BookmarkSection({
 }
 
 const styles = StyleSheet.create({
+  fermer: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
   card: {
     borderRadius: radius.md,
     maxHeight: '55%',

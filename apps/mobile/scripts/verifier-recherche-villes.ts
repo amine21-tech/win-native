@@ -13,6 +13,8 @@
  * Usage, depuis la racine du depot :
  *   npx tsx apps/mobile/scripts/verifier-recherche-villes.ts
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { classerPoint18, PERIMETRE_VIP_M, rankSearchResults } from '../src/shared/search';
 
 type Fiche = {
@@ -144,6 +146,85 @@ verifier(
   'sans ville visee, la plus proche reste en tete',
   r6[0]?.name === 'Pharmacie Centrale',
   r6.map((r) => r.name).join(' · '),
+);
+
+
+/* ------------------------------------------------------------------ */
+/* Le cas « Constantine » du 31 octobre                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * CE CAS EST PLUS DUR QUE « Tipaza », et c'est pour cela qu'il figure a part.
+ *
+ * Le concurrent n'est pas un commerce : « Gue de Constantine » est une VILLE, a huit kilometres
+ * d'Alger, quand la Constantine cherchee est a trois cent vingt. Un classement qui se contente
+ * de pousser les villes devant le reste les met donc toutes les deux devant — et la plus proche
+ * gagne.
+ *
+ * Ce qui les separe est que le nom tape est EXACTEMENT celui de l'une et seulement une partie de
+ * celui de l'autre. C'est ce que verifie ce bloc.
+ */
+console.log("\nLE CAS « CONSTANTINE » : UNE VILLE HOMONYME PLUS PROCHE");
+const constantine: Fiche[] = [
+  { name: 'Gué de Constantine', lat: 36.68, lon: 3.06, osmKey: 'place', osmValue: 'town', type: 'town', source: 'photon' },
+  { name: 'Rue de Constantine', lat: 36.77, lon: 3.05, osmKey: 'highway', osmValue: 'residential', type: 'street', source: 'photon' },
+  { name: 'Constantine', lat: 36.364, lon: 6.608, osmKey: 'place', osmValue: 'city', type: 'city', source: 'photon' },
+];
+const r7 = classer(constantine, 'Constantine', ALGER);
+verifier(
+  'la ville cherchee passe devant la ville homonyme quarante fois plus proche',
+  r7[0]?.name === 'Constantine',
+  r7.map((r) => r.name).join(' · '),
+);
+verifier(
+  "une rue qui porte le nom de la ville ne prend pas sa place",
+  r7.findIndex((r) => r.name === 'Constantine') <
+    r7.findIndex((r) => r.name === 'Rue de Constantine'),
+);
+
+/* ------------------------------------------------------------------ */
+/* La liste a classer doit d'abord CONTENIR la ville                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * POURQUOI UN CONTROLE SUR LE TEXTE DU CODE, ici, parmi des controles de comportement.
+ *
+ * Tout ce qui precede eprouve le CLASSEMENT, sur des fiches ecrites a la main. Ces controles
+ * passaient au vert pendant que le client voyait exactement le defaut qu'il decrit — parce que
+ * le defaut etait ailleurs : en transmettant la position au geocodeur, on lui demandait les
+ * resultats AUTOUR de l'utilisateur, et depuis Alger les douze places disponibles etaient prises
+ * par le Gue de Constantine et les rues qui portent ce nom. La ville n'etait pas dans la liste
+ * du tout, et aucun tri ne remonte un resultat absent.
+ *
+ * Un test sur fiches ne peut pas trouver cela : il PART de la liste. La correction du 31 octobre
+ * est donc une requete supplementaire, sans position, et c'est son existence qu'on verifie ici.
+ * Le cas reel est eprouve contre le vrai geocodeur par verifier-recherche-ville-reelle.ts ; ce
+ * controle-ci ne demande pas le reseau et tient donc dans la serie lancee avant chaque version.
+ */
+console.log('\nLA RECHERCHE INTERROGE AUSSI LE GEOCODEUR SANS POSITION');
+/* Chemin depuis la racine du depot, d'ou ce script se lance : les types de l'application
+ * decrivent l'URL du navigateur, qui n'est pas celle de Node, et un chemin est de toute facon
+ * plus lisible dans le message d'erreur si le fichier bouge. */
+const FICHIER = 'apps/mobile/src/search/usePlaceSearch.ts';
+let source: string;
+try {
+  source = readFileSync(resolve(FICHIER), 'utf8');
+} catch {
+  console.log(`  FAUX  ${FICHIER} introuvable — lancer ce script depuis la racine du depot`);
+  process.exit(1);
+}
+verifier(
+  'la troisieme requete, sans biais de position, existe toujours',
+  /async function chercherPartout\(/.test(source),
+  'sans elle, une ville lointaine ne figure jamais dans la liste a classer',
+);
+verifier(
+  'elle est bien lancee avec les deux autres',
+  /Promise\.all\(\[[\s\S]{0,400}?chercherPartout\(/.test(source),
+);
+verifier(
+  "et ses resultats entrent dans la liste classee",
+  /dedupe\(\[[^\]]*partout[^\]]*\]\)/.test(source),
 );
 
 console.log(
