@@ -74,6 +74,7 @@ import { durationInWords } from '../src/assistant/commands';
 import { formatClock24, useAutoScheme } from '../src/utils/clock';
 import { AlerteApproche } from '../src/components/AlerteApproche';
 import { PositionSheet } from '../src/components/PositionSheet';
+import { OR_MARQUEUR, pictoSignalisation, SIGNALISATION } from '../src/map/signalisation';
 import { projeterSurTrace } from '../src/navigation/alerteApproche';
 import { useApproachAlerts } from '../src/navigation/useApproachAlerts';
 import { useLiveLocation } from '../src/navigation/useLiveLocation';
@@ -360,7 +361,26 @@ type BandeTrafic = BandeTraficPartagee;
  * restait qu'une pastille verte. Le client demande « une epingle, comme Google Maps / Waze » :
  * une image de style ne depend d'aucune police et s'affiche a coup sur.
  * Voir scripts/make-destination-pin.py. */
-const MAP_IMAGES = { 'destination-pin': require('../assets/map/destination-pin.png') };
+const MAP_IMAGES = {
+  'destination-pin': require('../assets/map/destination-pin.png'),
+  /* LES PICTOGRAMMES DE SIGNALISATION (correction C1 du 31 octobre). Ils sont declares un par
+   * un et non par une boucle : `require` est resolu a la COMPILATION par Metro, qui doit lire
+   * un chemin litteral. Une boucle sur les types donnerait un chemin calcule, que Metro ne
+   * sait pas suivre — et les images manqueraient a l'execution, sans la moindre erreur. */
+  'sig-jam': require('../assets/map/sig-jam.png'),
+  'sig-crash': require('../assets/map/sig-crash.png'),
+  'sig-police': require('../assets/map/sig-police.png'),
+  'sig-gendarmerie': require('../assets/map/sig-gendarmerie.png'),
+  'sig-armee': require('../assets/map/sig-armee.png'),
+  'sig-block': require('../assets/map/sig-block.png'),
+  'sig-works': require('../assets/map/sig-works.png'),
+  'sig-bump': require('../assets/map/sig-bump.png'),
+  'sig-radar': require('../assets/map/sig-radar.png'),
+  'sig-object': require('../assets/map/sig-object.png'),
+  'sig-pothole': require('../assets/map/sig-pothole.png'),
+  'sig-flood': require('../assets/map/sig-flood.png'),
+  'sig-fire': require('../assets/map/sig-fire.png'),
+};
 
 /**
  * Point situe a mi-chemin d'une polyligne, mesure en distance reelle et non en nombre de
@@ -463,6 +483,8 @@ export default function MapScreen() {
   const scheme = themeOverride === 'auto' ? autoScheme : themeOverride;
   const colors = palette[scheme === 'dark' ? 'dark' : 'light'];
   const routeColors = ROUTE_COLORS[scheme === 'dark' ? 'night' : 'day'];
+  /** Carte de nuit : les marqueurs de signalisation prennent alors leur variante claire. */
+  const nuit = scheme === 'dark';
   const insets = useSafeAreaInsets();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   /** Taille REELLE de la zone de carte, mesuree a l'affichage. La marge de la camera et la
@@ -839,13 +861,20 @@ export default function MapScreen() {
         properties: {
           id: report.id,
           kind: report.kind,
-          color: REPORT_COLORS[report.kind] ?? '#D64545',
-          emoji: REPORT_EMOJI[report.kind] ?? '⚠️',
+          /* La couleur suit le THEME de la carte : variante sombre sur fond clair, claire sur
+           * fond sombre. Voir la note en tete de src/map/signalisation.ts. */
+          color: (SIGNALISATION[report.kind] ?? SIGNALISATION.crash)[nuit ? 'nuit' : 'jour'],
+          picto: pictoSignalisation(report.kind),
+          /* DEUX LIGNES SOUS LE MARQUEUR, comme la maquette : le nom du type, puis le badge.
+           * Le client les veut « lisibles d'un coup d'oeil » en conduisant — c'est ce qui
+           * permet de reconnaitre un signalement sans s'arreter dessus. */
+          libelle: `${t(`report.${report.kind}`)}
+${t(`report.badge_${report.kind}`)}`,
         },
         geometry: { type: 'Point', coordinates: [report.lon, report.lat] },
       })),
     }),
-    [liveReports],
+    [liveReports, nuit, t],
   );
 
   /** Marqueur de destination : celle choisie dans la fiche du lieu, ou celle en cours
@@ -2286,40 +2315,69 @@ export default function MapScreen() {
           onPress={onReportsPress}
           hitbox={{ top: 16, right: 16, bottom: 16, left: 16 }}
         >
-          {/* Halo large : visible du coin de l'oeil, sans masquer la route. */}
+          {/* MARQUEUR DE SIGNALISATION — maquette validee du 31 octobre (correction C1).
+              Anneau dore, disque a la couleur du type, pictogramme blanc, et dessous le nom du
+              type avec son badge. L'ancienne version dessinait un point de sept pixels surmonte
+              d'un emoji que la police des tuiles ne contient pas : il n'apparaissait jamais. */}
           <Layer
-            id="reports-halo"
+            id="reports-ring"
             type="circle"
             source="reports"
             paint={{
-              'circle-radius': 16,
-              'circle-color': ['get', 'color'],
-              'circle-opacity': 0.18,
+              /* L'OR ENTOURE TOUS LES MARQUEURS, quelle que soit leur couleur : c'est lui qui
+                 les fait reconnaitre comme venant de WIN, et c'est aussi ce qui les detache
+                 d'une route jaune ou d'un parc vert, ou un disque seul se fondrait. */
+              'circle-radius': 14,
+              'circle-color': OR_MARQUEUR,
             }}
           />
           <Layer
-            id="reports-dot"
+            id="reports-disc"
             type="circle"
             source="reports"
             paint={{
-              'circle-radius': 7,
+              'circle-radius': 11.5,
               'circle-color': ['get', 'color'],
-              'circle-stroke-width': 2,
-              'circle-stroke-color': colors.surface,
             }}
           />
-          {/* Pictogramme au-dessus du point : chaque type de signalement (radar compris) reste
-              identifiable au premier coup d'oeil, pas seulement par sa couleur. */}
           <Layer
             id="reports-icon"
             type="symbol"
             source="reports"
             layout={{
-              'text-field': ['get', 'emoji'],
-              'text-size': 13,
-              'text-allow-overlap': true,
-              'text-ignore-placement': true,
-              'text-offset': [0, -1.6],
+              'icon-image': ['get', 'picto'],
+              'icon-size': 0.78,
+              /* `allow-overlap` : deux signalements voisins doivent tous deux rester visibles.
+                 Les laisser se masquer ferait disparaitre un danger parce qu'un autre est a
+                 cote — exactement l'endroit ou il y en a le plus. */
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
+            }}
+          />
+          {/* LE LIBELLE, SOUS LE MARQUEUR. Le client le veut lisible en conduisant : nom du
+              type en haut, badge en dessous. Il peut, LUI, s'effacer quand deux marqueurs se
+              chevauchent — c'est du texte, et deux libelles superposes ne se lisent ni l'un ni
+              l'autre. Le marqueur, lui, reste. */}
+          <Layer
+            id="reports-label"
+            type="symbol"
+            source="reports"
+            layout={{
+              'text-field': ['get', 'libelle'],
+              'text-size': 10.5,
+              'text-anchor': 'top',
+              'text-offset': [0, 1.5],
+              'text-line-height': 1.25,
+              'text-max-width': 9,
+              'text-optional': true,
+            }}
+            paint={{
+              'text-color': ['get', 'color'],
+              /* Le halo blanc n'est pas un effet : sans lui, un texte colore pose sur une route
+                 de la meme teinte devient illisible — et c'est precisement sur les routes que
+                 ces marqueurs se trouvent. */
+              'text-halo-color': colors.surface,
+              'text-halo-width': 1.6,
             }}
           />
         </GeoJSONSource>

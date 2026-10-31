@@ -72,7 +72,20 @@
     "menuSub": "Aidez la communauté WIN à éviter les problèmes",
     "voice_police": "Barrage de police",
     "voice_gendarmerie": "Barrage de gendarmerie",
-    "voice_armee": "Barrage de l'armée"
+    "voice_armee": "Barrage de l'armée",
+    "badge_jam": "Trafic dense",
+    "badge_crash": "Collision",
+    "badge_police": "Contrôle",
+    "badge_gendarmerie": "Contrôle",
+    "badge_armee": "Contrôle",
+    "badge_block": "Bloquée",
+    "badge_works": "Chantier",
+    "badge_bump": "Ralentisseur",
+    "badge_radar": "Vitesse",
+    "badge_object": "Obstacle",
+    "badge_pothole": "Dégradation",
+    "badge_flood": "Submersion",
+    "badge_fire": "Feu proche"
   },
   "nav": {
     "start": "C'est parti",

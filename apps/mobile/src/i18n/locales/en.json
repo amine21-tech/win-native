@@ -72,7 +72,20 @@
     "menuSub": "Help the WIN community avoid problems",
     "voice_police": "Police checkpoint",
     "voice_gendarmerie": "Gendarmerie checkpoint",
-    "voice_armee": "Army checkpoint"
+    "voice_armee": "Army checkpoint",
+    "badge_jam": "Heavy traffic",
+    "badge_crash": "Collision",
+    "badge_police": "Checkpoint",
+    "badge_gendarmerie": "Checkpoint",
+    "badge_armee": "Checkpoint",
+    "badge_block": "Closed",
+    "badge_works": "Roadworks",
+    "badge_bump": "Speed bump",
+    "badge_radar": "Speed",
+    "badge_object": "Obstacle",
+    "badge_pothole": "Damage",
+    "badge_flood": "Flooded",
+    "badge_fire": "Fire nearby"
   },
   "nav": {
     "start": "Start",

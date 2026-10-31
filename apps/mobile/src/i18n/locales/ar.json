@@ -72,7 +72,20 @@
     "menuSub": "ساعد مجتمع WIN على تفادي المشاكل",
     "voice_police": "حاجز شرطة",
     "voice_gendarmerie": "حاجز درك",
-    "voice_armee": "حاجز عسكري"
+    "voice_armee": "حاجز عسكري",
+    "badge_jam": "ازدحام",
+    "badge_crash": "اصطدام",
+    "badge_police": "مراقبة",
+    "badge_gendarmerie": "مراقبة",
+    "badge_armee": "مراقبة",
+    "badge_block": "مغلق",
+    "badge_works": "ورشة",
+    "badge_bump": "مطب",
+    "badge_radar": "سرعة",
+    "badge_object": "عائق",
+    "badge_pothole": "تلف",
+    "badge_flood": "غمر",
+    "badge_fire": "حريق قريب"
   },
   "nav": {
     "start": "انطلق",
