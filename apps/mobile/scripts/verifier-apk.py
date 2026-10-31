@@ -11,8 +11,13 @@ un telechargement tronque, jamais le paquet.
 CE QUI EST COMPARE, ET POURQUOI CES POINTS-LA :
   - la TAILLE exacte, contre celle annoncee par GitHub. Un octet manquant et Android refuse
     le paquet sans pouvoir dire pourquoi. C'est la cause numero un.
-  - le nombre d'ENTREES et la taille du MANIFESTE : une difference ici veut dire que la
-    chaine de compilation a change, pas seulement le code.
+  - les ENTREES du paquet, mais pas leur NOMBRE. On comparait les comptes, et le controle a
+    refuse la v104 pour trente-neuf entrees de plus : les trente-neuf pictogrammes de
+    signalisation ajoutes a la carte, soit precisement le travail qu'on voulait livrer. Une
+    version qui GAGNE des images est normale ; ce qui ne l'est pas, c'est qu'elle en PERDE, ou
+    qu'elle gagne du code — une bibliotheque native, un dex, une entree META-INF. On echoue
+    donc sur une entree retiree, et sur une entree ajoutee hors `res/` et `assets/`.
+  - les DECLARATIONS du manifeste : ce que l'application demande a Android.
   - le bloc de SIGNATURE v2 : son absence rend le paquet non installable.
   - `resources.arsc` NON COMPRESSE : depuis Android 11, un resources.arsc compresse fait
     echouer l'analyse du paquet. C'est precisement le message que le client a vu.
@@ -75,6 +80,7 @@ def etat(chemin):
     return {
         'octets': len(donnees),
         'entrees': len(z.namelist()),
+        'noms': set(z.namelist()),
         'manifeste': len(z.read('AndroidManifest.xml')),
         'declare': declarations(z.read('AndroidManifest.xml')),
         'arsc_compresse': arsc.compress_type != 0,
@@ -121,9 +127,20 @@ def main():
         fautes.append('SIGNATURE v2 ABSENTE : le paquet ne s\'installera pas.')
     if v['arsc_compresse']:
         fautes.append('resources.arsc COMPRESSE : refuse a l\'analyse depuis Android 11.')
-    if v['entrees'] != r['entrees']:
-        fautes.append('ENTREES : %d contre %d dans la reference — la chaine de compilation a change.'
-                      % (v['entrees'], r['entrees']))
+    retirees = sorted(r['noms'] - v['noms'])
+    ajoutees = sorted(v['noms'] - r['noms'])
+    if retirees:
+        fautes.append('ENTREES RETIREES (%d) : %s… — une version ne perd pas de fichiers.'
+                      % (len(retirees), ', '.join(retirees[:6])))
+    structurelles = [n for n in ajoutees if not n.startswith('res/')
+                     and not n.startswith('assets/')]
+    if structurelles:
+        fautes.append('ENTREES STRUCTURELLES AJOUTEES (%d) : %s… — la chaine de '
+                      'compilation a change.' % (len(structurelles), ', '.join(structurelles[:6])))
+    elif ajoutees:
+        print('  note  %d ressource(s) ajoutee(s) depuis la reference, aucune retiree : %s%s'
+              % (len(ajoutees), ', '.join(ajoutees[:4]),
+                 '…' if len(ajoutees) > 4 else ''))
     if v['declare'] != r['declare']:
         ajoutees = [d for d in v['declare'] if d not in r['declare']]
         retirees = [d for d in r['declare'] if d not in v['declare']]
