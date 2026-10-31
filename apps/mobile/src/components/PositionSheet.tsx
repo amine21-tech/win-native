@@ -2,6 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { reverseGeocode } from '../search/geocode';
 import { lienPosition, messagePartagePosition, type Language } from '../shared';
 import { radius, spacing } from '../theme';
@@ -45,6 +46,11 @@ type Props = {
 
 export function PositionSheet({ coords, lang, onClose, onAjouter, onToast }: Props) {
   const { t } = useTranslation();
+  /* LA BARRE ANDROID NE DOIT JAMAIS COUVRIR LE CONTENU (correction C3 du 31 octobre).
+   * Le client l'a constate sur le panneau de partage GPS, dont le bouton « Ajouter ce lieu »
+   * passait derriere la barre de navigation et devenait invisible. La regle vaut pour TOUTE
+   * feuille ancree en bas : son dernier element doit rester atteignable au pouce. */
+  const insets = useSafeAreaInsets();
   const [adresse, setAdresse] = useState<string | null>(null);
   const [cherche, setCherche] = useState(false);
 
@@ -102,7 +108,7 @@ export function PositionSheet({ coords, lang, onClose, onAjouter, onToast }: Pro
       <Pressable style={styles.voile} onPress={onClose} />
 
       <View style={styles.bas} pointerEvents="box-none">
-        <View style={styles.feuille}>
+        <View style={[styles.feuille, { paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.poignee} />
 
           <Text style={styles.titre}>📍  {t('share.title')}</Text>

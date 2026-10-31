@@ -24,6 +24,9 @@ type Props = {
  * sous-categories, sauf s'il n'en a qu'une seule — elle est alors cherchee
  * directement, comme runCategorySearch()/le clic sur `.grp` en v83.
  */
+/** Le noir demande par le client pour le libelle Emploi (correction C5). */
+const NOIR_EMPLOI = '#1A2319';
+
 export function CategoryChips({ onPick, onEmploi, colors }: Props) {
   const { t } = useTranslation();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
@@ -53,7 +56,11 @@ export function CategoryChips({ onPick, onEmploi, colors }: Props) {
             style={[styles.grp, { backgroundColor: colors.surface, borderColor: colors.gold }]}
           >
             <Text style={styles.emoji}>💼</Text>
-            <Text style={[typography.caption, styles.grpLabel, { color: colors.goldDeep }]}>
+            {/* TEXTE NOIR et non or (correction C5 du 31 octobre). L'or sur fond blanc n'avait
+                pas assez de contraste : il se lisait bien sur une capture d'ecran, mal au
+                soleil, et c'est la seule condition qui compte dans une voiture. La bordure
+                reste doree — elle suffit a distinguer la rubrique sans toucher au texte. */}
+            <Text style={[typography.caption, styles.grpLabel, { color: NOIR_EMPLOI }]}>
               {t('jobs.shortTitle')}
             </Text>
           </Pressable>

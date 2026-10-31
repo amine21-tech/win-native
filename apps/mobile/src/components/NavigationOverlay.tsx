@@ -119,14 +119,21 @@ export const NavigationOverlay = memo(function NavigationOverlay({
    * un bouton en bas a droite le rouvre). Il degage la carte quand on veut regarder autour. */
   const [bottomOpen, setBottomOpen] = useState(true);
   const [bottomBarHeight, setBottomBarHeight] = useState(0);
+  /** Hauteur du panneau de consigne, mesuree : la colonne de boutons doit commencer EN DESSOUS.
+   * Elle varie avec la longueur de l'instruction et la presence de la seconde consigne. */
+  const [panneauHeight, setPanneauHeight] = useState(0);
 
   // Transmis a l'ecran de carte a chaque changement : c'est lui qui place la colonne de boutons.
   useEffect(() => {
     onLayoutBounds({
-      bannerBottom: (landscape ? topInset + CARD_MARGIN : 0) + bannerHeight,
+      /* LA COLONNE COMMENCE SOUS LE PANNEAU, pas sous le bandeau. Depuis que la consigne est
+       * revenue en haut (correction P1 du 31 octobre), c'est elle qui occupe le haut de la
+       * carte : s'arreter au bandeau ferait passer les dix boutons par-dessus. */
+      bannerBottom:
+        (landscape ? topInset + CARD_MARGIN : 0) + bannerHeight + panneauHeight + spacing.sm,
       bottomBarHeight: bottomOpen ? bottomBarHeight : 0,
     });
-  }, [bannerHeight, bottomBarHeight, bottomOpen, landscape, topInset, onLayoutBounds]);
+  }, [bannerHeight, panneauHeight, bottomBarHeight, bottomOpen, landscape, topInset, onLayoutBounds]);
 
   if (!active) return null;
 
@@ -221,9 +228,11 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         <View style={styles.grip} />
       </Pressable>
 
-      {/* PANNEAU DE DIRECTION, EN BAS (point 16.A). La languette « puis » qui pendait sous le
-          bandeau a disparu : la deuxieme consigne est maintenant DANS le panneau, sous la
-          premiere et en plus petit, exactement comme le demande le document. */}
+      {/* PANNEAU DE DIRECTION, SOUS LE BANDEAU D'ARRIVEE — correction P1 du 31 octobre.
+          Il etait passe en bas le 29 ; le client a essaye au volant et l'a classe CRITIQUE : en
+          bas il se superposait au cadre de progression, et l'ecran etait lourd en bas et vide
+          en haut. La fleche de 80 points, le nom de rue et la deuxieme consigne restent — ils
+          venaient du meme point mais n'avaient rien a voir avec la position. */}
       <PanneauDirection
         maneuver={nextManeuver}
         suivante={followingManeuver}
@@ -231,7 +240,8 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         ecartSuivanteM={ecartSuivanteM}
         lang={lang}
         arrived={arrived}
-        bottom={(bottomOpen ? bottomBarHeight : bottomInset) + spacing.md}
+        top={bannerTop + bannerHeight + spacing.sm}
+        onHeight={setPanneauHeight}
       />
 
       {/* Compteur de vitesse et limite reglementaire, EN HAUT A GAUCHE et l'un sous l'autre,

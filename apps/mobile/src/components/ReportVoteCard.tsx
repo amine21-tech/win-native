@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Report } from '../shared';
 import { REPORT_EMOJI } from '../reports/kinds';
 import { REPORT_COLORS } from '../map/style';
@@ -78,6 +79,11 @@ export function ReportVoteCard({
   onClose,
 }: Props) {
   const { t } = useTranslation();
+  /* LA BARRE ANDROID NE DOIT JAMAIS COUVRIR LE CONTENU (correction C3 du 31 octobre).
+   * Le client l'a constate sur le panneau de partage GPS, dont le bouton « Ajouter ce lieu »
+   * passait derriere la barre de navigation et devenait invisible. La regle vaut pour TOUTE
+   * feuille ancree en bas : son dernier element doit rester atteignable au pouce. */
+  const insets = useSafeAreaInsets();
   const couleur = REPORT_COLORS[report.kind] ?? VERT;
   /* Calculee une fois : elle apparait en sous-titre ET en puce. `null` quand la date est
    * illisible — on n'affiche alors rien plutot qu'un « il y a NaN min ». */
@@ -91,7 +97,7 @@ export function ReportVoteCard({
       <Pressable style={styles.voile} onPress={onClose} />
 
       <View style={styles.bas} pointerEvents="box-none">
-        <View style={styles.feuille}>
+        <View style={[styles.feuille, { paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.tete}>
             {/* Le pictogramme dans un carre a LA COULEUR DU TYPE, celle qu'il porte deja sur la
                 carte : on reconnait de quoi il s'agit avant d'avoir lu le mot. */}

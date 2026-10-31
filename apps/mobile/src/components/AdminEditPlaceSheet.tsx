@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, ApiError } from '../api/client';
 import { clearSearchCache } from '../search/usePlaceSearch';
 import { PLACE_CATEGORIES, type PlaceCategory } from '../shared';
@@ -63,6 +64,11 @@ const emptyForm = {
  */
 export function AdminEditPlaceSheet({ visible, placeId, adminToken, onClose, onSaved }: Props) {
   const { t } = useTranslation();
+  /* LA BARRE ANDROID NE DOIT JAMAIS COUVRIR LE CONTENU (correction C3 du 31 octobre).
+   * Le client l'a constate sur le panneau de partage GPS, dont le bouton « Ajouter ce lieu »
+   * passait derriere la barre de navigation et devenait invisible. La regle vaut pour TOUTE
+   * feuille ancree en bas : son dernier element doit rester atteignable au pouce. */
+  const insets = useSafeAreaInsets();
   const [form, setForm] = useState(emptyForm);
   const [isPartner, setIsPartner] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -171,7 +177,7 @@ export function AdminEditPlaceSheet({ visible, placeId, adminToken, onClose, onS
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View style={[styles.box, { backgroundColor: colors.surface }]}>
+        <View style={[styles.box, { backgroundColor: colors.surface, paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.head}>
             <Text style={[typography.heading, { color: colors.text }]}>{t('admin.editTitle')}</Text>
             <Pressable onPress={onClose} hitSlop={12}>

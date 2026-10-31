@@ -7,17 +7,21 @@ import { formatDistance, type Language } from '../shared';
 import { radius, spacing } from '../theme';
 
 /**
- * PANNEAU DE DIRECTION, EN BAS DE L'ECRAN — point 16.A du client, 29 octobre.
+ * PANNEAU DE DIRECTION, SOUS LE BANDEAU D'ARRIVEE — correction P1 du 31 octobre.
  *
- * La consigne vivait en haut depuis la v83, avec une fleche de 34 points. Le client la veut en
- * bas, avec une fleche de 80, fond vert fonce et fleche blanche.
+ * IL A FAIT L'ALLER-RETOUR, ET C'EST INSTRUCTIF. La consigne vivait en haut depuis la v83, avec
+ * une fleche de 34 points. Le point 16.A du 29 octobre demandait de la descendre en bas de
+ * l'ecran, avec une fleche de 80 — ce qui fut fait. Deux jours plus tard, le client essaie au
+ * volant et classe le resultat en CRITIQUE : le panneau doit remonter.
  *
- * CE QUE CE DEPLACEMENT GAGNE, ET CE QU'IL COUTE. Il gagne la taille : 80 points contre 34,
- * c'est la difference entre une fleche qu'on lit et une fleche qu'on reconnait. Il gagne aussi
- * le pouce — en bas de l'ecran, la consigne est la ou la main se trouve deja. Il coute un
- * regard plus bas : le haut de l'ecran est plus proche de la route, et l'oeil y revient de
- * lui-meme. Le client a tranche, et sa raison tient : sur un telephone pose sur un support de
- * tableau de bord, le haut de l'ecran est souvent le plus eloigne et le plus reflechissant.
+ * Il a raison, et la capture le montre : en bas, le panneau se superpose au cadre de
+ * progression, et l'ecran se retrouve lourd en bas et vide en haut. Le regard, lui, revient
+ * naturellement vers le haut — c'est la que se trouve la route.
+ *
+ * CE QUE L'ALLER-RETOUR A LAISSE DE BON : la fleche de 80 points, dessinee et non empruntee a
+ * une police ; le nom de la rue ; la deuxieme consigne quand deux virages s'enchainent. Ces
+ * trois-la venaient du meme point 16, et aucun n'avait de rapport avec la position. Seule la
+ * position revient en arriere.
  *
  * LE NOM DE RUE EST LA NOUVEAUTE REELLE. L'ancien bandeau disait << Tournez a gauche >> ; il
  * dit maintenant << Tournez a gauche >> ET sur quelle rue. C'est ce qui permet de verifier
@@ -50,8 +54,10 @@ type Props = {
   ecartSuivanteM: number | null;
   lang: Language;
   arrived: boolean;
-  /** Hauteur du cadre du bas, pour se poser juste au-dessus. */
-  bottom: number;
+  /** Distance au bord HAUT : le panneau se pose juste sous le bandeau d'arrivee. */
+  top: number;
+  /** Hauteur mesuree, remontee a l'ecran : la colonne de boutons doit commencer EN DESSOUS. */
+  onHeight: (h: number) => void;
 };
 
 export function PanneauDirection({
@@ -61,13 +67,18 @@ export function PanneauDirection({
   ecartSuivanteM,
   lang,
   arrived,
-  bottom,
+  top,
+  onHeight,
 }: Props) {
   const { t } = useTranslation();
 
   if (arrived || !maneuver) {
     return (
-      <View style={[styles.panneau, { bottom }]} pointerEvents="none">
+      <View
+        style={[styles.panneau, { top }]}
+        pointerEvents="none"
+        onLayout={(e) => onHeight(Math.round(e.nativeEvent.layout.height))}
+      >
         <Text style={styles.arrivee}>🏁  {t('nav.arrived')}</Text>
       </View>
     );
@@ -77,7 +88,11 @@ export function PanneauDirection({
     suivante != null && ecartSuivanteM != null && ecartSuivanteM <= SUIVANTE_PROCHE_M;
 
   return (
-    <View style={[styles.panneau, { bottom }]} pointerEvents="none">
+    <View
+      style={[styles.panneau, { top }]}
+      pointerEvents="none"
+      onLayout={(e) => onHeight(Math.round(e.nativeEvent.layout.height))}
+    >
       <View style={styles.ligne}>
         <FlecheManoeuvre type={maneuver.type} size={TAILLE_FLECHE} />
 

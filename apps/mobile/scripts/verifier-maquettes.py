@@ -155,7 +155,20 @@ fleche = lire(RACINE / 'apps/mobile/src/components/FlecheManoeuvre.tsx')
 verifier('fleche : 80 points', 'TAILLE_FLECHE = 80' in panneau, valeur(panneau, r'TAILLE_FLECHE = (\d+)'))
 verifier('fond vert fonce WIN DZ', "VERT = '#07401F'" in panneau)
 verifier('fleche blanche', "couleur = '#FFFFFF'" in fleche)
-verifier("position : bas de l'ecran", "position: 'absolute'" in panneau and 'bottom,' in panneau)
+# LA POSITION A FAIT L'ALLER-RETOUR. Le point 16.A du 29 octobre demandait la consigne en BAS ;
+# le client l'a essayee au volant et l'a renvoyee en HAUT le 31, en la classant CRITIQUE (P1).
+# Ce controle suit la derniere demande, et garde la trace de la precedente : sans elle, on
+# croirait a une erreur le jour ou quelqu'un relira le point 16.
+verifier(
+    "position : sous le bandeau d'arrivee (P1, et non plus en bas)",
+    "position: 'absolute'" in panneau and 'top,' in panneau and 'bottom,' not in panneau,
+    'le point 16.A la voulait en bas ; la correction P1 du 31 octobre la remonte',
+)
+verifier(
+    'la colonne de boutons commence SOUS le panneau',
+    'panneauHeight' in overlay,
+    'sinon les dix boutons passeraient par-dessus la consigne',
+)
 verifier('le nom de la rue est affiche', 'maneuver.streetName' in panneau)
 verifier('la distance est affichee', 'formatDistance(distanceM)' in panneau)
 verifier('la deuxieme consigne, en plus petit dessous', 'montrerSuivante' in panneau)

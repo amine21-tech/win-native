@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, spacing, typography, type Palette } from '../theme';
 
 type Props = {
@@ -23,13 +24,18 @@ type Props = {
  */
 export function AssistantPanel({ visible, listening, status, heard, onClose, colors }: Props) {
   const { t } = useTranslation();
+  /* LA BARRE ANDROID NE DOIT JAMAIS COUVRIR LE CONTENU (correction C3 du 31 octobre).
+   * Le client l'a constate sur le panneau de partage GPS, dont le bouton « Ajouter ce lieu »
+   * passait derriere la barre de navigation et devenait invisible. La regle vaut pour TOUTE
+   * feuille ancree en bas : son dernier element doit rester atteignable au pouce. */
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable
           onPress={(event) => event.stopPropagation()}
-          style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.goldDeep }]}
+          style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.goldDeep, paddingBottom: spacing.lg + insets.bottom }]}
         >
           <Pressable onPress={onClose} hitSlop={12} style={styles.close} accessibilityLabel={t('assistant.close')}>
             <Text style={[styles.closeGlyph, { color: colors.textMuted }]}>✕</Text>

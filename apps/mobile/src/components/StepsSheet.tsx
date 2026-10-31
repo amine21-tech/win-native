@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { localizedInstruction, maneuverArrow } from '../navigation/instructions';
 import type { Maneuver, Route } from '../navigation/routing';
 import { formatDistance, formatDuration, type Language } from '../shared';
@@ -29,13 +30,18 @@ type Row = { maneuver: Maneuver; index: number };
  */
 export function StepsSheet({ visible, route, currentIndex, lang, onClose, colors }: Props) {
   const { t } = useTranslation();
+  /* LA BARRE ANDROID NE DOIT JAMAIS COUVRIR LE CONTENU (correction C3 du 31 octobre).
+   * Le client l'a constate sur le panneau de partage GPS, dont le bouton « Ajouter ce lieu »
+   * passait derriere la barre de navigation et devenait invisible. La regle vaut pour TOUTE
+   * feuille ancree en bas : son dernier element doit rester atteignable au pouce. */
+  const insets = useSafeAreaInsets();
 
   const rows: Row[] = route ? route.maneuvers.map((maneuver, index) => ({ maneuver, index })) : [];
 
   return (
     <Modal visible={visible && !!route} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View style={[styles.box, { backgroundColor: colors.surface }]}>
+        <View style={[styles.box, { backgroundColor: colors.surface, paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.head}>
             <View style={styles.headText}>
               <Text style={[typography.heading, { color: colors.text }]}>{t('nav.steps')}</Text>
