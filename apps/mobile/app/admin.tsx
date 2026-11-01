@@ -24,8 +24,10 @@ import {
   prixEmploi,
   type DureeEmploi,
   type FormuleEmploi,
+  type Language,
 } from '../src/shared';
 import { SectionSure } from '../src/components/SectionSure';
+import { PanneauAlertes } from '../src/alertes/PanneauAlertes';
 import { useAdminSession } from '../src/store/admin';
 import { palette, radius, spacing, typography, type Palette } from '../src/theme';
 
@@ -181,7 +183,7 @@ function Dashboard({
   token: string;
   onLogout: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const query = useQuery({
     queryKey: ['admin', 'payout-account'],
     queryFn: () => api<PayoutAccount>('/admin/payout-account', { adminToken: token }),
@@ -282,6 +284,13 @@ function Dashboard({
           enveloppe, une exception dans l'une efface TOUT l'ecran — c'est exactement ce qui est
           arrive avec la liste des annonces, et l'administrateur n'a vu qu'un ecran noir, sans
           un mot, sans pouvoir atteindre les autres sections pourtant intactes. */}
+      {/* EN TETE DE L'ECRAN, avant les statistiques. C'est la seule section qu'on vient ouvrir
+          en urgence — un jour d'incendie ou d'inondation, on ne fait pas defiler six blocs
+          avant de trouver l'interrupteur. */}
+      <SectionSure nom={t('admin.alertsTitle')}>
+        <PanneauAlertes token={token} colors={colors} lang={(i18n.language as Language) ?? 'fr'} />
+      </SectionSure>
+
       <SectionSure nom={t('admin.statsTitle')}>
         <AdminStats token={token} colors={colors} />
       </SectionSure>
