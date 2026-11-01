@@ -168,6 +168,29 @@ export const NavigationOverlay = memo(function NavigationOverlay({
             : { paddingTop: topInset + spacing.md },
         ]}
       >
+        {/* L'HEURE ET L'ARRIVEE EN TETE, LA CONSIGNE DESSOUS — ordre demande le 1er novembre.
+
+            La consigne etait en premier, ce qui parait logique : c'est elle qui compte au
+            volant. Le client demande l'inverse apres essai, et son ordre se defend mieux que
+            le mien. La ligne d'heure est MINCE et toujours a la meme place ; la consigne, elle,
+            change de hauteur a chaque manoeuvre — une, deux, parfois trois lignes, plus la
+            languette << puis >> quand deux virages s'enchainent.
+
+            Mettre ce qui bouge AU-DESSUS de ce qui ne bouge pas fait sauter la ligne d'heure a
+            chaque virage. En la posant en tete, elle reste ou l'oeil l'a laissee, et c'est la
+            consigne qui grandit vers le bas, du cote de la carte, ou il y a la place. */}
+        {/* UN FILET, PAS UN CADRE. L'heure et l'arrivee se lisent autrement que la consigne :
+            un trait d'un demi-point separe les deux lectures sans refaire deux objets. */}
+        <View style={styles.clockRow}>
+          <Text style={styles.clockItem}>🕐 {formatClock24(now)}</Text>
+          {remaining ? (
+            <Text style={[styles.clockItem, styles.clockRight]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+              {formatDistance(remaining.distanceM)}
+              {eta ? ` · ${t('nav.etaLong')} ${formatClock24(eta)}` : ''}
+            </Text>
+          ) : null}
+        </View>
+
         {/* LA CONSIGNE EST REVENUE DANS CE BANDEAU — correction du 1er novembre.
 
             Elle en etait partie le 29 (point 16.A, en bas de l'ecran), puis la correction P1
@@ -215,18 +238,6 @@ export const NavigationOverlay = memo(function NavigationOverlay({
             </Text>
           </View>
         ) : null}
-
-        {/* UN FILET, PAS UN CADRE. L'heure et l'arrivee se lisent autrement que la consigne :
-            un trait d'un demi-point separe les deux lectures sans refaire deux objets. */}
-        <View style={styles.clockRow}>
-          <Text style={styles.clockItem}>🕐 {formatClock24(now)}</Text>
-          {remaining ? (
-            <Text style={[styles.clockItem, styles.clockRight]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-              {formatDistance(remaining.distanceM)}
-              {eta ? ` · ${t('nav.etaLong')} ${formatClock24(eta)}` : ''}
-            </Text>
-          ) : null}
-        </View>
 
         {/* Poignee discrete : sans elle, rien n'indique que le bandeau s'ouvre. */}
         <View style={styles.grip} />
@@ -486,10 +497,13 @@ const styles = StyleSheet.create({
   clockRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.25)',
+    /* LE FILET EST PASSE DESSOUS avec l'horloge : il separe les deux lectures, et il doit
+     * rester ENTRE elles. Laisse au-dessus, il aurait dessine un trait sous le bord du
+     * bandeau, c'est-a-dire nulle part. */
+    marginBottom: spacing.sm,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.25)',
   },
   clockItem: { color: 'rgba(255,255,255,0.92)', fontSize: 12.5, fontWeight: '700' as const },
   // « 491 km · Arrivee estimee 16:25 » : la ligne la plus longue du bandeau. Elle se reduit

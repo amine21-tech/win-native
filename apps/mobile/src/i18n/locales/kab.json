@@ -564,7 +564,9 @@
     "validateCount_other": "Sentem · {{count}} n lwilayat",
     "previewBadge": "👁 TASKANT — ulac acu yettwasuffɣen",
     "previewEdit": "✎ Ẓreg",
-    "previewPublishNow": "✔ Suffeɣ tura"
+    "previewPublishNow": "✔ Suffeɣ tura",
+    "alertsUnavailable": "Aqeddac ur yesɛi ara tamahilt-a ar tura. Leqqem API, sakin ldi tiskant-a tikkelt-nniḍen.",
+    "alertsFailed": "Askelsu ur yeddi ara : {{raison}}"
   },
   "approach": {
     "prefix": "Ḥader,",

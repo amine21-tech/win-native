@@ -564,7 +564,9 @@
     "validateCount_other": "Valider · {{count}} wilayas",
     "previewBadge": "👁 APERÇU — rien n’est encore publié",
     "previewEdit": "✎ Modifier",
-    "previewPublishNow": "✔ Publier maintenant"
+    "previewPublishNow": "✔ Publier maintenant",
+    "alertsUnavailable": "Le serveur n'a pas encore cette fonction. Mettez l'API à jour, puis rouvrez cet écran.",
+    "alertsFailed": "L'enregistrement a échoué : {{raison}}"
   },
   "approach": {
     "prefix": "Attention,",

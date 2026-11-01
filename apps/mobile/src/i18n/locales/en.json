@@ -564,7 +564,9 @@
     "validateCount_other": "Confirm · {{count}} wilayas",
     "previewBadge": "👁 PREVIEW — nothing published yet",
     "previewEdit": "✎ Edit",
-    "previewPublishNow": "✔ Publish now"
+    "previewPublishNow": "✔ Publish now",
+    "alertsUnavailable": "The server does not have this feature yet. Update the API, then reopen this screen.",
+    "alertsFailed": "Saving failed: {{raison}}"
   },
   "approach": {
     "prefix": "Caution,",

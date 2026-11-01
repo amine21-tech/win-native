@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { SeasonalBanner } from '../components/SeasonalBanner';
 import {
   CATALOGUE_EVENEMENTS,
@@ -67,9 +67,10 @@ export function PanneauAlertes({
   const { t } = useTranslation();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'alertes'],
     queryFn: () => api<{ alertes: AlerteAdmin[] }>('/admin/alertes', { adminToken: token }),
+    retry: false,
   });
 
   const [listeFetes, setListeFetes] = useState(false);
@@ -81,6 +82,25 @@ export function PanneauAlertes({
   const fetesActives = fetes.filter((f) => f.active);
 
   if (isLoading) return <ActivityIndicator color={colors.accent} />;
+
+  /* L'ECHEC DU CHARGEMENT EST DIT, pas avale. Sans ce bloc, un serveur qui ne connait pas
+   * encore la route rendait un panneau d'apparence normale : les douze fetes s'affichaient
+   * — elles viennent du catalogue LOCAL — avec tous les interrupteurs eteints, et appuyer
+   * dessus ne faisait rien. C'est exactement ce que le client a vu, et il n'avait aucun
+   * moyen de deviner que le defaut etait sur le serveur et non dans l'application.
+   *
+   * Le 404 a son propre message : il ne veut pas dire << panne >> mais << API pas encore
+   * mise a jour >>, et le remede n'est pas du tout le meme. */
+  if (error) {
+    const quatreCentQuatre = error instanceof ApiError && error.status === 404;
+    return (
+      <Text style={[typography.caption, { color: ROUGE }]}>
+        {quatreCentQuatre
+          ? t('admin.alertsUnavailable')
+          : t('admin.alertsFailed', { raison: error instanceof Error ? error.message : String(error) })}
+      </Text>
+    );
+  }
 
   return (
     <View style={{ gap: spacing.md }}>
@@ -503,10 +523,12 @@ function ListeFetes({
   const { t, i18n } = useTranslation();
   const lang = (i18n.language as Language) ?? 'fr';
   const [enCours, setEnCours] = useState<string | null>(null);
+  const [echec, setEchec] = useState<string | null>(null);
 
   const basculer = async (id: string, active: boolean) => {
     const evenement = evenementParId(id);
     setEnCours(id);
+    setEchec(null);
     try {
       await api(`/admin/alertes/event/${id}`, {
         method: 'PUT',
@@ -520,6 +542,14 @@ function ListeFetes({
         },
       });
       onChange();
+    } catch (e) {
+      /* UN INTERRUPTEUR QUI NE BOUGE PAS DOIT DIRE POURQUOI. Il revenait a sa place sans un
+       * mot : le fondateur appuyait, rien ne se passait, et il ne pouvait que recommencer. */
+      setEchec(
+        e instanceof ApiError && e.status === 404
+          ? t('admin.alertsUnavailable')
+          : t('admin.alertsFailed', { raison: e instanceof Error ? e.message : String(e) }),
+      );
     } finally {
       setEnCours(null);
     }
@@ -541,6 +571,7 @@ function ListeFetes({
             </Pressable>
           </View>
           <Text style={[typography.caption, { color: colors.textMuted }]}>{t('admin.eventsHint')}</Text>
+          {echec ? <Text style={[typography.caption, { color: ROUGE }]}>{echec}</Text> : null}
 
           <ScrollView style={{ maxHeight: 420 }}>
             {(['memoire', 'religieux'] as const).map((cat) => (

@@ -564,7 +564,9 @@
     "validateCount_other": "صحّ · {{count}} ولايات",
     "previewBadge": "👁 معاينة — ما تنشر والو",
     "previewEdit": "✎ بدّل",
-    "previewPublishNow": "✔ انشر دروك"
+    "previewPublishNow": "✔ انشر دروك",
+    "alertsUnavailable": "السيرفر مازال ما عندوش هاذ الخدمة. عيّط للتحديث تع API ومن بعد حلّ هاذ الشاشة من جديد.",
+    "alertsFailed": "ما تسجلش: {{raison}}"
   },
   "approach": {
     "prefix": "رد بالك،",

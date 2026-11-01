@@ -564,7 +564,9 @@
     "validateCount_other": "تأكيد · {{count}} ولايات",
     "previewBadge": "👁 معاينة — لم يُنشر شيء بعد",
     "previewEdit": "✎ تعديل",
-    "previewPublishNow": "✔ انشر الآن"
+    "previewPublishNow": "✔ انشر الآن",
+    "alertsUnavailable": "الخادم لا يملك هذه الوظيفة بعد. حدّث الواجهة البرمجية ثم أعد فتح هذه الشاشة.",
+    "alertsFailed": "فشل الحفظ: {{raison}}"
   },
   "approach": {
     "prefix": "انتبه،",
