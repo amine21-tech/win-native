@@ -148,26 +148,46 @@ verifier(
 )
 
 # ------------------------------------------------------------------ point 16
-print('\nPOINT 16 — la consigne en bas, fleche de 80 points')
+print('\nPOINT 16 — la consigne DANS le bandeau du haut, fleche de 80 points')
 panneau = lire(RACINE / 'apps/mobile/src/components/PanneauDirection.tsx')
 fleche = lire(RACINE / 'apps/mobile/src/components/FlecheManoeuvre.tsx')
 
 verifier('fleche : 80 points', 'TAILLE_FLECHE = 80' in panneau, valeur(panneau, r'TAILLE_FLECHE = (\d+)'))
-verifier('fond vert fonce WIN DZ', "VERT = '#07401F'" in panneau)
 verifier('fleche blanche', "couleur = '#FFFFFF'" in fleche)
-# LA POSITION A FAIT L'ALLER-RETOUR. Le point 16.A du 29 octobre demandait la consigne en BAS ;
-# le client l'a essayee au volant et l'a renvoyee en HAUT le 31, en la classant CRITIQUE (P1).
-# Ce controle suit la derniere demande, et garde la trace de la precedente : sans elle, on
-# croirait a une erreur le jour ou quelqu'un relira le point 16.
+
+# LA POSITION A FAIT TROIS VOYAGES, ET CE CONTROLE LES A TOUS SUIVIS.
+#   v83        : la consigne vit DANS le bandeau du haut.
+#   16.A, 29/10: elle descend en BAS de l'ecran, avec une fleche de 80 points.
+#   P1,   31/10: le client l'essaie au volant, la classe CRITIQUE, elle remonte en haut —
+#                mais dans SON PROPRE CADRE, pose sous le bandeau.
+#   01/11      : << il doit etre integre au cadre du haut, il ne doit pas etre separe >>.
+# On garde la trace des trois : sans elle, on croirait a une erreur le jour ou quelqu'un
+# relira le point 16, qui demande noir sur blanc le contraire de ce que fait le code.
 verifier(
-    "position : sous le bandeau d'arrivee (P1, et non plus en bas)",
-    "position: 'absolute'" in panneau and 'top,' in panneau and 'bottom,' not in panneau,
-    'le point 16.A la voulait en bas ; la correction P1 du 31 octobre la remonte',
+    'la consigne est DANS le bandeau, pas dans un cadre a part',
+    '<PanneauDirection' in overlay.split('</Pressable>')[0],
+    "deux cadres verts l'un sous l'autre mangeaient le tiers haut de la carte",
 )
 verifier(
-    'la colonne de boutons commence SOUS le panneau',
-    'panneauHeight' in overlay,
-    'sinon les dix boutons passeraient par-dessus la consigne',
+    'elle ne se place plus elle-meme',
+    "position: 'absolute'" not in panneau and 'top,' not in panneau and 'bottom,' not in panneau,
+    'une position propre la ressortirait du bandeau',
+)
+# On regarde le style de la RACINE seulement : l'ecusson de numero de route a le droit
+# d'avoir des coins arrondis, c'est un panneau routier. Ce qui est interdit, c'est que le bloc
+# entier se redonne une apparence de carte.
+racine = re.search(r'bloc: \{(.*?)\}', panneau, re.S)
+verifier(
+    'elle ne porte ni fond, ni coins, ni ombre',
+    racine is not None
+    and not any(mot in racine.group(1)
+                for mot in ('backgroundColor', 'borderRadius', 'shadow', 'elevation')),
+    "elle prend ceux du bandeau : c'est la difference entre etre dedans et etre pose dessus",
+)
+verifier(
+    'la colonne de boutons commence sous le bandeau, consigne comprise',
+    'panneauHeight' not in overlay and 'bannerHeight + spacing.sm' in overlay,
+    "il n'y a plus deux hauteurs a additionner, le bandeau contient tout",
 )
 verifier('le nom de la rue est affiche', 'maneuver.streetName' in panneau)
 verifier('la distance est affichee', 'formatDistance(distanceM)' in panneau)

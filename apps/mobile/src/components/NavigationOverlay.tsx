@@ -119,21 +119,17 @@ export const NavigationOverlay = memo(function NavigationOverlay({
    * un bouton en bas a droite le rouvre). Il degage la carte quand on veut regarder autour. */
   const [bottomOpen, setBottomOpen] = useState(true);
   const [bottomBarHeight, setBottomBarHeight] = useState(0);
-  /** Hauteur du panneau de consigne, mesuree : la colonne de boutons doit commencer EN DESSOUS.
-   * Elle varie avec la longueur de l'instruction et la presence de la seconde consigne. */
-  const [panneauHeight, setPanneauHeight] = useState(0);
 
   // Transmis a l'ecran de carte a chaque changement : c'est lui qui place la colonne de boutons.
   useEffect(() => {
     onLayoutBounds({
-      /* LA COLONNE COMMENCE SOUS LE PANNEAU, pas sous le bandeau. Depuis que la consigne est
-       * revenue en haut (correction P1 du 31 octobre), c'est elle qui occupe le haut de la
-       * carte : s'arreter au bandeau ferait passer les dix boutons par-dessus. */
-      bannerBottom:
-        (landscape ? topInset + CARD_MARGIN : 0) + bannerHeight + panneauHeight + spacing.sm,
+      /* LA CONSIGNE EST DANS LE BANDEAU depuis le 1er novembre : sa hauteur est donc comprise
+       * dans `bannerHeight`, et il n'y a plus de second cadre a compter. On mesurait les deux
+       * separement tant qu'il y en avait deux. */
+      bannerBottom: (landscape ? topInset + CARD_MARGIN : 0) + bannerHeight + spacing.sm,
       bottomBarHeight: bottomOpen ? bottomBarHeight : 0,
     });
-  }, [bannerHeight, panneauHeight, bottomBarHeight, bottomOpen, landscape, topInset, onLayoutBounds]);
+  }, [bannerHeight, bottomBarHeight, bottomOpen, landscape, topInset, onLayoutBounds]);
 
   if (!active) return null;
 
@@ -172,20 +168,26 @@ export const NavigationOverlay = memo(function NavigationOverlay({
             : { paddingTop: topInset + spacing.md },
         ]}
       >
-        {/* LA CONSIGNE A QUITTE CE BANDEAU (point 16.A du client, 29 octobre) : elle vit
-            desormais en bas de l'ecran, avec une fleche de 80 points et le nom de la rue —
-            voir PanneauDirection.
+        {/* LA CONSIGNE EST REVENUE DANS CE BANDEAU — correction du 1er novembre.
 
-            CE BANDEAU RESTE, et ce n'est pas une hesitation : il porte trois choses que le
-            client a demandees ailleurs et qui n'ont rien a voir avec la consigne — l'horloge
-            visible en permanence (chantier #22), l'heure d'arrivee avec la distance restante,
-            et les fleches de voies cinq cents metres avant une bifurcation, que le point 16.B
-            veut explicitement EN HAUT. Le vider entierement aurait fait disparaitre tout
-            cela. */}
+            Elle en etait partie le 29 (point 16.A, en bas de l'ecran), puis la correction P1
+            du 31 l'avait remontee en haut mais dans SON PROPRE CADRE, pose sous celui-ci. Le
+            client a essaye au volant : deux cadres verts l'un sous l'autre mangeaient le tiers
+            superieur de la carte, c'est-a-dire la portion qu'on regarde en conduisant.
 
-        {/* Heure courante, seule : l'heure d'ARRIVEE a rejoint le cadre du bas, sur la meme
-            ligne que la distance. Le client demande l'horloge visible en permanence
-            (chantier #22) — elle reste donc ici, ou rien ne la masque jamais. */}
+            Elle est donc ICI, dans le meme cadre que l'horloge, la distance restante et
+            l'heure d'arrivee — << integre au cadre du haut, il ne doit pas etre separe >>.
+            PanneauDirection ne porte plus ni position ni couleur : il prend celles du bandeau,
+            ce qui est toute la difference entre etre dedans et etre pose dessus. */}
+        <PanneauDirection
+          maneuver={nextManeuver}
+          suivante={followingManeuver}
+          distanceM={distanceToUpcoming}
+          ecartSuivanteM={ecartSuivanteM}
+          lang={lang}
+          arrived={arrived}
+        />
+
         {/* Heure d'arrivee estimee et distance restante, EN HAUT comme EN BAS : le client les
             veut lisibles sans avoir a baisser les yeux vers le cadre du bas, qui peut etre
             masque. L'horloge courante reste affichee en permanence (chantier #22). */}
@@ -214,6 +216,8 @@ export const NavigationOverlay = memo(function NavigationOverlay({
           </View>
         ) : null}
 
+        {/* UN FILET, PAS UN CADRE. L'heure et l'arrivee se lisent autrement que la consigne :
+            un trait d'un demi-point separe les deux lectures sans refaire deux objets. */}
         <View style={styles.clockRow}>
           <Text style={styles.clockItem}>🕐 {formatClock24(now)}</Text>
           {remaining ? (
@@ -228,21 +232,6 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         <View style={styles.grip} />
       </Pressable>
 
-      {/* PANNEAU DE DIRECTION, SOUS LE BANDEAU D'ARRIVEE — correction P1 du 31 octobre.
-          Il etait passe en bas le 29 ; le client a essaye au volant et l'a classe CRITIQUE : en
-          bas il se superposait au cadre de progression, et l'ecran etait lourd en bas et vide
-          en haut. La fleche de 80 points, le nom de rue et la deuxieme consigne restent — ils
-          venaient du meme point mais n'avaient rien a voir avec la position. */}
-      <PanneauDirection
-        maneuver={nextManeuver}
-        suivante={followingManeuver}
-        distanceM={distanceToUpcoming}
-        ecartSuivanteM={ecartSuivanteM}
-        lang={lang}
-        arrived={arrived}
-        top={bannerTop + bannerHeight + spacing.sm}
-        onHeight={setPanneauHeight}
-      />
 
       {/* Compteur de vitesse et limite reglementaire, EN HAUT A GAUCHE et l'un sous l'autre,
           comme sur le site (`.speed-badge` puis `.limit-badge`). Ils etaient en bas, et un

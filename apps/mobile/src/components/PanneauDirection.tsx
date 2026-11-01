@@ -7,21 +7,34 @@ import { formatDistance, type Language } from '../shared';
 import { radius, spacing } from '../theme';
 
 /**
- * PANNEAU DE DIRECTION, SOUS LE BANDEAU D'ARRIVEE — correction P1 du 31 octobre.
+ * LA CONSIGNE DE DIRECTION, DANS LE BANDEAU DU HAUT — correction du 1er novembre.
  *
- * IL A FAIT L'ALLER-RETOUR, ET C'EST INSTRUCTIF. La consigne vivait en haut depuis la v83, avec
- * une fleche de 34 points. Le point 16.A du 29 octobre demandait de la descendre en bas de
- * l'ecran, avec une fleche de 80 — ce qui fut fait. Deux jours plus tard, le client essaie au
- * volant et classe le resultat en CRITIQUE : le panneau doit remonter.
+ * TROISIEME POSITION, ET LA BONNE. La consigne vivait dans le bandeau depuis la v83. Le point
+ * 16.A du 29 octobre l'a descendue en bas de l'ecran, avec une fleche de 80 points. La
+ * correction P1 du 31 l'a remontee en haut, mais dans SON PROPRE CADRE, pose sous le bandeau.
+ * Le client a essaye au volant et le dit sans detour : ce cadre vert gene toute la navigation.
  *
- * Il a raison, et la capture le montre : en bas, le panneau se superpose au cadre de
- * progression, et l'ecran se retrouve lourd en bas et vide en haut. Le regard, lui, revient
- * naturellement vers le haut — c'est la que se trouve la route.
+ * Il a raison, et l'erreur etait de ne lire P1 qu'a moitie. Deux cadres verts l'un sous
+ * l'autre, c'est deux fois le meme objet : le regard doit choisir lequel lire, et pendant ce
+ * temps il n'est pas sur la route. Ensemble ils mangeaient le tiers superieur de la carte,
+ * c'est-a-dire exactement la portion qu'on regarde en conduisant — celle qui est DEVANT.
  *
- * CE QUE L'ALLER-RETOUR A LAISSE DE BON : la fleche de 80 points, dessinee et non empruntee a
- * une police ; le nom de la rue ; la deuxieme consigne quand deux virages s'enchainent. Ces
- * trois-la venaient du meme point 16, et aucun n'avait de rapport avec la position. Seule la
- * position revient en arriere.
+ * La consigne n'est donc plus un panneau pose sous le bandeau : elle est DEDANS, avec l'heure
+ * courante, la distance restante et l'heure d'arrivee. Un seul cadre, une seule lecture. C'est
+ * ce que le client demande mot pour mot : << il doit etre integre au cadre du haut, il ne doit
+ * pas etre separe >>.
+ *
+ * CE COMPOSANT N'A DONC PLUS DE POSITION NI DE FOND. Il ne se place plus lui-meme et ne porte
+ * plus ni couleur, ni coins arrondis, ni ombre : il prend ceux du bandeau qui l'accueille, ce
+ * qui est la difference entre etre integre et etre pose dessus. C'est aussi pour cela qu'il
+ * reste un fichier a part plutot que de retourner dans NavigationOverlay : la consigne a sa
+ * propre logique — deuxieme manoeuvre, ecusson de route, nom de rue — et elle a deja change de
+ * place trois fois.
+ *
+ * CE QUE LES ALLERS-RETOURS ONT LAISSE DE BON : la fleche de 80 points, dessinee et non
+ * empruntee a une police ; le nom de la rue ; la deuxieme consigne quand deux virages
+ * s'enchainent. Ces trois-la venaient du point 16 et n'ont jamais eu de rapport avec la
+ * position.
  *
  * LE NOM DE RUE EST LA NOUVEAUTE REELLE. L'ancien bandeau disait << Tournez a gauche >> ; il
  * dit maintenant << Tournez a gauche >> ET sur quelle rue. C'est ce qui permet de verifier
@@ -34,7 +47,6 @@ import { radius, spacing } from '../theme';
  * qu'il en ressort trente metres plus loin.
  */
 
-const VERT = '#07401F';
 const TAILLE_FLECHE = 80;
 
 /**
@@ -54,10 +66,6 @@ type Props = {
   ecartSuivanteM: number | null;
   lang: Language;
   arrived: boolean;
-  /** Distance au bord HAUT : le panneau se pose juste sous le bandeau d'arrivee. */
-  top: number;
-  /** Hauteur mesuree, remontee a l'ecran : la colonne de boutons doit commencer EN DESSOUS. */
-  onHeight: (h: number) => void;
 };
 
 export function PanneauDirection({
@@ -67,18 +75,12 @@ export function PanneauDirection({
   ecartSuivanteM,
   lang,
   arrived,
-  top,
-  onHeight,
 }: Props) {
   const { t } = useTranslation();
 
   if (arrived || !maneuver) {
     return (
-      <View
-        style={[styles.panneau, { top }]}
-        pointerEvents="none"
-        onLayout={(e) => onHeight(Math.round(e.nativeEvent.layout.height))}
-      >
+      <View style={styles.bloc} pointerEvents="none">
         <Text style={styles.arrivee}>🏁  {t('nav.arrived')}</Text>
       </View>
     );
@@ -88,11 +90,7 @@ export function PanneauDirection({
     suivante != null && ecartSuivanteM != null && ecartSuivanteM <= SUIVANTE_PROCHE_M;
 
   return (
-    <View
-      style={[styles.panneau, { top }]}
-      pointerEvents="none"
-      onLayout={(e) => onHeight(Math.round(e.nativeEvent.layout.height))}
-    >
+    <View style={styles.bloc} pointerEvents="none">
       <View style={styles.ligne}>
         <FlecheManoeuvre type={maneuver.type} size={TAILLE_FLECHE} />
 
@@ -137,20 +135,10 @@ export function PanneauDirection({
 }
 
 const styles = StyleSheet.create({
-  panneau: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    backgroundColor: VERT,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-  },
+  /* NI POSITION, NI FOND, NI OMBRE : la consigne est DANS le bandeau et en prend la couleur.
+   * Lui en redonner un recreerait le deuxieme cadre que le client vient de faire retirer. Le
+   * bandeau fournit aussi les marges laterales, d'ou l'absence de padding horizontal ici. */
+  bloc: { marginBottom: spacing.sm },
   ligne: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   textes: { flex: 1, minWidth: 0 },
 
