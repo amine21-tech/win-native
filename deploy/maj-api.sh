@@ -58,6 +58,31 @@ else
   printf '   %s\n' "${FICHIERS[@]}"
 fi
 
+# ------------------------------------------------------------------ le code partage, TOUJOURS
+#
+# POURQUOI packages/shared EST RECOPIE EN ENTIER A CHAQUE FOIS, meme quand le commit n'y touche
+# pas. Ce script copie les fichiers d'UN commit ; or le code partage s'enrichit par petites
+# touches reparties sur des dizaines de commits, dont beaucoup ne concernent que l'application
+# mobile et ne sont donc jamais deployes. Le dossier du serveur prend du retard sans que rien
+# ne le signale — jusqu'au jour ou un fichier neuf importe un fichier ancien.
+#
+# C'est exactement ce qui s'est produit le 2 novembre : la construction a echoue avec
+# « Cannot find module './dates.js' » et « no exported member DZ_WILAYA_NAMES ». Deux fichiers
+# manquaient depuis des semaines et quatre autres etaient perimes, sans qu'aucune livraison
+# precedente ne s'en plaigne.
+#
+# Le dossier est petit — neuf fichiers, quelques dizaines de kilo-octets — et il n'a aucune
+# raison de differer entre le depot et le serveur. On le remet donc a l'identique a chaque
+# passage, ce qui rend ce retard impossible.
+bleu "Code partage (recopie integrale)"
+PARTAGES=$(curl -fsSL "$DEPOT_API/contents/packages/shared/src" \
+           | grep -oE '"path": *"[^"]+\.ts"' | sed 's/.*": *"//; s/"$//')
+[ -n "$PARTAGES" ] || stop "impossible de lister packages/shared/src."
+for f in $PARTAGES; do
+  case " ${FICHIERS[*]} " in *" $f "*) ;; *) FICHIERS+=("$f") ;; esac
+done
+printf '   %s\n' $PARTAGES
+
 bleu "Recuperation"
 for f in "${FICHIERS[@]}"; do
   mkdir -p "$(dirname "$f")"

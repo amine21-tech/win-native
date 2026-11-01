@@ -80,6 +80,25 @@ export function Header({ colors, top }: Props) {
             {t('app.tagline')}
           </Text>
         </View>
+        {/* LE DRAPEAU ALGERIEN, A GAUCHE DE L'HEURE — demande du 2 novembre.
+
+            Il est pose sur la meme ligne que le logo, a cote de l'horloge, et non dans la
+            colonne de boutons ou un drapeau existe deja : celui-la OUVRE quelque chose, on
+            appuie dessus. Celui-ci ne fait rien — il dit de quel pays parle l'application, au
+            meme titre que le << DZ >> dore sous le nom. Lui donner l'air d'un bouton inviterait
+            a appuyer sur ce qui ne repond pas.
+
+            Il est DECORATIF au sens strict : `accessibilityElementsHidden` le retire du lecteur
+            d'ecran, qui annoncerait sinon << drapeau de l'Algerie >> entre le nom de
+            l'application et l'heure, sans rien apporter a qui ne voit pas l'ecran. */}
+        <Text
+          style={styles.drapeau}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        >
+          🇩🇿
+        </Text>
+
         {/* Horloge permanente (chantier #22) : visible ici sur l'ecran principal, et dans le
             bandeau de navigation pendant un trajet (voir NavigationOverlay) — jamais absente. */}
         <Text style={[styles.clock, { color: colors.text }]}>{formatClock24(now)}</Text>
@@ -134,6 +153,9 @@ const styles = StyleSheet.create({
   name: { fontFamily: fonts.sansExtraBold, fontSize: 19, letterSpacing: 0.5 },
   dzBadge: { fontFamily: fonts.sansExtraBold, fontSize: 9 },
   tagline: { fontFamily: fonts.sans, fontSize: 10.5, marginTop: 1 },
+  /* Un peu plus gros que l'heure : un drapeau a lire d'un coup d'oeil, pas un chiffre a
+   * dechiffrer. La marge le detache de l'horloge sans les separer en deux blocs. */
+  drapeau: { fontSize: 16, marginRight: spacing.sm },
   clock: { fontFamily: fonts.sansBold, fontSize: 12.5, letterSpacing: 0.3 },
   langs: {
     flexDirection: 'row',
