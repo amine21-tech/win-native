@@ -12,7 +12,7 @@ import { env } from '../env.js';
  *    local de l'application. Il remplace la cle `win_uid` de la v83, qui etait
  *    en clair et pouvait donc etre recopiee pour voter plusieurs fois ;
  *  - l'administrateur, qui se connecte avec un vrai compte. Il remplace le
- *    code `1154` ecrit en dur dans index.html — donc lisible par quiconque
+ *    code ecrit en dur dans index.html — donc lisible par quiconque
  *    ouvrait le code source de la page.
  */
 export type DeviceClaims = { sub: string; kind: 'device' };

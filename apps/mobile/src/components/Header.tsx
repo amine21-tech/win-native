@@ -23,18 +23,22 @@ import { formatClock24, useClock } from '../utils/clock';
  * de l'interface — ils existent maintenant, les 627, dans locales/kab.json. Le bouton n'est
  * donc plus une promesse.
  *
- * SON LIBELLE PASSE DU TIFINAGH AUX CARACTERES LATINS, et ce n'est pas un recul. Le tifinagh
- * est l'alphabet officiel, mais il demande une police que la plupart des Android algeriens
- * n'ont pas : le bouton s'affichait en carres vides chez eux — soit un bouton illisible pour
- * entrer dans une langue. Les textes eux-memes sont en caracteres latins, comme le cahier des
- * charges du 1er novembre le demande, et sa maquette ecrit << Tamazight >> dans la barre de
- * langues : le bouton dit donc la meme chose que ce qu'il ouvre.
+ * SON LIBELLE RESTE EN TIFINAGH, a la demande expresse du client : on ajoute la langue, on ne
+ * touche a rien d'autre. A SURVEILLER malgre tout — le tifinagh demande une police que tous
+ * les Android n'embarquent pas, et la ou elle manque le bouton s'affiche en carres vides. Si
+ * cela se produit sur un telephone d'essai, le libelle latin << Tamazight >> de la maquette du
+ * 1er novembre est la solution de rechange, et elle ne coute qu'une ligne.
+ *
+ * Les TEXTES, eux, sont en caracteres latins : c'est le cahier des charges qui le demande, et
+ * c'est l'ecriture du quotidien chez les locuteurs. Le bouton et son contenu ne sont donc pas
+ * dans la meme graphie, ce qui est assume.
  */
 const LANGUAGE_PILLS: { code: Language | 'kab'; label: string; pret: boolean }[] = [
   { code: 'fr', label: 'FR', pret: true },
   // Le darija s'ecrit en caracteres arabes : c'est la langue parlee, pas une autre graphie.
   { code: 'dz', label: 'دارجة', pret: true },
-  { code: 'kab', label: 'Tamazight', pret: true },
+  // Tifinagh, l'alphabet officiel, dans la graphie meme du document du client.
+  { code: 'kab', label: 'ⴰⵎⴰⵣⵉⵖ', pret: true },
   { code: 'ar', label: 'عربي', pret: true },
   { code: 'en', label: 'EN', pret: true },
 ];

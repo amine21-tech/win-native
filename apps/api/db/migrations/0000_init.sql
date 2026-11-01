@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS devices (
   blocked      boolean NOT NULL DEFAULT false
 );
 
--- Remplace le code admin 1154 code en dur dans index.html et la cle
+-- Remplace le code admin ecrit en dur dans index.html et la cle
 -- ADMIN_KEY restee a sa valeur d'exemple.
 CREATE TABLE IF NOT EXISTS admins (
   id            uuid PRIMARY KEY DEFAULT uuid_generate_v4(),

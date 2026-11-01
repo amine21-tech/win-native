@@ -21,7 +21,7 @@ const routes: FastifyPluginAsync = async (app) => {
   /**
    * Connexion administrateur.
    *
-   * Remplace le code `1154` ecrit en dur dans index.html — donc visible par
+   * Remplace le code ecrit en dur dans index.html — donc visible par
    * quiconque affichait le code source de la page — et la cle ADMIN_KEY restee
    * a sa valeur d'exemple depuis la mise en ligne.
    */

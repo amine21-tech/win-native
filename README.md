@@ -55,7 +55,7 @@ npm run seed:admin -w @win/api -- --email vous@exemple.dz --name "Amiir" --role 
 ```
 
 Le mot de passe est demandé au clavier, jamais passé en argument.
-Ce compte remplace le code `1154` qui était écrit en dur dans `index.html` —
+Ce compte remplace le code qui était écrit en dur dans `index.html` —
 donc lisible par quiconque affichait le code source de la page.
 
 ---
