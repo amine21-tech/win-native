@@ -73,6 +73,7 @@ const COMPASS_LABELS: Record<Language, string[]> = {
   en: ['North', 'North-East', 'East', 'South-East', 'South', 'South-West', 'West', 'North-West'],
   ar: ['الشمال', 'الشمال الشرقي', 'الشرق', 'الجنوب الشرقي', 'الجنوب', 'الجنوب الغربي', 'الغرب', 'الشمال الغربي'],
   dz: ['الشمال', 'الشمال الشرقي', 'الشرق', 'الجنوب الشرقي', 'الجنوب', 'الجنوب الغربي', 'الغرب', 'الشمال الغربي'],
+  kab: ['Agafa', 'Agafa-Asammer', 'Asammer', 'Anẓul-Asammer', 'Anẓul', 'Anẓul-Amalu', 'Amalu', 'Agafa-Amalu'],
 };
 
 export function compassLabel(deg: number, lang: Language): string {
@@ -119,6 +120,20 @@ const HIJRI_MONTHS: Record<Language, string[]> = {
   ],
   ar: ['محرم', 'صفر', 'ربيع الأول', 'ربيع الثاني', 'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'],
   dz: ['محرم', 'صفر', 'ربيع الأول', 'ربيع الثاني', 'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'],
+  kab: [
+    'Muḥerrem',
+    'Ṣafar',
+    'Rbiɛ amezwaru',
+    'Rbiɛ wis sin',
+    'Jumada amezwaru',
+    'Jumada wis sin',
+    'Rajab',
+    'Caɛban',
+    'Ramḍan',
+    'Cawwal',
+    'Ḏu l-qiɛda',
+    'Ḏu l-ḥijja',
+  ],
 };
 
 /**
@@ -154,16 +169,24 @@ function hijriFromGregorian(date: Date): { day: number; month: number; year: num
 export function hijriDate(lang: Language, date = new Date()): string {
   const { day, month, year } = hijriFromGregorian(date);
   const monthName = (HIJRI_MONTHS[lang] ?? HIJRI_MONTHS.fr)[month - 1] ?? '';
-  const weekday = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : lang === 'fr' ? 'fr-FR' : 'ar-DZ', {
-    weekday: 'long',
-  }).format(date);
-  const hijriLabel = { fr: "de l'Hégire", ar: 'هجري', dz: 'هجري', en: 'Hijri' }[lang] ?? "de l'Hégire";
+  const weekday = new Intl.DateTimeFormat(
+    lang === 'en' ? 'en-US' : lang === 'fr' || lang === 'kab' ? 'fr-FR' : 'ar-DZ',
+    {
+      weekday: 'long',
+    },
+  ).format(date);
+  const hijriLabel =
+    { fr: "de l'Hégire", ar: 'هجري', dz: 'هجري', en: 'Hijri', kab: 'n Hijra' }[lang] ?? "de l'Hégire";
   const sep = lang === 'ar' || lang === 'dz' ? '، ' : ', ';
   return `${weekday}${sep}${day} ${monthName} ${year} ${hijriLabel}`;
 }
 
 export function gregorianDate(lang: Language, date = new Date()): string {
-  const locale = { fr: 'fr-FR', en: 'en-US', ar: 'ar-DZ', dz: 'ar-DZ' }[lang] ?? 'fr-FR';
+  /* LE KABYLE N'A PAS DE LOCALE Intl SUR ANDROID. On lui sert le francais pour le nom du jour
+   * et du mois : c'est la langue seconde de tous les locuteurs kabyles d'Algerie, alors qu'un
+   * repli silencieux sur l'anglais afficherait << Monday >> au milieu d'une phrase kabyle. */
+  const locale =
+    { fr: 'fr-FR', en: 'en-US', ar: 'ar-DZ', dz: 'ar-DZ', kab: 'fr-FR' }[lang] ?? 'fr-FR';
   try {
     return new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(
       date,

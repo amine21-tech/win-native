@@ -175,6 +175,43 @@ const PHRASES: Record<Language, Record<number, string>> = {
     28: 'ركب الفيري',
     29: 'أهبط من الفيري',
   },
+  /* KABYLE (taqbaylit), en caracteres latins. Ces trente phrases sont PRONONCEES : elles
+   * passent par le moteur vocal du telephone, qui ne connait pas le kabyle et le lira avec sa
+   * voix francaise. L'orthographe latine usuelle s'y prete — c'est d'ailleurs la raison pour
+   * laquelle le client la demande plutot que le tifinagh. A faire relire par un locuteur avant
+   * mise en ligne, comme le cahier des charges l'exige. */
+  kab: {
+    0: 'Kemmel',
+    1: 'Bdu',
+    2: 'Bdu ɣer uyeffus',
+    3: 'Bdu ɣer uzelmaḍ',
+    4: 'Tewwḍeḍ ɣer wadeg-ik',
+    5: 'Adeg-ik ɣer uyeffus',
+    6: 'Adeg-ik ɣer uzelmaḍ',
+    7: 'Kemmel ɣef ubrid',
+    8: 'Kemmel qbala',
+    9: 'Qerreb ɣer uyeffus',
+    10: 'Zzi ɣer uyeffus',
+    11: 'Zzi mliḥ ɣer uyeffus',
+    12: 'Uɣal ɣer deffir s uyeffus',
+    13: 'Uɣal ɣer deffir s uzelmaḍ',
+    14: 'Zzi mliḥ ɣer uzelmaḍ',
+    15: 'Zzi ɣer uzelmaḍ',
+    16: 'Qerreb ɣer uzelmaḍ',
+    17: 'Ddem abrid n ukeccum',
+    18: 'Ddem abrid n ukeccum ɣer uyeffus',
+    19: 'Ddem abrid n ukeccum ɣer uzelmaḍ',
+    20: 'Ffeɣ ɣer uyeffus',
+    21: 'Ffeɣ ɣer uzelmaḍ',
+    22: 'Qqim qbala',
+    23: 'Qqim ɣer uyeffus',
+    24: 'Qqim ɣer uzelmaḍ',
+    25: 'Kcem ɣer ubrid',
+    26: 'Kcem ɣer twinest',
+    27: 'Ffeɣ si twinest',
+    28: 'Ddem lbabur',
+    29: 'Ffeɣ si lbabur',
+  },
 };
 
 /**
@@ -194,6 +231,7 @@ const SORTIE_RATEE: Record<Language, string> = {
   en: 'Exit missed. Recalculating.',
   ar: 'فاتك المخرج. جارٍ إعادة الحساب.',
   dz: 'فاتك المخرج. راني نحسب الطريق من جديد.',
+  kab: 'Tuffɣa tezri. Nettḥaseb abrid tikkelt-nniḍen.',
 };
 
 export function phraseSortieRatee(lang: Language): string {
@@ -215,6 +253,7 @@ const ROUTE_BLOQUEE: Record<Language, string> = {
   en: 'Road blocked. Recalculating.',
   ar: 'الطريق مسدود. جارٍ إعادة الحساب.',
   dz: 'الطريق مسدود. راني نحسب الطريق من جديد.',
+  kab: 'Abrid yemdel. Nettḥaseb abrid tikkelt-nniḍen.',
 };
 
 export function phraseRouteBloquee(lang: Language): string {
@@ -237,6 +276,7 @@ const RECALCULE: Record<Language, string> = {
   en: 'Route recalculated.',
   ar: 'تمت إعادة حساب المسار.',
   dz: 'رانا حسبنا الطريق من جديد.',
+  kab: 'Abrid yettwaḥseb i tikkelt-nniḍen.',
 };
 
 export function phraseItineraireRecalcule(lang: Language): string {
@@ -280,6 +320,9 @@ const UNITS: Record<Language, { m: string; km: string; prefix: string }> = {
   en: { m: 'meters', km: 'kilometers', prefix: 'In' },
   ar: { m: 'متر', km: 'كيلومتر', prefix: 'بعد' },
   dz: { m: 'متر', km: 'كيلومتر', prefix: 'بعد' },
+  /* << Deg 300 n yimitren >>. L'unite est ecrite en toutes lettres pour la meme raison que
+   * dans les autres langues : la prononciation de << m >> depend du moteur vocal. */
+  kab: { m: 'n yimitren', km: 'n yikilumitren', prefix: 'Deg' },
 };
 
 /**

@@ -31,7 +31,17 @@ import sys
 
 ICI = os.path.dirname(os.path.abspath(__file__))
 RACINE = os.path.normpath(os.path.join(ICI, '..'))
-LANGUES = ('fr', 'en', 'ar', 'dz')
+# LES LANGUES SONT RELEVEES SUR LE DOSSIER, PAS ECRITES ICI.
+#
+# Elles etaient ecrites a la main, et le jour ou le kabyle est arrive le controle a continue a
+# dire << Toutes presentes >> en ne regardant que quatre fichiers sur cinq. Un garde-fou qui
+# ignore la nouveaute est pire que pas de garde-fou : il rassure a tort, et c'est precisement
+# au moment ou l'on ajoute une langue qu'il faudrait regarder.
+LANGUES = tuple(sorted(
+    os.path.splitext(f)[0]
+    for f in os.listdir(os.path.join(RACINE, 'src', 'i18n', 'locales'))
+    if f.endswith('.json')
+))
 
 # L'ouverture d'un appel a `t(`. Ce qu'il contient est examine ensuite : la cle peut etre
 # ecrite directement, mais aussi choisie par une condition — `t(x ? 'a.b' : 'c.d')`, forme

@@ -8,11 +8,23 @@
  * redupliquer cote client ni cote serveur.
  */
 
-/** Langues de l'interface. `dz` = derja algerienne (ecrite en caracteres arabes). */
-export const LANGUAGES = ['fr', 'dz', 'ar', 'en'] as const;
+/**
+ * Langues de l'interface.
+ *
+ * `dz` = derja algerienne, ecrite en caracteres arabes.
+ * `kab` = kabyle (tamazight), ecrit en caracteres LATINS.
+ *
+ * POURQUOI LE KABYLE EN CARACTERES LATINS ET NON EN TIFINAGH. Le tifinagh est l'ecriture
+ * officielle du tamazight, et c'est celle qu'on attendrait. Mais il demande une police que la
+ * plupart des Android algeriens n'ont pas : le texte s'afficherait en carres vides, ce qui est
+ * pire que ne pas proposer la langue du tout. Les locuteurs kabyles ecrivent de toute facon
+ * couramment en caracteres latins — c'est l'usage du quotidien, des messages et des
+ * enseignes. Le cahier des charges du client le demande explicitement ainsi.
+ */
+export const LANGUAGES = ['fr', 'dz', 'ar', 'en', 'kab'] as const;
 export type Language = (typeof LANGUAGES)[number];
 
-/** Langues affichees de droite a gauche. */
+/** Langues affichees de droite a gauche. Le kabyle s'ecrit de gauche a droite. */
 export const RTL_LANGUAGES: readonly Language[] = ['ar', 'dz'];
 
 export const DEFAULT_LANGUAGE: Language = 'fr';

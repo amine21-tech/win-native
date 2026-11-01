@@ -14,22 +14,27 @@ import { formatClock24, useClock } from '../utils/clock';
  * des caracteres eux-memes, parce que le texte extrait les melangeait. Il ne faut donc pas le
  * « ranger » : c'est une demande, pas un defaut.
  *
- * Le DARIJA etait le vrai manque. Ses 421 textes sont traduits depuis le debut et le code le
+ * Le DARIJA etait le vrai manque. Ses textes sont traduits depuis le debut et le code le
  * connait (`LANGUAGES` contient 'dz'), mais aucun bouton ne le proposait : la langue existait
  * dans l'application sans que personne puisse l'atteindre. Elle fonctionne a partir de ce
  * bouton, entierement.
  *
- * Le TAMAZIGHT, lui, reste annonce et grise. Ce qui lui manque n'est pas l'audio mais les 421
- * textes de l'interface, qu'il faut ecrire et faire relire par quelqu'un dont c'est la langue.
- * Le bouton est a sa place, dans l'ordre demande ; `pret: true` est la seule chose a changer le
- * jour ou ces textes existent. On annonce, on ne fait pas semblant.
+ * LE TAMAZIGHT EST OUVERT DEPUIS LE 1er NOVEMBRE. Il etait annonce et grise, faute des textes
+ * de l'interface — ils existent maintenant, les 627, dans locales/kab.json. Le bouton n'est
+ * donc plus une promesse.
+ *
+ * SON LIBELLE PASSE DU TIFINAGH AUX CARACTERES LATINS, et ce n'est pas un recul. Le tifinagh
+ * est l'alphabet officiel, mais il demande une police que la plupart des Android algeriens
+ * n'ont pas : le bouton s'affichait en carres vides chez eux — soit un bouton illisible pour
+ * entrer dans une langue. Les textes eux-memes sont en caracteres latins, comme le cahier des
+ * charges du 1er novembre le demande, et sa maquette ecrit << Tamazight >> dans la barre de
+ * langues : le bouton dit donc la meme chose que ce qu'il ouvre.
  */
 const LANGUAGE_PILLS: { code: Language | 'kab'; label: string; pret: boolean }[] = [
   { code: 'fr', label: 'FR', pret: true },
   // Le darija s'ecrit en caracteres arabes : c'est la langue parlee, pas une autre graphie.
   { code: 'dz', label: 'دارجة', pret: true },
-  // Tifinagh, l'alphabet officiel, dans la graphie meme du document du client.
-  { code: 'kab', label: 'ⴰⵎⴰⵣⵉⵖ', pret: false },
+  { code: 'kab', label: 'Tamazight', pret: true },
   { code: 'ar', label: 'عربي', pret: true },
   { code: 'en', label: 'EN', pret: true },
 ];

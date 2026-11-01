@@ -8,3 +8,5 @@ export * from './schemas';
 export * from './geo';
 export * from './search';
 export * from './routing';
+export * from './alertes';
+export * from './wilayas';

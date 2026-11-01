@@ -105,7 +105,11 @@ function mapPlace(p: Place, lang: Language): GeocodedResult {
   // « Algerie » dans les resultats.
   const pays = countryLabel(
     { countryCode: countryFromCoords(p.lat, p.lon) ?? p.country },
-    lang === 'dz' ? 'ar' : lang,
+    /* LE GEOCODEUR NE PARLE NI DARIJA NI KABYLE. La darija passe par l'arabe, dont elle
+     * partage l'ecriture et les noms de pays. Le kabyle passe par le FRANCAIS : les noms de
+     * lieux d'Algerie y sont ceux que tout le monde lit sur les panneaux, alors qu'une
+     * demande en << kab >> ferait repondre le serveur en anglais. */
+    lang === 'dz' ? 'ar' : lang === 'kab' ? 'fr' : lang,
   );
   return {
     name: p.name || line1,

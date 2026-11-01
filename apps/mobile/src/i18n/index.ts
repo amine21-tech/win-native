@@ -9,6 +9,7 @@ import ar from './locales/ar.json';
 import dz from './locales/dz.json';
 import en from './locales/en.json';
 import fr from './locales/fr.json';
+import kab from './locales/kab.json';
 
 /** Langue retenue : choix explicite de l'utilisateur, sinon celle du telephone. */
 function resolveLanguage(): Language {
@@ -55,6 +56,7 @@ void i18n.use(initReactI18next).init({
     dz: { translation: dz },
     ar: { translation: ar },
     en: { translation: en },
+    kab: { translation: kab },
   },
   interpolation: { escapeValue: false },
   returnNull: false,
