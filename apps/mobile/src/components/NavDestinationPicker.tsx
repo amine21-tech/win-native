@@ -40,7 +40,6 @@ type Props = {
   onChangeQuery: (text: string) => void;
   onCategory: (dataQ: string, label: string) => void;
   loading: boolean;
-  partners: GeocodedResult[];
   results: GeocodedResult[];
   onSelectResult: (result: GeocodedResult) => void;
   colors: Palette;
@@ -53,7 +52,6 @@ export function NavDestinationPicker({
   onChangeQuery,
   onCategory,
   loading,
-  partners,
   results,
   onSelectResult,
   colors,
@@ -120,13 +118,12 @@ export function NavDestinationPicker({
             />
           </View>
 
-          {searching || partners.length > 0 || results.length > 0 ? (
+          {searching || results.length > 0 ? (
             <View style={styles.results}>
               <SearchResults
                 visible
                 loading={loading}
                 showBookmarks={false}
-                partners={partners}
                 results={results}
                 favorites={[]}
                 history={[]}

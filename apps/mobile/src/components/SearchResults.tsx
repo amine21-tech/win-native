@@ -12,7 +12,6 @@ type Props = {
   visible: boolean;
   loading: boolean;
   showBookmarks: boolean;
-  partners: GeocodedResult[];
   results: GeocodedResult[];
   favorites: Bookmark[];
   history: Bookmark[];
@@ -63,7 +62,6 @@ export function SearchResults({
   visible,
   loading,
   showBookmarks,
-  partners,
   results,
   favorites,
   history,
@@ -124,15 +122,15 @@ export function SearchResults({
           />
         ) : loading ? (
           <Text style={[styles.status, { color: colors.textMuted }]}>{t('search.loading')}</Text>
-        ) : partners.length === 0 && results.length === 0 ? (
+        ) : results.length === 0 ? (
           <Text style={[styles.status, { color: colors.textMuted }]}>{t('search.empty')}</Text>
         ) : (
           <>
-            {partners.map((p, i) => (
-              <PartnerRow key={`p-${p.placeId ?? i}`} place={p} onPress={() => onSelectResult(p)} colors={colors} />
-            ))}
-            {/* Un partenaire present dans la liste ordonnee par distance garde sa
-                presentation d'origine — etoile et mention — sans changer de rang. */}
+            {/* LES PARTENAIRES NE SONT PLUS EXTRAITS EN TETE — 2 novembre. Ils etaient
+                affiches avant tout le reste, donc AVANT la ville cherchee, ce qui defaisait
+                la regle du client : ville, puis VIP, puis le reste. Ils gardent leur
+                presentation — etoile et mention — a leur rang dans la liste ordonnee, ou
+                `classerPoint18` les a deja places au deuxieme palier. */}
             {results.map((r, i) =>
               r.isPartner ? (
                 <PartnerRow

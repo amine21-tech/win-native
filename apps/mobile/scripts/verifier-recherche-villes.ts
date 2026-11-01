@@ -164,6 +164,62 @@ verifier(
  * Ce qui les separe est que le nom tape est EXACTEMENT celui de l'une et seulement une partie de
  * celui de l'autre. C'est ce que verifie ce bloc.
  */
+/* ------------------------------------------------------------------ */
+/* L'ordre des trois familles : ville, VIP, puis le reste              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * LA REGLE DU CLIENT, RAPPELEE LE 2 NOVEMBRE : « les grandes villes sont avantagees par
+ * rapport aux lieux ajoutes par des clients ; les lieux ajoutes en VIP passent avant les lieux
+ * simples ». Soit trois familles, dans cet ordre : VILLE, VIP, SIMPLE.
+ *
+ * CE CONTROLE EXISTE PARCE QUE LE DEFAUT ETAIT REVENU PAR UNE AUTRE PORTE. Le classement
+ * respectait deja cet ordre ; mais la liste de resultats extrayait ensuite les partenaires VIP
+ * situes a moins de 60 km et les affichait EN TETE, avant tout le reste — y compris avant la
+ * ville. Deux mecanismes, dont le second defaisait le premier.
+ *
+ * C'est le genre de defaut qu'un test de classement ne peut pas voir : `classerPoint18` rendait
+ * le bon ordre, et la faute se produisait apres lui.
+ */
+console.log('\nVILLE, PUIS VIP, PUIS LE RESTE');
+
+const troisFamilles: Fiche[] = [
+  /* Un partenaire VIP tout proche, dont le nom contient celui de la ville : le cas qui fait
+   * tomber a peu pres tous les classements naifs. */
+  { name: 'Tipaza Pneus', lat: 36.75, lon: 3.058, source: 'win', vip: true },
+  /* Un lieu simple ajoute par un utilisateur, plus proche encore. */
+  { name: 'Tipaza Auto', lat: 36.752, lon: 3.059, source: 'win' },
+  /* La ville, a soixante kilometres. */
+  { name: 'Tipaza', lat: 36.59, lon: 2.45, osmKey: 'place', osmValue: 'city', type: 'city', source: 'photon' },
+];
+const r8 = classer(troisFamilles, 'Tipaza', ALGER);
+verifier(
+  'la ville passe devant le partenaire VIP, pourtant 60 km plus pres',
+  r8[0]?.name === 'Tipaza',
+  r8.map((r) => r.name).join(' · '),
+);
+verifier(
+  'le partenaire VIP passe devant le lieu simple, pourtant plus proche',
+  r8.findIndex((r) => r.name === 'Tipaza Pneus') < r8.findIndex((r) => r.name === 'Tipaza Auto'),
+  "c'est la seule chose que le statut VIP achete : le rang, pas la premiere place",
+);
+
+/* LE CONTROLE SUR LE TEXTE, parce qu'un test de classement ne voit pas ce qui se passe APRES
+ * lui. La remontee separee des partenaires vivait dans la liste de resultats, bien au-dela de
+ * `classerPoint18`, et c'est pourtant elle qui defaisait l'ordre. */
+console.log('\nRIEN NE REMONTE LES PARTENAIRES APRES LE CLASSEMENT');
+const resultats = readFileSync(resolve('apps/mobile/src/components/SearchResults.tsx'), 'utf8');
+verifier(
+  "la liste de resultats n'extrait plus les partenaires en tete",
+  !/partners\.map\(/.test(resultats),
+  'ils gardent leur etoile a leur rang, ou le classement les a places',
+);
+verifier(
+  'elle les dessine toujours differemment',
+  /r\.isPartner \? \(/.test(resultats),
+  'la mise en avant visuelle reste : seul le passe-droit sur la ville disparait',
+);
+
 console.log("\nLE CAS « CONSTANTINE » : UNE VILLE HOMONYME PLUS PROCHE");
 const constantine: Fiche[] = [
   { name: 'Gué de Constantine', lat: 36.68, lon: 3.06, osmKey: 'place', osmValue: 'town', type: 'town', source: 'photon' },

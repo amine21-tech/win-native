@@ -2617,7 +2617,6 @@ ${t(`report.badge_${report.kind}`)}`,
             setResultsOpen(true);
           }}
           loading={search.loading}
-          partners={search.partners}
           results={search.results}
           onSelectResult={takeDetour}
           colors={colors}
@@ -2651,8 +2650,7 @@ ${t(`report.badge_${report.kind}`)}`,
               visible
               loading={search.loading}
               showBookmarks={false}
-              partners={search.partners}
-              results={search.results}
+                  results={search.results}
               favorites={places.favorites}
               history={places.history}
               onSelectResult={takeDetour}
@@ -2703,7 +2701,6 @@ ${t(`report.badge_${report.kind}`)}`,
           visible={resultsVisible}
           loading={search.loading}
           showBookmarks={showBookmarks}
-          partners={search.partners}
           results={search.results}
           favorites={places.favorites}
           history={places.history}

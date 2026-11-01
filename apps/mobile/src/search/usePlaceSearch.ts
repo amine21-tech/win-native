@@ -49,7 +49,6 @@ const DEBOUNCE_MS = 150;
 
 const CACHE_TTL_MS = 3 * 60 * 1000;
 /** Un partenaire au-dela de cette distance n'est plus mis en avant (reste trouvable par son nom). */
-const VIP_RADIUS_M = 60_000;
 /** Rayon interroge pour une rubrique. 50 km couvre une wilaya entiere. */
 const RUBRIQUE_RAYON_KM = 50;
 
@@ -347,7 +346,7 @@ async function runCategorySearch(
   // partenaires y gardent leur etoile a leur vraie place. Remonter un partenaire situe a
   // 40 km au-dessus d'un mecanicien a 500 m rendait la rubrique inutilisable.
   // La recherche par NOM, elle, conserve la mise en avant (voir runTextSearch).
-  return { partners: [], results: ranked, complet: win.ok && dehorsOk };
+  return { results: ranked, complet: win.ok && dehorsOk };
 }
 
 function toGeocoded(c: { name: string; lat: number; lon: number }, source: GeocodedResult['source']): GeocodedResult {
@@ -373,15 +372,25 @@ function haversineM(a: Coords, b: Coords): number {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-/** Separe les partenaires VIP (mis en avant) du reste, comme le fait renderResults() en v83. */
-function partition(results: (GeocodedResult & { distanceM?: number })[], complet: boolean): SearchOutcome {
-  const partners = results.filter((r) => r.isPartner && (r.distanceM == null || r.distanceM <= VIP_RADIUS_M));
-  const others = results.filter((r) => !partners.includes(r));
-  return { partners, results: others, complet };
-}
-
+/**
+ * LA REMONTEE SEPAREE DES PARTENAIRES A ETE RETIREE — 2 novembre.
+ *
+ * Elle existait depuis la v83 : les partenaires VIP situes a moins de 50 km etaient extraits
+ * de la liste et affiches EN TETE, avant tout le reste. Cela s'est mis a contredire la regle
+ * que le client vient de rappeler : << les grandes villes sont avantagees par rapport aux
+ * lieux ajoutes par des clients ; les lieux ajoutes en VIP passent avant les lieux simples >>.
+ *
+ * Autrement dit : ville, PUIS vip, PUIS le reste. Or ce bloc mettait le VIP avant la ville —
+ * taper << Tipaza >> ramenait << Tipaza Pneus >>, partenaire a Alger, au-dessus de la ville de
+ * Tipaza. C'est exactement le defaut que le point 18 avait corrige dans le classement, et que
+ * cette remontee defaisait juste apres.
+ *
+ * Il n'y a plus besoin de deux mecanismes : `classerPoint18` place deja les partenaires au
+ * deuxieme palier, et la liste de resultats dessine une ligne de partenaire des qu'un resultat
+ * porte `isPartner`. La mise en avant VISUELLE est donc intacte ; seul le passe-droit sur la
+ * ville disparait.
+ */
 export type SearchOutcome = {
-  partners: GeocodedResult[];
   results: GeocodedResult[];
   /**
    * Toutes les sources ont-elles repondu ? Faux quand NOS fiches ont manque a l'appel. Une
@@ -432,12 +441,19 @@ async function runTextSearch(
    * << Tipaza Pneus >> enregistre a Alger. */
   const classe = classerPoint18(hoistOwnPlaces(ranked, q), {
     estVilleExacte: (r) => r.exactCity === true,
-    estVip: (r) => estEnregistre(r, vip),
+    /* << VIP >> COUVRE DEUX CHOSES, et c'est voulu : les lieux enregistres comme PARTENAIRES
+     * (ajoutes avec le code VIP, `isPartner`) et les adresses que l'utilisateur a lui-meme
+     * mises de cote. Les deux sont des resultats CHOISIS, par le client ou par l'utilisateur,
+     * la ou le reste est anonyme. Entre eux, la distance tranche.
+     *
+     * Le palier ne couvrait que les favoris jusqu'au 2 novembre : un partenaire VIP ne devait
+     * sa place qu'au bloc separe ci-dessous, qui le faisait passer DEVANT la ville. */
+    estVip: (r) => r.isPartner === true || estEnregistre(r, vip),
     distanceM: (r) => r.distanceM,
   });
 
   // Une liste n'est complete que si LES DEUX sources ont repondu.
-  return partition(classe, win.ok && dehors.ok);
+  return { results: classe, complet: win.ok && dehors.ok };
 }
 
 /**
@@ -511,7 +527,7 @@ export function usePlaceSearch(here: Coords | null, lang: Language) {
   // ("pharmacy"), qui seule est reconnue par resolveCategoryQuery dans les 4 langues.
   const [displayValue, setDisplayValue] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [outcome, setOutcome] = useState<SearchOutcome>({ partners: [], results: [], complet: true });
+  const [outcome, setOutcome] = useState<SearchOutcome>({ results: [], complet: true });
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestId = useRef(0);
@@ -588,7 +604,7 @@ export function usePlaceSearch(here: Coords | null, lang: Language) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const trimmed = searchTerm.trim();
     if (trimmed.length < 2) {
-      setOutcome({ partners: [], results: [], complet: true });
+      setOutcome({ results: [], complet: true });
       setLoading(false);
       return;
     }
@@ -603,7 +619,6 @@ export function usePlaceSearch(here: Coords | null, lang: Language) {
     setQuery,
     searchCategory,
     loading,
-    partners: outcome.partners,
     results: outcome.results,
   };
 }
