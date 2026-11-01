@@ -318,7 +318,22 @@ function pointAtDistance(route: Route, metres: number): [number, number] | null 
  * fond devant. Le chemin parcouru reste reconnaissable comme etant le trajet — ce que le gris
  * ne disait pas — et il n'y a plus qu'une valeur a comprendre.
  */
-const OPACITE_PARCOURU = 0.25;
+/**
+ * OPACITE DE LA PORTION DEJA PARCOURUE — mise a 1 le 1er novembre, a la demande du client.
+ *
+ * Le trace s'affichait en deux teintes : vert pale derriere le vehicule, vert franc devant.
+ * L'idee etait de montrer d'un coup d'oeil ou l'on en est. Le client la refuse : << la couleur
+ * sera verte, je ne veux pas de degradement de la couleur, ce sera tres vert >>.
+ *
+ * Il a une raison que la capture rend evidente : sur une carte claire, le vert a 25 % ne se
+ * distingue plus d'une route ordinaire. Le trace semblait COUPE au niveau du vehicule, comme
+ * si l'itineraire commencait la — alors qu'on voulait seulement dire qu'il etait deja fait.
+ *
+ * La valeur reste une constante plutot qu'une suppression du code : les bandes de trafic
+ * passent par le meme mecanisme, et le jour ou l'on voudra remontrer la progression, il n'y a
+ * qu'un nombre a changer.
+ */
+const OPACITE_PARCOURU = 1;
 
 /**
  * COLORATION DU TRAFIC SUR LE TRACE (point 6 du client, 27 octobre).
@@ -2759,9 +2774,25 @@ ${t(`report.badge_${report.kind}`)}`,
 
       {/* CARTE D'ALERTE COMPACTE (point 17). Elle ne remplace pas la feuille de vote : elle
           remplace le fait de l'IMPOSER a l'approche. */}
+      {/* SOUS LA BANDE DE DIRECTION, entre les pastilles de vitesse et la colonne de boutons
+          (demande du 1er novembre). Elle etait en bas a gauche, ou elle recouvrait le bouton
+          « Recentrer » et mordait sur le cadre de progression depuis que la consigne de
+          conduite est remontee dans le bandeau.
+
+          Hors navigation il n'y a pas de bandeau : on repart alors du bas de l'en-tete, pour
+          que la carte ne se colle pas a la barre d'etat. */}
       <AlerteApproche
         report={approche?.report ?? null}
         distanceM={approche?.distanceM ?? null}
+        top={
+          (navBounds.bannerBottom > 0
+            ? navBounds.bannerBottom
+            : insets.top + HEADER_HEIGHT + (topBlockH || HIT_SIZE)) + spacing.sm
+        }
+        // Degage les deux pastilles de vitesse, posees a gauche sous le bandeau.
+        left={spacing.md + 72}
+        // Degage la colonne de boutons, comme le bandeau des alertes officielles.
+        right={spacing.lg + fabPrimarySize + spacing.md}
         onGarder={() => setApproche(null)}
         onDesactiver={() => {
           setApproche(null);

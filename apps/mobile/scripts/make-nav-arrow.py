@@ -50,9 +50,12 @@ TAILLE_DP = 40
 # large, et un creux a l'arriere — c'est ce creux qui donne la direction au premier coup d'oeil
 # la ou un triangle plat parait pose au hasard.
 BOX = 128.0
-TIP_Y, BASE_Y, NOTCH_Y, HALF_WIDTH = 30.0, 100.0, 84.0, 30.0
-RAYON_DISQUE = 52.0
-EPAISSEUR_ANNEAU = 3.0
+TIP_Y, BASE_Y, NOTCH_Y, HALF_WIDTH = 16.0, 108.0, 88.0, 40.0
+
+# L'OR DES MARQUEURS WIN, qui remplace le disque blanc retire le 1er novembre a la demande du
+# client. Memes valeurs que OR_MARQUEUR dans src/map/signalisation.ts.
+OR = (212, 160, 23)
+EPAISSEUR_LISERE = 3.5
 
 
 def make_arrow(nom, couleur, scale):
@@ -74,15 +77,17 @@ def make_arrow(nom, couleur, scale):
         dessin_halo.ellipse([c - r, c - r, c + r, c + r], fill=couleur + (a,))
     img.alpha_composite(halo)
 
-    # 2) LE DISQUE BLANC, puis la fleche par-dessus.
+    # 2) LA FLECHE VERTE, CERNEE D'OR.
     #
-    #    La fleche etait remplie de la couleur de l'itineraire et posee SUR cet itineraire :
-    #    deux surfaces de la meme teinte l'une sur l'autre ne font qu'une seule forme, et il ne
-    #    restait d'elle que son liseré blanc de deux pixels. Un disque blanc OPAQUE regle cela a
-    #    la source — ce n'est plus le fond de carte qui porte la fleche mais un fond a nous.
-    #    L'anneau sombre sert au cas inverse : sur le beige clair du fond, un disque blanc sans
-    #    contour se dissout a son tour.
-    k = (S * 0.70) / BOX
+    #    Un disque blanc opaque occupait cette place : la fleche etait remplie de la couleur de
+    #    l'itineraire et posee SUR cet itineraire, donc invisible, et il ne restait d'elle qu'un
+    #    lisere de deux pixels. Le client demande aujourd'hui de revenir au curseur d'avant,
+    #    << vert avec un petit peu de jaune >>, sans ce fond blanc.
+    #
+    #    On retire le disque sans ramener le defaut : le lisere passe du blanc a l'or de WIN, en
+    #    3,5 points. L'or entoure deja tous les marqueurs de l'application, il se detache du vert
+    #    du trace comme du beige du fond, et c'est exactement le jaune demande.
+    k = (S * 0.86) / BOX
     ox = c - (BOX / 2.0) * k
     oy = c - (BOX / 2.0) * k
 
@@ -96,14 +101,12 @@ def make_arrow(nom, couleur, scale):
         pt(BOX / 2 - HALF_WIDTH, BASE_Y),
     ]
     dessin = ImageDraw.Draw(img)
-    r = RAYON_DISQUE * k
-    dessin.ellipse(
-        [c - r, c - r, c + r, c + r],
-        fill=(255, 255, 255, 255),
-        outline=(0, 0, 0, 56),
-        width=max(1, int(EPAISSEUR_ANNEAU * k)),
+    dessin.polygon(
+        triangle,
+        fill=couleur + (255,),
+        outline=OR + (255,),
+        width=max(1, int(EPAISSEUR_LISERE * k)),
     )
-    dessin.polygon(triangle, fill=couleur + (255,))
 
     suffix = '' if scale == 1 else '@%dx' % scale
     petit = img.resize((S // SS, S // SS), Image.LANCZOS)

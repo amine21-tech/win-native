@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 /**
  * Fleche de position pendant le guidage.
@@ -22,31 +22,32 @@ const BOX = 128;
 const CX = BOX / 2;
 
 /**
- * LE DISQUE BLANC EST LE CORRECTIF, PAS UN ORNEMENT.
+ * LE DISQUE BLANC EST RETIRE, A LA DEMANDE DU CLIENT — 1er novembre.
  *
- * La fleche etait remplie de la couleur de l'itineraire, et posee SUR cet itineraire : deux
- * surfaces de la meme teinte l'une sur l'autre ne font qu'une seule forme. Il ne restait d'elle
- * que son liseré blanc — deux pixels de large a l'ecran — ce qui donnait le trait fin et
- * incertain que le client a releve. Le commentaire d'origine avait vu le risque et comptait sur
- * ce liseré pour y parer ; il etait trop mince pour cela.
+ * Il avait ete ajoute pour une vraie raison : la fleche etait remplie de la couleur de
+ * l'itineraire et posee SUR cet itineraire ; deux surfaces de la meme teinte l'une sur
+ * l'autre ne font qu'une seule forme, et il ne restait d'elle qu'un lisere blanc de deux
+ * pixels. Le client avait lui-meme signale ce trait fin et incertain.
  *
- * Un disque blanc OPAQUE dessous regle le probleme a la source : quoi qu'il y ait sous le
- * curseur — le trace vert, une route jaune, un parc — la fleche se detache toujours, puisque
- * ce n'est plus le fond de carte qui la porte mais un fond a nous.
+ * Il demande aujourd'hui de revenir au curseur d'avant, << vert avec un petit peu de jaune >>,
+ * sans ce fond blanc. On applique sa demande — mais pas au prix du defaut qu'elle avait
+ * corrige : le lisere passe du blanc a l'OR de WIN, en 3,5 points au lieu de 2. L'or est la
+ * couleur qui entoure deja tous les marqueurs de l'application, il se detache du vert du trace
+ * comme du beige du fond, et il donne exactement le << petit peu de jaune >> demande.
  *
- * L'anneau sombre qui le borde sert au cas inverse : sur le beige clair du fond de carte, un
- * disque blanc sans contour se dissout a son tour.
+ * La fleche retrouve aussi sa taille d'origine — pointe a 16, base a 108, demi-largeur 40 —
+ * qui avait ete reduite pour tenir dans le disque disparu.
  */
-const RAYON_DISQUE = 52;
-const EPAISSEUR_ANNEAU = 3;
+/** L'or des marqueurs WIN, repris de signalisation.ts. */
+const OR = '#D4A017';
+const EPAISSEUR_LISERE = 3.5;
 
 /** Pointe, base et creux arriere : un triangle dont le bas est legerement rentre, ce qui lui
- * donne sa direction d'un coup d'oeil la ou un triangle plat parait pose au hasard.
- * Il est RETRECI pour tenir dans le disque, avec de la marge blanche tout autour. */
-const TIP_Y = 30;
-const BASE_Y = 100;
-const HALF_WIDTH = 30;
-const NOTCH_Y = 84;
+ * donne sa direction d'un coup d'oeil la ou un triangle plat parait pose au hasard. */
+const TIP_Y = 16;
+const BASE_Y = 108;
+const HALF_WIDTH = 40;
+const NOTCH_Y = 88;
 
 const PATH = [
   `M ${CX} ${TIP_Y}`,
@@ -94,16 +95,14 @@ export function NavArrow({ size, color = '#0D6E4F' }: { size: number; color?: st
         ]}
       />
       <Svg width={size} height={size} viewBox={`0 0 ${BOX} ${BOX}`}>
-        {/* Le disque, puis la fleche par-dessus : voir la note en tete de fichier. */}
-        <Circle
-          cx={CX}
-          cy={CX}
-          r={RAYON_DISQUE}
-          fill="#FFFFFF"
-          stroke="rgba(0,0,0,0.22)"
-          strokeWidth={EPAISSEUR_ANNEAU}
+        {/* La fleche verte, cernee d'or : voir la note en tete de fichier. */}
+        <Path
+          d={PATH}
+          fill={color}
+          stroke={OR}
+          strokeWidth={EPAISSEUR_LISERE}
+          strokeLinejoin="round"
         />
-        <Path d={PATH} fill={color} strokeLinejoin="round" />
       </Svg>
     </View>
   );

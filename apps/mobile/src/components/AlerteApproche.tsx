@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { REPORT_EMOJI } from '../reports/kinds';
 import { REPORT_COLORS } from '../map/style';
 import { formatDistance, type Report } from '../shared';
@@ -25,15 +24,27 @@ import { radius, spacing } from '../theme';
  * feuille de vote complete comme avant. Ce qui change, c'est qu'on ne la subit plus : on la
  * demande.
  *
- * BAS-GAUCHE, AU-DESSUS DE LA BARRE ANDROID. La colonne des dix boutons occupe la droite, la
- * consigne de conduite occupe le haut : le coin bas-gauche est le seul endroit libre pendant
- * la navigation. La barre systeme n'est jamais couverte — le client l'ecrit deux fois.
+ * ELLE REMONTE SOUS LA BANDE DE DIRECTION — 1er novembre.
+ *
+ * Elle vivait en bas a gauche, seul endroit libre tant que la consigne de conduite occupait
+ * elle-meme le bas de l'ecran. Depuis que la consigne est rentree dans le bandeau du haut, ce
+ * coin ne l'est plus : la carte s'y est deplacee, et la capture du client le montre — l'alerte
+ * recouvre le bouton << Recentrer >> et mord sur le cadre de progression.
+ *
+ * Elle se pose donc JUSTE SOUS le bandeau, a droite des deux pastilles de vitesse et a gauche
+ * de la colonne de boutons. C'est la seule bande horizontale libre de l'ecran, et elle a
+ * l'avantage d'etre a cote de ce qu'on regarde deja : la consigne de conduite.
+ *
+ * ET ELLE RETRECIT. Le client demande qu'elle << ne gene pas pour avoir l'itineraire >>. Sa
+ * largeur n'est plus fixe : elle occupe ce qui reste entre les pastilles et les boutons, et
+ * les corps de texte perdent un a deux points. Une carte d'avertissement n'a pas besoin d'etre
+ * grande pour etre lue — elle a besoin d'etre AILLEURS que sur la route.
  */
 
-/** 230 x 110 points, valeurs du client. La hauteur n'est pas imposee : elle s'adapte au texte,
- *  le minimum garantissant que la carte ne se reduise jamais a une ligne illisible. */
-const LARGEUR = 230;
-const HAUTEUR_MIN = 110;
+/** Largeur maximale. La carte prend ce qui reste entre les pastilles de vitesse et la colonne
+ *  de boutons, sans jamais depasser cette valeur : sur une tablette, une carte de 400 points
+ *  de large pour trois lignes de texte serait ridicule. */
+const LARGEUR_MAX = 230;
 
 /** Epaisseur de la barre de couleur en tete de carte (5 dp chez le client). */
 const BARRE = 5;
@@ -53,21 +64,31 @@ type Props = {
   onGarder: () => void;
   /** « OUI, desactiver » : les alertes de proximite s'arretent, jusqu'a reactivation. */
   onDesactiver: () => void;
+  /** Bas du bandeau du haut : la carte se pose juste dessous. */
+  top: number;
+  /** Largeur de la colonne de boutons a degager, a droite. */
+  right: number;
+  /** Largeur des pastilles de vitesse a degager, a gauche. */
+  left: number;
 };
 
-export function AlerteApproche({ report, distanceM, onGarder, onDesactiver }: Props) {
+export function AlerteApproche({
+  report,
+  distanceM,
+  onGarder,
+  onDesactiver,
+  top,
+  right,
+  left,
+}: Props) {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   if (!report) return null;
 
   const couleur = REPORT_COLORS[report.kind] ?? VERT;
   const libelle = t(`report.${report.kind}`);
 
   return (
-    <View
-      style={[styles.ancrage, { bottom: spacing.md + insets.bottom, left: spacing.md }]}
-      pointerEvents="box-none"
-    >
+    <View style={[styles.ancrage, { top, left, right }]} pointerEvents="box-none">
       <View style={styles.carte}>
         {/* LA CROIX DE FERMETURE (correction C7 du 31 octobre). La carte se referme deja
             seule au bout de six secondes ; la croix sert a celui qui veut la retirer TOUT DE
@@ -148,8 +169,7 @@ export function AlerteApproche({ report, distanceM, onGarder, onDesactiver }: Pr
 const styles = StyleSheet.create({
   ancrage: { position: 'absolute' },
   carte: {
-    width: LARGEUR,
-    minHeight: HAUTEUR_MIN,
+    maxWidth: LARGEUR_MAX,
     backgroundColor: FOND,
     /* BORDURE VERTE FINE, coins de 12 (correction C6 du 31 octobre). Un point d'epaisseur
      * suffit : la carte est posee sur une carte routiere dont les teintes changent sans arret,
@@ -185,14 +205,14 @@ const styles = StyleSheet.create({
   symbole: { fontSize: 11 },
 
   titres: { flex: 1, minWidth: 0 },
-  nom: { color: TEXTE, fontSize: 13, fontWeight: '800' as const },
-  sousTitre: { color: TEXTE_DOUX, fontSize: 10 },
+  nom: { color: TEXTE, fontSize: 12, fontWeight: '800' as const },
+  sousTitre: { color: TEXTE_DOUX, fontSize: 9.5 },
 
   badge: { borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
-  badgeTexte: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' as const },
+  badgeTexte: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' as const },
 
   trait: { height: StyleSheet.hairlineWidth, backgroundColor: TRAIT, marginVertical: 1 },
-  question: { color: TEXTE, fontSize: 11, fontWeight: '700' as const },
+  question: { color: TEXTE, fontSize: 10, fontWeight: '700' as const },
 
   boutons: { flexDirection: 'row', gap: 6 },
   oui: {
@@ -202,9 +222,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     alignItems: 'center',
   },
-  ouiTexte: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' as const },
+  ouiTexte: { color: '#FFFFFF', fontSize: 9.5, fontWeight: '800' as const },
   non: { flex: 1, borderRadius: radius.sm, paddingVertical: 6, alignItems: 'center' },
-  nonTexte: { color: TEXTE, fontSize: 10, fontWeight: '800' as const },
+  nonTexte: { color: TEXTE, fontSize: 9.5, fontWeight: '800' as const },
 
   etat: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   point: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2BA84A' },

@@ -76,16 +76,29 @@ verifier(
 print("\nPOINT 17 — carte d'alerte compacte (tableau du client)")
 src = lire(ALERTE)
 
-verifier('largeur : 230 points', 'LARGEUR = 230' in src, valeur(src, r'LARGEUR = (\d+)'))
-verifier('hauteur : 110 points', 'HAUTEUR_MIN = 110' in src, valeur(src, r'HAUTEUR_MIN = (\d+)'))
+# LA CARTE A CHANGE DE PLACE LE 1er NOVEMBRE, et ce controle suit la derniere demande en
+# gardant la trace de la precedente.
+#   29/10 : 230 x 110 points, ancree en BAS A GAUCHE, au-dessus de la barre Android. C'etait
+#           le seul coin libre tant que la consigne de conduite occupait elle-meme le bas.
+#   01/11 : la consigne est rentree dans le bandeau du haut ; le bas a gauche a cesse d'etre
+#           libre — la capture du client montre la carte par-dessus « Recentrer » et le cadre
+#           de progression. Elle remonte sous la bande de direction et retrecit.
+# Sans cette note, on relira le point 17 du 29 octobre et on croira a une regression.
+verifier(
+    'largeur : au plus 230 points, mais plus imposee',
+    'LARGEUR_MAX = 230' in src,
+    'elle prend ce qui reste entre les pastilles de vitesse et la colonne de boutons',
+)
 verifier('barre de couleur en tete : 5 points', 'BARRE = 5' in src)
 verifier(
-    'position : bas-gauche',
-    'bottom:' in src and 'left:' in src and "position: 'absolute'" in src,
+    'position : sous la bande de direction, et non plus en bas',
+    'top,' in src and 'left,' in src and 'right,' in src and "position: 'absolute'" in src,
+    'le point 17 du 29 octobre la voulait en bas a gauche',
 )
 verifier(
-    'la barre systeme Android n\'est jamais couverte',
-    'insets.bottom' in src and 'useSafeAreaInsets' in src,
+    'elle ne couvre plus le cadre de progression ni le bouton Recentrer',
+    'bottom:' not in src and 'insets.bottom' not in src,
+    "c'est ce que la capture du 1er novembre reprochait",
 )
 verifier('panneau triangulaire + symbole, 22 points', 'width: 22' in src and 'height: 22' in src)
 verifier('badge de distance', 'badge' in src and 'formatDistance' in src)
