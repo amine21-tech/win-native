@@ -10,114 +10,43 @@ import {
   type Alerte,
 } from '@win/shared';
 import { db } from '../db/client.js';
-import { env } from '../env.js';
-import { badRequest, HttpError, noStore, parse } from '../lib/http.js';
+import { badRequest, noStore, parse } from '../lib/http.js';
 
 /**
  * ALERTES OFFICIELLES — vigilance foret, vigilance meteo, fetes et commemorations.
  *
- * QUATRE ROUTES : une publique que l'application interroge a chaque ouverture, trois protegees
- * par le code a quatre chiffres que seul le panneau administrateur appelle.
+ * QUATRE ROUTES : une publique que l'application interroge a chaque ouverture, trois reservees
+ * a l'espace administrateur.
  *
- * LE CODE N'EST PAS DANS L'APPLICATION, et ce n'est pas une precaution de principe : le site
- * portait le sien en clair dans son index.html, donc lisible par quiconque affichait le code
- * source de la page. Il a ete retire pour cette raison. Le mettre dans l'application Android
- * reviendrait au meme — un .apk se decompresse en une commande.
+ * IL N'Y A PAS DE SECOND CODE, ET C'EST UNE CORRECTION DE FOND. Le cahier des charges en
+ * demande un, a quatre chiffres, avec limitation des essais et blocage de quinze minutes.
+ * C'est ce qui a ete ecrit d'abord, puis retire — parce que le client a pose la bonne
+ * question : il a deja un mot de passe pour entrer dans l'espace administrateur, pourquoi en
+ * redemander un second une fois qu'il est dedans ?
  *
- * Il vit donc dans ADMIN_CODE, sur le serveur, et le fondateur le change sans republier
- * l'application. Le depot GitHub est PUBLIC : ce fichier ne doit jamais contenir le code, ni
- * un commentaire qui le donne en exemple.
+ * La reponse est que ce code n'a jamais ete concu pour notre application. Le document est
+ * ecrit pour la version HTML du site, qui n'avait aucun compte : son seul moyen de proteger
+ * une page etait un nombre ecrit dans le code source — d'ou les quatre chiffres, et d'ou
+ * l'insistance du document a ne pas les mettre dans l'application.
  *
- * QUATRE CHIFFRES, C'EST DIX MILLE COMBINAISONS. Un programme les essaie toutes en quelques
- * minutes sur une route sans limite. La limitation d'essais n'est donc pas un confort, c'est
- * la seule chose qui tient ce code debout — le cahier des charges le dit lui-meme.
+ * L'application native, elle, a de vrais comptes : adresse, mot de passe hache en argon2,
+ * role, jeton signe, expiration. Poser un code a quatre chiffres par-dessus revient a ajouter
+ * une serrure PLUS FAIBLE sur une porte deja fermee : dix mille combinaisons contre un mot de
+ * passe, et un secret de plus a transmettre, a retenir et a changer.
+ *
+ * Les trois routes protegees utilisent donc `requireAdmin`, comme /admin/stats et toutes les
+ * autres. Le panneau des alertes devient une section de l'espace administrateur existant.
  */
-
-/* ------------------------------------------------------------------ */
-/* Le code administrateur                                              */
-/* ------------------------------------------------------------------ */
 
 /**
- * Comparaison a duree constante.
+ * Adresse de l'appareil qui publie, pour le journal des activations.
  *
- * POURQUOI PAS UN SIMPLE `===`. L'egalite de chaines s'arrete au premier caractere different :
- * un code commencant par le bon chiffre met tres legerement plus longtemps a etre refuse qu'un
- * autre. Sur dix mille essais, cet ecart se mesure, et il permet de trouver le code chiffre par
- * chiffre — quarante essais au lieu de dix mille.
- *
- * L'attaque est theorique a travers un reseau, ou la variation du reseau couvre largement la
- * microseconde en question. Elle coute ici trois lignes, et on ne veut pas avoir a juger
- * ensuite si le reseau etait assez bruyant.
+ * On garde le journal meme sans code partage : plusieurs personnes peuvent avoir un compte
+ * administrateur, et le jour ou une banniere apparait sans que personne ne reconnaisse
+ * l'avoir allumee, c'est la seule chose qui permettra de repondre.
  */
-function codeIdentique(fourni: string, attendu: string): boolean {
-  if (fourni.length !== attendu.length) return false;
-  let ecart = 0;
-  for (let i = 0; i < fourni.length; i++) {
-    ecart |= fourni.charCodeAt(i) ^ attendu.charCodeAt(i);
-  }
-  return ecart === 0;
-}
-
-/**
- * Blocage apres cinq essais rates en une minute, pendant quinze minutes.
- *
- * Valeurs du cahier des charges. Le compte est tenu PAR ADRESSE et en memoire : un redemarrage
- * de l'API le remet a zero, ce qui est acceptable — l'API ne redemarre pas toutes les minutes,
- * et celui qui essaie dix mille codes n'a aucun moyen de la faire redemarrer.
- *
- * LES ESSAIS REUSSIS NE COMPTENT PAS, et le compteur est remis a zero par une reussite. Le
- * fondateur qui se trompe deux fois puis entre le bon code ne doit pas rester a deux essais du
- * blocage pour le reste de l'heure.
- */
-const ESSAIS_MAX = 5;
-const FENETRE_MS = 60_000;
-const BLOCAGE_MS = 15 * 60_000;
-
-type Compteur = { essais: number[]; bloqueJusqua: number };
-const compteurs = new Map<string, Compteur>();
-
 function adresse(req: FastifyRequest): string {
   return req.ip ?? 'inconnue';
-}
-
-/** Purge les adresses dont plus rien n'est vivant : sans cela, la table grandit sans fin. */
-function nettoyer(maintenant: number) {
-  for (const [cle, c] of compteurs) {
-    const vivant =
-      c.bloqueJusqua > maintenant || c.essais.some((t) => maintenant - t < FENETRE_MS);
-    if (!vivant) compteurs.delete(cle);
-  }
-}
-
-function verifierCode(req: FastifyRequest): void {
-  const maintenant = Date.now();
-  if (compteurs.size > 500) nettoyer(maintenant);
-
-  const cle = adresse(req);
-  const c = compteurs.get(cle) ?? { essais: [], bloqueJusqua: 0 };
-
-  if (c.bloqueJusqua > maintenant) {
-    const minutes = Math.ceil((c.bloqueJusqua - maintenant) / 60_000);
-    throw new HttpError(429, 'trop_d_essais', `Trop d'essais. Reessayez dans ${minutes} min.`);
-  }
-
-  const fourni = String(req.headers['x-admin-code'] ?? '');
-  if (codeIdentique(fourni, env.ADMIN_CODE)) {
-    compteurs.delete(cle);
-    return;
-  }
-
-  c.essais = c.essais.filter((t) => maintenant - t < FENETRE_MS);
-  c.essais.push(maintenant);
-  if (c.essais.length >= ESSAIS_MAX) {
-    c.bloqueJusqua = maintenant + BLOCAGE_MS;
-    c.essais = [];
-  }
-  compteurs.set(cle, c);
-
-  /* LE MESSAGE NE DIT PAS COMBIEN D'ESSAIS RESTENT. Il dirait a celui qui cherche le code
-   * exactement quand s'arreter pour ne pas se faire bloquer. */
-  throw new HttpError(401, 'code_incorrect', 'Code incorrect.');
 }
 
 /* ------------------------------------------------------------------ */
@@ -217,12 +146,11 @@ const routes: FastifyPluginAsync = async (app) => {
   /**
    * Le panneau administrateur : les deux vigilances et les douze fetes, actives ou non.
    *
-   * C'est aussi la route qui VALIDE LE CODE : le panneau l'appelle en premier, et un 401 lui
-   * fait afficher << Code incorrect. >> sans rien ouvrir. Il n'y a donc pas de route de
-   * connexion separee — elle ne ferait que renvoyer la meme reponse deux fois.
+   * ACTIVES OU NON, et c'est tout l'interet : le panneau doit montrer les douze fetes
+   * ETEINTES pour qu'on puisse en allumer une. La route publique, elle, ne rend que les
+   * actives — personne d'autre n'a besoin de savoir ce qui existe.
    */
-  app.get('/admin/alertes', async (req, reply) => {
-    verifierCode(req);
+  app.get('/admin/alertes', { preHandler: [app.requireAdmin] }, async (_req, reply) => {
     noStore(reply);
     const rows = (await db.execute(sql`
       SELECT type, id, active, phenomena, wilayas, message, until, updated_at AS "updatedAt"
@@ -235,8 +163,7 @@ const routes: FastifyPluginAsync = async (app) => {
   });
 
   /** Publier une vigilance : `:type` vaut `fire` ou `weather`. */
-  app.put('/admin/alertes/:type', async (req, reply) => {
-    verifierCode(req);
+  app.put('/admin/alertes/:type', { preHandler: [app.requireAdmin] }, async (req, reply) => {
     noStore(reply);
 
     const { type } = req.params as { type: string };
@@ -287,8 +214,7 @@ const routes: FastifyPluginAsync = async (app) => {
   });
 
   /** Allumer ou eteindre une fete du catalogue. */
-  app.put('/admin/alertes/event/:id', async (req, reply) => {
-    verifierCode(req);
+  app.put('/admin/alertes/event/:id', { preHandler: [app.requireAdmin] }, async (req, reply) => {
     noStore(reply);
 
     const { id } = req.params as { id: string };

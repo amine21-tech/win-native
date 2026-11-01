@@ -99,25 +99,6 @@ const schema = z.object({
    */
   CONTRIBUTOR_CODE: z.string().min(4).default('0000'),
 
-  /**
-   * Code a quatre chiffres du panneau des ALERTES OFFICIELLES (vigilance foret, vigilance
-   * meteo, fetes). Un seul code, choisi par le fondateur, qui peut le confier a un
-   * administrateur.
-   *
-   * IL N'EST JAMAIS ECRIT DANS L'APPLICATION. Le meme code vivait dans l'index.html du site,
-   * donc lisible par quiconque affichait le code source de la page ; il en a ete retire pour
-   * cette raison. Un fichier .apk se decompresse en une commande : l'y remettre reviendrait
-   * exactement au meme.
-   *
-   * DISTINCT DU CODE VIP ET DU CODE CONTRIBUTEUR, comme le cahier des charges l'exige. Les
-   * reutiliser ferait qu'un partenaire commercial pourrait allumer une alerte nationale.
-   *
-   * La valeur par defaut n'ouvre rien d'utile : sans ADMIN_CODE sur le serveur, le panneau
-   * refuse tout. C'est voulu — mieux vaut un panneau inaccessible qu'un panneau ouvert avec
-   * un code devinable.
-   */
-  ADMIN_CODE: z.string().regex(/^\d{4}$/, 'ADMIN_CODE doit etre quatre chiffres').default('0000'),
-
   /** Origines autorisees, separees par des virgules. `*` en developpement. */
   CORS_ORIGINS: z.string().default('*'),
 
