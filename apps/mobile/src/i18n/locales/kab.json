@@ -699,5 +699,65 @@
     "copy": "Nɣel",
     "copied": "Tisekkadin ttwanɣlent.",
     "addPlace": "Rnu adeg-a"
+  },
+  "alertes": {
+    "weatherTitle": "Tamanegt n lǧu",
+    "zones": "Tamnaḍin:",
+    "inZone": "Tellid deg tmnaḍt yettwaḥesben",
+    "phenomenon": {
+      "rain": "Ageffur ameqqran neɣ lfiḍan: ɛeddi s leɛqel, senqes tazzla, ḥader tamnaḍin yettwaḥesben.",
+      "wind": "Aḍu iqwen neɣ lɛasfa: ɛeddi s leɛqel, ṭṭef ɣef usuɣu, senqes tazzla, ḥader tamnaḍin yettwaḥesben.",
+      "sand": "Aḍu n yirmel, tiwta n tmuɣli: senqes tazzla, rnu fell-as ifalen, ḥader tamnaḍin yettwaḥesben."
+    },
+    "event": {
+      "nov1": {
+        "title": "1 Nunember 1954",
+        "body": "Aseggas wis {{n}} seg usenker n tegrawla. Lɛezz d lḥerma i icahden-nneɣ, aḥurmu i imujahiden. Ad tidir Lezzayer!"
+      },
+      "jul5": {
+        "title": "5 Yulyu 1962 — Taɣellist",
+        "body": "Aseggas wis {{n}} n tlelli n Lezzayer. Lɛezz d lḥerma i icahden-nneɣ, aḥurmu i imujahiden."
+      },
+      "soummam": {
+        "title": "20 Ɣuct 1956 — Agraw n Ṣummam",
+        "body": "Imeqqranen n usenker ttemlilen akken ad xedmen tadbelt d usnerni imṣadan. Lɛezz d lḥerma i icahden-nneɣ, aḥurmu i imujahiden."
+      },
+      "achoura": {
+        "title": "Ɛacura",
+        "body": "Ad d-yawi wass-a talwit d lehna i yal yiwen. Ruḥ s leɛqel."
+      },
+      "fitr": {
+        "title": "Ɛid Mubarak",
+        "body": "Ɛidkem Mubarak! Ɛid ameggaz i yimezdaɣ meṛṛa. Ruḥ s leɛqel, ɛeddi s ttawil."
+      },
+      "adha": {
+        "title": "Ɛid Mubarak",
+        "body": "Ɛidkem Mubarak! Ɛid ameggaz i yimezdaɣ meṛṛa. Ruḥ s leɛqel, ɛeddi s ttawil."
+      },
+      "chahid": {
+        "title": "18 Fuṛaṛ — Ass aɣelnaw n ucahid",
+        "body": "Lɛezz i icahden-nneɣ i yeɣlin akken ad tidir Lezzayer. Ruḥ s leɛqel."
+      },
+      "victoire": {
+        "title": "19 Meɣres 1962 — Tameɣra n Rrbeḥ",
+        "body": "Aseggas wis {{n}} n uḥbas n umenɣi. Lɛezz d lḥerma i icahden-nneɣ, aḥurmu i imujahiden."
+      },
+      "memoire": {
+        "title": "8 Mayyu 1945 — Ass aɣelnaw n tektiwt",
+        "body": "I tektiwt n yimexsar n Sṭif, Gelma d Xerraṭa. Lɛezz d lḥerma i icahden-nneɣ."
+      },
+      "emigration": {
+        "title": "17 Tubeṛ 1961 — Ass aɣelnaw n tmestit",
+        "body": "I tektiwt n Yizzayriyen i yeɣlin di Paris. Lɛezz d lḥerma i icahden-nneɣ."
+      },
+      "mawlid": {
+        "title": "Mulud n Nnbi",
+        "body": "Mulud ameggaz i yimezdaɣ meṛṛa. Ruḥ s leɛqel."
+      },
+      "moharram": {
+        "title": "1 Muḥerrem",
+        "body": "Aseggas ameggaz n Hijra i yimezdaɣ meṛṛa. Ruḥ s leɛqel."
+      }
+    }
   }
 }

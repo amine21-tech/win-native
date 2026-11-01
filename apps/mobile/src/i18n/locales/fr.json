@@ -699,5 +699,65 @@
     "copy": "Copier",
     "copied": "Coordonnées copiées.",
     "addPlace": "Ajouter ce lieu"
+  },
+  "alertes": {
+    "weatherTitle": "Vigilance météo",
+    "zones": "Zones :",
+    "inZone": "Vous êtes dans une zone concernée",
+    "phenomenon": {
+      "rain": "Fortes pluies ou inondations : roulez prudemment, ralentissez et évitez les zones concernées.",
+      "wind": "Vents violents ou tempête : roulez prudemment, tenez bien le volant, ralentissez et évitez les zones concernées.",
+      "sand": "Vent de sable, visibilité réduite : ralentissez, allumez vos feux, gardez vos distances et évitez les zones concernées."
+    },
+    "event": {
+      "nov1": {
+        "title": "1er Novembre 1954",
+        "body": "{{n}} anniversaire du déclenchement de la Révolution. Gloire à nos martyrs et honneur aux moudjahidines. Vive l'Algérie !"
+      },
+      "jul5": {
+        "title": "5 juillet 1962 — Indépendance",
+        "body": "{{n}} anniversaire de l'indépendance de l'Algérie. Gloire à nos martyrs et honneur aux moudjahidines."
+      },
+      "soummam": {
+        "title": "20 août 1956 — Congrès de la Soummam",
+        "body": "Les chefs de la Révolution se réunissent pour doter la lutte d'une direction et d'une organisation unifiées. Gloire à nos martyrs et honneur aux moudjahidines."
+      },
+      "achoura": {
+        "title": "Achoura",
+        "body": "Que cette journée apporte paix et sérénité à tous. Roulez doucement et prudemment."
+      },
+      "fitr": {
+        "title": "Aïd Moubarak",
+        "body": "Aïdkom Moubarak ! Bonne fête de l'Aïd à toute la population. Roulez doucement et prudemment."
+      },
+      "adha": {
+        "title": "Aïd Moubarak",
+        "body": "Aïdkom Moubarak ! Bonne fête de l'Aïd à toute la population. Roulez doucement et prudemment."
+      },
+      "chahid": {
+        "title": "18 Février — Journée nationale du Chahid",
+        "body": "Hommage à nos chahids tombés pour que l'Algérie vive. Roulez doucement et prudemment."
+      },
+      "victoire": {
+        "title": "19 Mars 1962 — Fête de la Victoire",
+        "body": "{{n}} anniversaire du cessez-le-feu. Gloire à nos martyrs et honneur aux moudjahidines."
+      },
+      "memoire": {
+        "title": "8 Mai 1945 — Journée nationale de la Mémoire",
+        "body": "En mémoire des victimes de Sétif, Guelma et Kherrata. Gloire à nos martyrs."
+      },
+      "emigration": {
+        "title": "17 Octobre 1961 — Journée nationale de l'émigration",
+        "body": "En mémoire des Algériens tombés à Paris. Gloire à nos martyrs."
+      },
+      "mawlid": {
+        "title": "Mawlid Ennabawi",
+        "body": "Mawlid moubarak à toute la population. Roulez doucement et prudemment."
+      },
+      "moharram": {
+        "title": "1er Moharram",
+        "body": "Bonne année hégirienne à toute la population. Roulez doucement et prudemment."
+      }
+    }
   }
 }

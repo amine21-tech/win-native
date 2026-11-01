@@ -29,6 +29,8 @@ export const StorageKeys = {
   contributor: 'contributor',
   /** Alertes de proximite aux signalements : « NON, garder » / « OUI, desactiver » (point 17). */
   approachAlerts: 'approachAlerts',
+  /** Derniere reponse connue de /alertes-officielles, pour les ouvertures hors ligne. */
+  alertesOfficielles: 'alertesOfficielles',
 } as const;
 
 export function readJson<T>(key: string, fallback: T): T {

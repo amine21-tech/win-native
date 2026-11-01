@@ -699,5 +699,65 @@
     "copy": "Copy",
     "copied": "Coordinates copied.",
     "addPlace": "Add this place"
+  },
+  "alertes": {
+    "weatherTitle": "Weather alert",
+    "zones": "Areas:",
+    "inZone": "You are in an affected area",
+    "phenomenon": {
+      "rain": "Heavy rain or flooding: drive carefully, slow down and avoid the affected areas.",
+      "wind": "Strong winds or storm: drive carefully, grip the wheel firmly, slow down and avoid the affected areas.",
+      "sand": "Sandstorm, reduced visibility: slow down, switch on your lights, keep your distance and avoid the affected areas."
+    },
+    "event": {
+      "nov1": {
+        "title": "1 November 1954",
+        "body": "{{n}} anniversary of the start of the Revolution. Glory to our martyrs and honour to the mujahideen. Long live Algeria!"
+      },
+      "jul5": {
+        "title": "5 July 1962 — Independence",
+        "body": "{{n}} anniversary of Algeria's independence. Glory to our martyrs and honour to the mujahideen."
+      },
+      "soummam": {
+        "title": "20 August 1956 — Soummam Congress",
+        "body": "The leaders of the Revolution met to give the struggle a unified leadership and organisation. Glory to our martyrs and honour to the mujahideen."
+      },
+      "achoura": {
+        "title": "Ashura",
+        "body": "May this day bring peace and serenity to all. Drive slowly and carefully."
+      },
+      "fitr": {
+        "title": "Eid Mubarak",
+        "body": "Eid Mubarak! Happy Eid to everyone. Please drive slowly and carefully."
+      },
+      "adha": {
+        "title": "Eid Mubarak",
+        "body": "Eid Mubarak! Happy Eid to everyone. Please drive slowly and carefully."
+      },
+      "chahid": {
+        "title": "18 February — National Martyr's Day",
+        "body": "In tribute to our martyrs who fell so that Algeria may live. Drive slowly and carefully."
+      },
+      "victoire": {
+        "title": "19 March 1962 — Victory Day",
+        "body": "{{n}} anniversary of the ceasefire. Glory to our martyrs and honour to the mujahideen."
+      },
+      "memoire": {
+        "title": "8 May 1945 — National Memorial Day",
+        "body": "In memory of the victims of Sétif, Guelma and Kherrata. Glory to our martyrs."
+      },
+      "emigration": {
+        "title": "17 October 1961 — National Emigration Day",
+        "body": "In memory of the Algerians who fell in Paris. Glory to our martyrs."
+      },
+      "mawlid": {
+        "title": "Mawlid Ennabawi",
+        "body": "Mawlid Mubarak to everyone. Drive slowly and carefully."
+      },
+      "moharram": {
+        "title": "1 Muharram",
+        "body": "Happy Hijri New Year to everyone. Drive slowly and carefully."
+      }
+    }
   }
 }

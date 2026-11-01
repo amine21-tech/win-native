@@ -49,6 +49,7 @@ import { ReportVoteCard } from '../src/components/ReportVoteCard';
 import { SearchBar } from '../src/components/SearchBar';
 import { SearchResults } from '../src/components/SearchResults';
 import { SeasonalBanner } from '../src/components/SeasonalBanner';
+import { useAlertesOfficielles } from '../src/alertes/useAlertesOfficielles';
 import { SosPanel } from '../src/components/SosPanel';
 import { StepsSheet } from '../src/components/StepsSheet';
 import { Toast } from '../src/components/Toast';
@@ -471,6 +472,7 @@ export default function MapScreen() {
   useKeepAwake();
 
   const { t, i18n } = useTranslation();
+  const consentAccepted = useSession((s) => s.consentAccepted);
   const themeOverride = useSession((s) => s.themeOverride);
   const toggleNightMode = useSession((s) => s.toggleNightMode);
   const voiceGuidanceEnabled = useSession((s) => s.voiceGuidanceEnabled);
@@ -659,6 +661,12 @@ export default function MapScreen() {
   const currentAccuracyM = useCallback(() => getFix()?.accuracyM ?? 0, [getFix]);
 
   const lang = (i18n.language as Language) ?? 'fr';
+
+  /* LES ALERTES OFFICIELLES, demandees une seule fois par ouverture et seulement une fois
+   * l'ecran de consentement passe — le cahier des charges du 1er novembre l'exige, et une
+   * banniere par-dessus un texte qu'on est en train de lire ne serait lue ni l'une ni
+   * l'autre. Elles ne reviennent jamais en cours d'utilisation. */
+  const alertesOfficielles = useAlertesOfficielles(consentAccepted);
   const places = usePlaces();
   const search = usePlaceSearch(position, lang);
 
@@ -2436,10 +2444,11 @@ ${t(`report.badge_${report.kind}`)}`,
         top={insets.top + HEADER_HEIGHT + (topBlockH || HIT_SIZE) + spacing.lg}
         // Degage la colonne de boutons : sa marge droite + son bouton le plus large + un ecart.
         right={spacing.lg + fabPrimarySize + spacing.md}
-        // Le bandeau ne concerne que les regions forestieres (Kabylie, Jijel, Chlef...) :
-        // l'afficher a Ouargla ou a Tamanrasset apprend seulement a l'ignorer.
+        // La position ne CACHE plus rien : elle sert uniquement a ajouter la ligne
+        // « Vous etes dans une zone concernee ». Ce qui s'affiche vient du serveur.
         position={position}
-        colors={colors}
+        alertes={alertesOfficielles}
+        lang={lang}
       />
 
       {/* Boussole : n'apparait QUE lorsque la carte est tournee, et la remet au nord. Cote
