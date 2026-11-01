@@ -122,6 +122,8 @@ function toPlace(row: LegacyAddress, origin: string, here: { lat: number; lon: n
     phoneFixe: str(row.phone),
     phoneMobile: null,
     whatsapp: null,
+    // L ancien backend du site ne connait pas Viber : il n a jamais eu ce champ.
+    viber: null,
     email: null,
     enseigne: str(row.enseigne),
     promo: null,

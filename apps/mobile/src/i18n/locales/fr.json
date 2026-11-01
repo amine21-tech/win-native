@@ -193,7 +193,8 @@
     "partnerProtectedBody": "Cette adresse appartient a un partenaire WIN : son retrait passe par l'equipe. Vous pouvez signaler un probleme, nous sommes prevenus tout de suite.",
     "photoByUser": "Photo ajoutée par un utilisateur WIN",
     "startRoute": "Démarrer l'itinéraire",
-    "manageSection": "Gérer cette fiche"
+    "manageSection": "Gérer cette fiche",
+    "viber": "Viber"
   },
   "categories": {
     "groups": {
@@ -357,7 +358,8 @@
     "verifyFarWhy": "Si vous êtes sur place, l'emplacement est faux — le GPS n'était pas stabilisé. Replacez-le sur votre position, ou corrigez-le plus tard depuis la fiche.",
     "moveHere": "📍 Replacer sur ma position",
     "keepAnyway": "Garder tel quel",
-    "moved": "Emplacement corrigé."
+    "moved": "Emplacement corrigé.",
+    "viber": "Viber"
   },
   "placeCategories": {
     "pharmacie": "Pharmacie",

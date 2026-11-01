@@ -80,6 +80,7 @@ const emptyForm = {
   wilaya: '',
   phoneMobile: '',
   whatsapp: '',
+  viber: '',
   email: '',
   promo: '',
 };
@@ -366,6 +367,7 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
           wilaya: form.wilaya.trim() || undefined,
           phoneMobile: form.phoneMobile.trim() || undefined,
           whatsapp: form.whatsapp.trim() || undefined,
+          viber: form.viber.trim() || undefined,
           email: form.email.trim() || undefined,
           photoIds: photoIds.length > 0 ? photoIds : undefined,
           promo: vipCode ? form.promo.trim() || undefined : undefined,
@@ -608,6 +610,22 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
               <TextInput
                 value={form.whatsapp}
                 onChangeText={(v) => set('whatsapp', v)}
+                keyboardType="phone-pad"
+                style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+              />
+            </Field>
+            {/* VIBER, a cote de WhatsApp (demande du 2 novembre). Les deux et non l'un ou
+                l'autre : en Algerie, Viber reste tres utilise pour les appels vers l'etranger,
+                la ou WhatsApp domine les echanges du quotidien. Un commercant qui donne les
+                deux numeros ne vise pas la meme clientele avec chacun.
+
+                Le champ est propose a TOUTE fiche, pas seulement aux VIP : ce sont les fiches
+                VIP qui le remplissent, mais une fiche ordinaire qui porte un numero Viber ne
+                gene personne, et une fiche declassee n'aurait aucune raison de le perdre. */}
+            <Field label={t('addPlace.viber')} colors={colors}>
+              <TextInput
+                value={form.viber}
+                onChangeText={(v) => set('viber', v)}
                 keyboardType="phone-pad"
                 style={[styles.input, { color: colors.text, borderColor: colors.border }]}
               />

@@ -247,6 +247,13 @@ export function PlaceSheet({
   const canOrder = !!place.whatsapp && place.isPartner;
 
   const call = (n: string) => void Linking.openURL(`tel:${n.replace(/\s+/g, '')}`);
+  /* Viber attend le numero SANS le plus ni les espaces : `viber://chat?number=213550...`.
+   * Un numero recopie tel quel ouvrirait une conversation vide. */
+  const viber = (n: string) => {
+    const propre = n.replace(/[^\d]/g, '');
+    void Linking.openURL(`viber://chat?number=${propre}`).catch(() => call(n));
+  };
+
   const whatsapp = (n: string, text?: string) =>
     void Linking.openURL(`https://wa.me/${n.replace(/[^0-9]/g, '')}${text ? `?text=${encodeURIComponent(text)}` : ''}`);
   const email = (addr: string) => void Linking.openURL(`mailto:${addr}`);
@@ -484,6 +491,13 @@ export function PlaceSheet({
           ) : null}
           {place.whatsapp ? (
             <ContactButton label={t('place.whatsapp')} color="#25D366" onPress={() => whatsapp(place.whatsapp!)} />
+          ) : null}
+          {/* VIBER, a sa couleur de marque (demande du 2 novembre). Le lien `viber://chat`
+              ouvre l'application si elle est installee ; sinon Android ne trouve personne pour
+              le gerer et ne fait rien — d'ou le repli sur un appel ordinaire, qui marche
+              toujours puisque c'est un numero de telephone. */}
+          {place.viber ? (
+            <ContactButton label={t('place.viber')} color="#7360F2" onPress={() => viber(place.viber!)} />
           ) : null}
           {place.email ? (
             <ContactButton label={t('place.email')} color="#5B8DEF" onPress={() => email(place.email!)} />

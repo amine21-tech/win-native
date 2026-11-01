@@ -129,6 +129,7 @@ function mapPlace(p: Place, lang: Language): GeocodedResult {
     phoneFixe: p.phoneFixe,
     phoneMobile: p.phoneMobile,
     whatsapp: p.whatsapp,
+    viber: p.viber,
     email: p.email,
     promo: p.promo,
   };

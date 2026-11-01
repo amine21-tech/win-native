@@ -193,7 +193,8 @@
     "partnerProtectedBody": "Tansa-a d ayla n umendid WIN : tukksa-s tetteddu seg tarbaɛt. Tzemreḍ ad tbeggneḍ ugur, ad neẓer imir-imir.",
     "photoByUser": "Tawlaft tettwarna sɣur aseqdac WIN",
     "startRoute": "Bdu abrid",
-    "manageSection": "Sefrek takarḍiwt-a"
+    "manageSection": "Sefrek takarḍiwt-a",
+    "viber": "Viber"
   },
   "categories": {
     "groups": {
@@ -357,7 +358,8 @@
     "verifyFarWhy": "Ma yella tellid dinna, adeg d lɣelṭ — GPS ur yerkid ara. Err-it ɣef wadeg-ik, neɣ ṣeggem-it ticki seg tkarḍiwt.",
     "moveHere": "📍 Err ɣef wadeg-iw",
     "keepAnyway": "Eǧǧ-it akken yella",
-    "moved": "Adeg yettwaṣeggem."
+    "moved": "Adeg yettwaṣeggem.",
+    "viber": "Viber"
   },
   "placeCategories": {
     "pharmacie": "Tafarmasit",

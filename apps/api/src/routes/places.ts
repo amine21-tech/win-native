@@ -32,6 +32,7 @@ const placeColumns = sql`
   p.phone_fixe                    AS "phoneFixe",
   p.phone_mobile                  AS "phoneMobile",
   p.whatsapp,
+  p.viber,
   p.email,
   p.enseigne,
   p.promo,
@@ -149,7 +150,7 @@ async function estAuteur(placeId: string, deviceId: string): Promise<boolean> {
 async function etatFiche(placeId: string): Promise<unknown | null> {
   const rows = (await db.execute(sql`
     SELECT name, category, house_number, street, city, postal_code, wilaya,
-           phone_fixe, phone_mobile, whatsapp, email, enseigne,
+           phone_fixe, phone_mobile, whatsapp, viber, email, enseigne,
            ST_Y(geom::geometry) AS lat, ST_X(geom::geometry) AS lon,
            created_by, is_partner
     FROM places WHERE id = ${placeId}
@@ -395,14 +396,14 @@ const routes: FastifyPluginAsync = async (app) => {
 
     const rows = (await db.execute(sql`
       INSERT INTO places (name, category, geom, house_number, street, city, postal_code,
-                          wilaya, country, phone_fixe, phone_mobile, whatsapp, email,
+                          wilaya, country, phone_fixe, phone_mobile, whatsapp, viber, email,
                           enseigne, promo, is_partner, created_by)
       VALUES (${input.name}, ${input.category},
               ST_SetSRID(ST_MakePoint(${input.lon}, ${input.lat}), 4326)::geography,
               ${input.houseNumber ?? null}, ${input.street ?? null}, ${input.city ?? null},
               ${input.postalCode ?? null}, ${input.wilaya ?? null}, ${input.country},
               ${input.phoneFixe ?? null}, ${input.phoneMobile ?? null},
-              ${input.whatsapp ?? null}, ${input.email ?? null},
+              ${input.whatsapp ?? null}, ${input.viber ?? null}, ${input.email ?? null},
               ${input.enseigne ?? null}, ${input.promo ?? null}, ${isVip}, ${deviceId})
       RETURNING id
     `)) as unknown as { id: string }[];
@@ -515,6 +516,7 @@ const routes: FastifyPluginAsync = async (app) => {
           phone_fixe   = COALESCE(${input.phoneFixe ?? null}, phone_fixe),
           phone_mobile = COALESCE(${input.phoneMobile ?? null}, phone_mobile),
           whatsapp     = COALESCE(${input.whatsapp ?? null}, whatsapp),
+          viber        = COALESCE(${input.viber ?? null}, viber),
           email        = COALESCE(${input.email ?? null}, email),
           enseigne     = COALESCE(${input.enseigne ?? null}, enseigne),
           geom         = CASE WHEN ${input.lat ?? null}::double precision IS NOT NULL
@@ -651,6 +653,7 @@ const routes: FastifyPluginAsync = async (app) => {
           phone_fixe   = COALESCE(${input.phoneFixe ?? null}, phone_fixe),
           phone_mobile = COALESCE(${input.phoneMobile ?? null}, phone_mobile),
           whatsapp     = COALESCE(${input.whatsapp ?? null}, whatsapp),
+          viber        = COALESCE(${input.viber ?? null}, viber),
           email        = COALESCE(${input.email ?? null}, email),
           enseigne     = COALESCE(${input.enseigne ?? null}, enseigne),
           promo        = COALESCE(${input.promo ?? null}, promo),

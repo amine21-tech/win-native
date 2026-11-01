@@ -193,7 +193,8 @@
     "partnerProtectedBody": "This address belongs to a WIN partner: removing it goes through the team. You can report a problem — we are notified straight away.",
     "photoByUser": "Photo added by a WIN user",
     "startRoute": "Start the route",
-    "manageSection": "Manage this place"
+    "manageSection": "Manage this place",
+    "viber": "Viber"
   },
   "categories": {
     "groups": {
@@ -357,7 +358,8 @@
     "verifyFarWhy": "If you are standing there, the location is wrong — the GPS had not settled. Move it to your position, or fix it later from the place sheet.",
     "moveHere": "📍 Move to my position",
     "keepAnyway": "Keep as is",
-    "moved": "Location corrected."
+    "moved": "Location corrected.",
+    "viber": "Viber"
   },
   "placeCategories": {
     "pharmacie": "Pharmacy",

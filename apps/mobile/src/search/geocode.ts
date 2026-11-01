@@ -27,6 +27,7 @@ export type GeocodedResult = RankableResult & {
   phoneFixe?: string | null;
   phoneMobile?: string | null;
   whatsapp?: string | null;
+  viber?: string | null;
   email?: string | null;
   promo?: string | null;
 };
