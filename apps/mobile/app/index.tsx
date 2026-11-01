@@ -76,6 +76,7 @@ import { formatClock24, useAutoScheme } from '../src/utils/clock';
 import { AlerteApproche } from '../src/components/AlerteApproche';
 import { PositionSheet } from '../src/components/PositionSheet';
 import { OR_MARQUEUR, pictoSignalisation, SIGNALISATION } from '../src/map/signalisation';
+import { PICTOS_SIGNALISATION } from '../src/map/pictos';
 import { projeterSurTrace } from '../src/navigation/alerteApproche';
 import { useApproachAlerts } from '../src/navigation/useApproachAlerts';
 import { useLiveLocation } from '../src/navigation/useLiveLocation';
@@ -379,23 +380,13 @@ type BandeTrafic = BandeTraficPartagee;
  * Voir scripts/make-destination-pin.py. */
 const MAP_IMAGES = {
   'destination-pin': require('../assets/map/destination-pin.png'),
-  /* LES PICTOGRAMMES DE SIGNALISATION (correction C1 du 31 octobre). Ils sont declares un par
-   * un et non par une boucle : `require` est resolu a la COMPILATION par Metro, qui doit lire
-   * un chemin litteral. Une boucle sur les types donnerait un chemin calcule, que Metro ne
-   * sait pas suivre — et les images manqueraient a l'execution, sans la moindre erreur. */
-  'sig-jam': require('../assets/map/sig-jam.png'),
-  'sig-crash': require('../assets/map/sig-crash.png'),
-  'sig-police': require('../assets/map/sig-police.png'),
-  'sig-gendarmerie': require('../assets/map/sig-gendarmerie.png'),
-  'sig-armee': require('../assets/map/sig-armee.png'),
-  'sig-block': require('../assets/map/sig-block.png'),
-  'sig-works': require('../assets/map/sig-works.png'),
-  'sig-bump': require('../assets/map/sig-bump.png'),
-  'sig-radar': require('../assets/map/sig-radar.png'),
-  'sig-object': require('../assets/map/sig-object.png'),
-  'sig-pothole': require('../assets/map/sig-pothole.png'),
-  'sig-flood': require('../assets/map/sig-flood.png'),
-  'sig-fire': require('../assets/map/sig-fire.png'),
+  /* LES PICTOGRAMMES DE SIGNALISATION (correction C1 du 31 octobre) vivent maintenant dans
+   * src/map/pictos.ts : la carte d'alerte d'approche montre le MEME marqueur depuis le
+   * 2 novembre, et deux tableaux d'images auraient fini par diverger. Les cles de style
+   * gardent leur prefixe `sig-`, que la carte attend. */
+  ...Object.fromEntries(
+    Object.entries(PICTOS_SIGNALISATION).map(([kind, image]) => [`sig-${kind}`, image]),
+  ),
 };
 
 /**

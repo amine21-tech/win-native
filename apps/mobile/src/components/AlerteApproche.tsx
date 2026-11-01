@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { REPORT_EMOJI } from '../reports/kinds';
-import { REPORT_COLORS } from '../map/style';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { OR_MARQUEUR, SIGNALISATION } from '../map/signalisation';
+import { PICTOS_SIGNALISATION } from '../map/pictos';
 import { formatDistance, type Report } from '../shared';
 import { radius, spacing } from '../theme';
 
@@ -84,8 +84,24 @@ export function AlerteApproche({
   const { t } = useTranslation();
   if (!report) return null;
 
-  const couleur = REPORT_COLORS[report.kind] ?? VERT;
+  /* LA COULEUR ET LE PICTOGRAMME VIENNENT DU MEME ENDROIT QUE LA CARTE — le tableau du
+   * client, dans map/signalisation.ts. C'est la demande du 2 novembre : << les mêmes design
+   * et couleur >>.
+   *
+   * POURQUOI CELA COMPTE PLUS QU'UN DETAIL D'HABILLAGE. Le conducteur voit le marqueur sur la
+   * carte, puis la carte d'alerte s'ouvre : si le dessin et la teinte changent entre les deux,
+   * il doit refaire le lien a chaque fois. Les faire identiques, c'est faire reconnaitre
+   * l'objet, pas le lire.
+   *
+   * On prend la variante de JOUR : la carte d'alerte a un fond blanc, quel que soit le theme
+   * de la carte routiere. La variante de nuit, eclaircie pour un fond sombre, y serait
+   * delavee. */
+  const couleur = SIGNALISATION[report.kind]?.jour ?? VERT;
+  const picto = PICTOS_SIGNALISATION[report.kind];
   const libelle = t(`report.${report.kind}`);
+  /* Le badge du tableau du client — << Ralentisseur >>, << Trafic dense >>, << Collision >> —
+   * celui-la meme qui est ecrit sous le marqueur sur la carte. */
+  const badge = t(`report.badge_${SIGNALISATION[report.kind]?.badge ?? report.kind}`);
 
   return (
     <View style={[styles.ancrage, { top, left, right }]} pointerEvents="box-none">
@@ -110,11 +126,12 @@ export function AlerteApproche({
 
         <View style={styles.corps}>
           <View style={styles.entete}>
-            {/* Le triangle de signalisation routiere, a la couleur du type, avec le symbole
-                dedans — c'est la forme que tout conducteur lit sans apprendre. */}
-            <View style={styles.panneau}>
-              <Text style={[styles.triangle, { color: couleur }]}>▲</Text>
-              <Text style={styles.symbole}>{REPORT_EMOJI[report.kind] ?? '⚠️'}</Text>
+            {/* LE MARQUEUR DE LA CARTE, EN PLUS PETIT : disque a la couleur du type, anneau
+                d'or, pictogramme blanc au centre. Exactement ce que le conducteur vient de
+                voir sur la carte. L'ancien triangle avec un emoji dedans ne lui ressemblait
+                en rien — et l'emoji ne s'affichait pas partout. */}
+            <View style={[styles.pastille, { backgroundColor: couleur, borderColor: OR_MARQUEUR }]}>
+              {picto ? <Image source={picto} style={styles.picto} resizeMode="contain" /> : null}
             </View>
 
             <View style={styles.titres}>
@@ -122,7 +139,7 @@ export function AlerteApproche({
                 {libelle}
               </Text>
               <Text style={styles.sousTitre} numberOfLines={1}>
-                {t('approach.ahead')}
+                {badge} · {t('approach.ahead')}
               </Text>
             </View>
 
@@ -199,10 +216,17 @@ const styles = StyleSheet.create({
   corps: { paddingHorizontal: spacing.sm, paddingTop: spacing.sm, paddingBottom: 6, gap: 5 },
 
   entete: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  /* Le symbole se superpose au triangle : un seul bloc de 22 points, comme la maquette. */
-  panneau: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
-  triangle: { fontSize: 22, position: 'absolute' },
-  symbole: { fontSize: 11 },
+  /* Le marqueur de la carte, reduit a 22 points — la mesure de la maquette. L'anneau d'or
+   * fait 1,5 point : en dessous il disparait a cette taille, au-dessus il mange le disque. */
+  pastille: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  picto: { width: 12, height: 12 },
 
   titres: { flex: 1, minWidth: 0 },
   nom: { color: TEXTE, fontSize: 12, fontWeight: '800' as const },

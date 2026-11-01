@@ -7,7 +7,7 @@
  * parallele, personne ne s'en apercoit avant que ca compte.
  *
  * Les cas ci-dessous sont ceux qui FONT ECHOUER ce genre d'alerte dans la vraie vie :
- *   - le signalement est bien sur notre route          -> doit parler aux DEUX paliers
+ *   - le signalement est bien sur notre route          -> doit parler UNE fois, a 150 m
  *   - il est sur le bord de la chaussee (20 m)         -> doit parler : c'est notre route
  *   - il est sur la rue parallele (60 m)               -> doit se taire
  *   - il est derriere nous                             -> doit se taire
@@ -203,14 +203,14 @@ for (const s of SIGNALEMENTS) {
     continue;
   }
 
+  /* UNE SEULE ANNONCE DEPUIS LE 2 NOVEMBRE. Le controle d'ORDRE a disparu avec le second
+   * palier : il n'y a plus d'ordre a verifier. Ce qui reste, et qui compte autant, c'est
+   * qu'elle ne parle QU'UNE fois — un signalement qui se repete au volant est pire que
+   * silencieux, on apprend a ne plus l'ecouter. */
   verifier(
-    `« ${s.id} » parle aux DEUX paliers, et pas une fois de plus`,
-    miennes.length === 2,
-    miennes.map((a) => `${a.palierM} m a ${a.restantM.toFixed(0)} m`).join(' puis ') || 'rien',
-  );
-  verifier(
-    '  ... dans le bon ordre : 200 m d\'abord, 100 m ensuite',
-    miennes.length === 2 && miennes[0]!.palierM === 200 && miennes[1]!.palierM === 100,
+    `« ${s.id} » parle UNE fois, et pas une de plus`,
+    miennes.length === 1,
+    `${miennes.map((a) => `${a.palierM} m a ${Math.round(a.restantM)} m`).join(' · ') || 'rien'}`,
   );
   for (const a of miennes) {
     verifier(
@@ -221,9 +221,12 @@ for (const s of SIGNALEMENTS) {
   }
 }
 
-/* LE CAS QUI FAIT MENTIR UNE ALERTE A DEUX PALIERS. Un autre conducteur pose le signalement
- * alors qu'on est deja a 120 m : le palier des 200 m n'a jamais ete franchi. L'annoncer
- * enverrait chercher l'obstacle cent metres trop loin. */
+/* LE CAS QUI FAIT MENTIR UNE ALERTE. Un autre conducteur pose le signalement alors qu'on roule
+ * deja dessus : le palier n'a jamais ete franchi. Annoncer << dans 150 metres >> a quelqu'un
+ * qui est a 80 m l'enverrait chercher l'obstacle deux fois trop loin — il regarderait au-dela
+ * au moment precis ou il faut regarder devant.
+ *
+ * C'est la raison d'etre de la tolerance, et le seul endroit ou elle se voit. */
 console.log('\nLE SIGNALEMENT APPARAIT ALORS QU\'ON EST DEJA A 120 m');
 const tardif = rouler({
   departM: 880,
@@ -235,13 +238,31 @@ const tardif = rouler({
 });
 const tardives = tardif.filter((a) => a.id === 'sur-la-route');
 verifier(
-  'une seule annonce, pas deux',
-  tardives.length === 1,
-  tardives.map((a) => `${a.palierM} m`).join(', ') || 'aucune',
+  'il parle quand meme : 30 m d\'ecart, c\'est dans la tolerance',
+  tardives.length === 1 && tardives[0]!.palierM === 150,
+  tardives.map((a) => `${a.palierM} m a ${Math.round(a.restantM)} m`).join(', ') || 'aucune',
 );
 verifier(
-  'et c\'est celle des 100 m : jamais << dans 200 metres >> a 120 m',
-  tardives.every((a) => a.palierM === 100),
+  '  ... et l\'ecart annonce reste honnete',
+  tardives.every((a) => a.palierM - a.restantM <= TOLERANCE_M),
+  `${tardives.map((a) => `${Math.round(a.palierM - a.restantM)} m`).join(', ')} pour ${TOLERANCE_M} m admis`,
+);
+
+/* ET LE CAS SYMETRIQUE : trop tard pour dire vrai. A 60 m, l'ecart au palier depasse la
+ * tolerance — mieux vaut se taire que donner une distance fausse. */
+console.log('\nLE SIGNALEMENT APPARAIT ALORS QU\'ON EST DEJA A 60 m');
+const troptard = rouler({
+  departM: 940,
+  arriveeM: 1000,
+  pasM: 33,
+  surTrace,
+  memoire: new Map(),
+  avecItineraire: true,
+}).filter((a) => a.id === 'sur-la-route');
+verifier(
+  'il se tait : une distance fausse serait pire que le silence',
+  troptard.length === 0,
+  troptard.map((a) => `${a.palierM} m a ${Math.round(a.restantM)} m`).join(', ') || 'rien',
 );
 
 /* DEMI-TOUR. Le rearmement demande de s'etre VRAIMENT eloigne : plus de 300 m en amont du
@@ -271,8 +292,8 @@ const repassage = rouler({
 });
 const reparle = repassage.filter((a) => a.id === 'sur-la-route');
 verifier(
-  'il reparle au passage suivant, aux deux paliers',
-  reparle.length === 2,
+  'il reparle au passage suivant',
+  reparle.length === 1,
   reparle.map((a) => `${a.palierM} m`).join(' puis ') || 'rien',
 );
 
@@ -302,8 +323,8 @@ const ouestEst = rouler({
 });
 const oe = ouestEst.filter((a) => a.id === 'sur-la-route');
 verifier(
-  'les deux paliers parlent sans aucun itineraire',
-  oe.length === 2 && oe[0]!.palierM === 200 && oe[1]!.palierM === 100,
+  'le palier parle sans aucun itineraire',
+  oe.length === 1 && oe[0]!.palierM === 150,
   oe.map((a) => `${a.palierM} m a ${a.restantM.toFixed(0)} m`).join(' puis ') || 'rien',
 );
 
@@ -319,7 +340,7 @@ const estOuest = rouler({
 const eo = estOuest.filter((a) => a.id === 'sur-la-route');
 verifier(
   'le MEME signalement parle aussi dans l\'autre sens',
-  eo.length === 2 && eo[0]!.palierM === 200 && eo[1]!.palierM === 100,
+  eo.length === 1 && eo[0]!.palierM === 150,
   eo.map((a) => `${a.palierM} m a ${a.restantM.toFixed(0)} m`).join(' puis ') || 'rien',
 );
 
@@ -353,8 +374,8 @@ const cadenceLente = rouler({
 });
 const lent = cadenceLente.filter((a) => a.id === 'sur-la-route');
 verifier(
-  'les deux paliers parlent malgre le pas de 75 m',
-  lent.length === 2 && lent[0]!.palierM === 200 && lent[1]!.palierM === 100,
+  'le palier parle malgre le pas de 75 m',
+  lent.length === 1 && lent[0]!.palierM === 150,
   lent.map((a) => `${a.palierM} m a ${a.restantM.toFixed(0)} m`).join(' puis ') || 'rien',
 );
 

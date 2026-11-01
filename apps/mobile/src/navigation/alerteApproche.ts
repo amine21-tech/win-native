@@ -15,24 +15,38 @@ import { locateOnRoute, traveledMeters, type TraceMesurable } from './traceGeome
 type Coords = { lat: number; lon: number };
 
 /**
- * DEUX PALIERS D'ANNONCE : 200 METRES, PUIS 100 METRES. Demande du client, 28 octobre.
+ * UN SEUL PALIER D'ANNONCE : 150 METRES. Demande du client, 2 novembre.
  *
- * L'histoire de cette valeur : cinquante metres a l'origine, portee a cent le 23 octobre, puis
- * a cent cinquante le 27. Un palier unique oblige a choisir entre prevenir TOT et prevenir
- * JUSTE : a 150 m on a le temps d'agir, mais sept secondes plus tard on a oublie l'annonce et
- * l'on arrive sur l'obstacle sans rien. Deux paliers suppriment ce choix — le premier previent,
- * le second confirme au moment ou l'on arrive.
+ * L'HISTOIRE DE CETTE VALEUR, parce qu'elle a beaucoup bouge et qu'on la relira :
+ *   origine  : 50 m — trop tard pour agir.
+ *   23/10    : 100 m.
+ *   27/10    : 150 m.
+ *   28/10    : DEUX paliers, 200 puis 100. Un palier unique obligeait a choisir entre
+ *              prevenir TOT et prevenir JUSTE ; deux paliers supprimaient ce choix.
+ *   02/11    : retour a un seul palier, a 150 m.
  *
- * DECROISSANTS, et l'ordre compte : le code s'appuie dessus pour choisir quel palier prononcer.
+ * LE CLIENT A TRANCHE APRES ESSAI AU VOLANT, et c'est la seule maniere de departager les deux.
+ * Mon argument pour deux paliers n'etait pas faux : a 150 m on a le temps d'agir, et sept
+ * secondes plus tard on peut avoir oublie l'annonce. Mais il manquait ce qu'on ne voit qu'en
+ * conduisant — deux annonces pour un seul dos d'ane, c'est deux fois l'attention detournee de
+ * la route, et la seconde arrive au moment precis ou l'on franchit l'obstacle, donc trop tard
+ * pour servir a quoi que ce soit.
  *
- * La voix PRONONCE le palier atteint (<< dans 200 metres >>, puis << dans 100 metres >>) : la
- * valeur dite et la valeur testee sont la meme, elles ne peuvent pas diverger.
+ * Cent cinquante metres, c'est environ dix secondes a 50 km/h : le temps de lever le pied une
+ * fois, sans avoir a y revenir.
+ *
+ * La voix PRONONCE le palier atteint (<< dans 150 metres >>) : la valeur dite et la valeur
+ * testee sont la meme, elles ne peuvent pas diverger.
+ *
+ * LA LISTE RESTE UNE LISTE, et c'est volontaire. Tout le code en aval la parcourt ; la reduire
+ * a un nombre unique demanderait de reecrire la memoire des paliers deja dits, la tolerance et
+ * le rearmement — pour une valeur qui a change cinq fois en deux semaines. Ajouter un palier
+ * reste un nombre a ecrire ici.
  */
-export const PALIERS_M = [200, 100] as const;
+export const PALIERS_M = [150] as const;
 
 /**
- * Ecart tolere entre le palier prononce et la distance reelle : la moitie de l'ecart entre deux
- * paliers.
+ * Ecart tolere entre le palier prononce et la distance reelle.
  *
  * POURQUOI CETTE TOLERANCE EXISTE. Un signalement n'est pas toujours la depuis le depart : un
  * autre conducteur peut le poser alors qu'on est deja a 120 m. On n'a donc jamais FRANCHI le
@@ -40,8 +54,10 @@ export const PALIERS_M = [200, 100] as const;
  * chercherait l'obstacle cent metres trop loin. Dans ce cas le palier des 200 m est abandonne
  * en silence, et la voix attend celui des 100 m, qui dira vrai.
  *
- * Cinquante metres, c'est-a-dire la moitie de l'ecart entre deux paliers : au-dela, un autre
- * palier decrit mieux la distance.
+ * Cinquante metres. La valeur venait de la moitie de l'ecart entre les deux anciens paliers ;
+ * avec un palier unique elle n'a plus cette justification, mais elle reste la bonne pour la
+ * raison qui compte : un ecart plus large ferait annoncer << dans 150 metres >> a 80 m, et le
+ * conducteur chercherait l'obstacle deux fois trop loin.
  *
  * ELLE S'ELARGIT A LA CADENCE DU GPS. Hors navigation, le telephone ne donne sa position que
  * toutes les trois secondes pour menager la batterie : a 90 km/h cela fait soixante-quinze

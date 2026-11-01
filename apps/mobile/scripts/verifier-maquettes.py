@@ -116,10 +116,17 @@ print('\nPOINT 17 — « maximum 2 fois, puis silence »')
 paliers = lire(RACINE / 'apps/mobile/src/navigation/alerteApproche.ts')
 liste = valeur(paliers, r'PALIERS_M = \[([^\]]+)\]')
 nombre = len(re.findall(r'\d+', liste or ''))
+# LE NOMBRE DE PALIERS A CHANGE LE 2 NOVEMBRE.
+#   28/10 : « maximum 2 fois, puis silence » — deux paliers, 200 puis 100.
+#   02/11 : un seul palier, a 150 m, apres essai au volant. Deux annonces pour un seul dos
+#           d'ane, c'est deux fois l'attention detournee de la route, et la seconde arrive au
+#           moment ou l'on franchit l'obstacle — trop tard pour servir a quoi que ce soit.
+# Le controle verifie donc « AU PLUS deux », ce qui reste fidele a la regle d'origine : elle
+# posait un plafond, pas un nombre exact. Un troisieme palier serait refuse, comme avant.
 verifier(
-    f'exactement deux paliers d\'annonce : {liste}',
-    nombre == 2,
-    'le client demande deux annonces au plus, puis le silence',
+    f'au plus deux paliers d\'annonce : {liste}',
+    1 <= nombre <= 2,
+    'le client en demande deux AU PLUS, et un seul depuis le 2 novembre',
 )
 verifier(
     'chaque palier est retenu pour ne pas se repeter',
