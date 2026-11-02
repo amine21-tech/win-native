@@ -718,7 +718,45 @@ export function corrigerLieu(saisie: string): string {
  */
 export const PERIMETRE_VIP_M = 50_000;
 
+/**
+ * LES WILAYAS QUE DESIGNE UNE SAISIE PARTIELLE.
+ *
+ * POURQUOI << EXACTEMENT >> NE SUFFISAIT PAS. Le classement ne reconnaissait une ville que
+ * si le nom tape lui correspondait EN ENTIER. Or personne ne tape << Tizi Ouzou >> : on tape
+ * << tizi >>, on regarde la premiere suggestion, et on appuie. Avec un nom partiel, la ville
+ * retombait dans le lot commun, ou seule la distance compte — et depuis Alger, un commerce
+ * nomme << Tizi Pneus >> a trois cents metres passait devant la wilaya a cent kilometres.
+ *
+ * C'est le meme defaut que << Tipaza >>, deja corrige deux fois, mais par une troisieme porte :
+ * la premiere fois le classement etait faux, la deuxieme un bloc remontait les partenaires
+ * par-dessus, et ici la ville n'etait simplement pas RECONNUE comme telle.
+ *
+ * DEUX CARACTERES AU MINIMUM. A une seule lettre, << a >> designerait Adrar, Alger, Annaba,
+ * Ain Defla et Ain Temouchent : cinq wilayas en tete, ce qui ne suggere rien. A deux, la
+ * liste se resserre d'elle-meme.
+ *
+ * Plusieurs wilayas peuvent correspondre — << ain >> en designe deux — et c'est voulu : elles
+ * occupent alors le premier palier ensemble, departagees comme avant par leur taille puis par
+ * leur distance.
+ */
+export function wilayasVisees(requete: string): string[] {
+  const q = normalizeCity(requete);
+  if (q.length < 2) return [];
+  return DZ_WILAYA_NAMES.filter((w) => normalizeCity(w).startsWith(q));
+}
+
+/** Ce resultat est-il l'une des wilayas visees ? Le nom doit correspondre, et designer un LIEU
+ *  — une rue << Tizi Ouzou >> a Alger n'est pas la wilaya. */
+export function estWilayaVisee(r: RankableResult, visees: readonly string[]): boolean {
+  if (visees.length === 0) return false;
+  if (cityRank(r) === 0) return false;
+  const n = normalizeCity(r.name || '');
+  return visees.some((w) => normalizeCity(w) === n);
+}
+
 export type ClassementPoint18Options<T> = {
+  /** Vrai si ce resultat est une WILAYA que designe la saisie, meme partielle. Premier palier. */
+  estWilaya?: (r: T) => boolean;
   /** Vrai si ce resultat est une ville dont le nom correspond exactement a la saisie. */
   estVilleExacte: (r: T) => boolean;
   /** Vrai si ce resultat est une adresse enregistree par l'utilisateur. */
@@ -728,11 +766,19 @@ export type ClassementPoint18Options<T> = {
 };
 
 export function classerPoint18<T>(resultats: T[], o: ClassementPoint18Options<T>): T[] {
+  const wilayas: T[] = [];
   const villes: T[] = [];
   const vip: T[] = [];
   const reste: T[] = [];
 
   for (const r of resultats) {
+    /* LA WILAYA D'ABORD, meme sur un nom partiel. << tizi >> doit suggerer Tizi Ouzou avant
+     * toute autre chose : c'est le chef-lieu que l'on cherche quand on tape le debut d'un nom
+     * de wilaya, pas un commerce qui le porte. */
+    if (o.estWilaya?.(r)) {
+      wilayas.push(r);
+      continue;
+    }
     if (o.estVilleExacte(r)) {
       villes.push(r);
       continue;
@@ -750,6 +796,8 @@ export function classerPoint18<T>(resultats: T[], o: ClassementPoint18Options<T>
 
   /* CHAQUE PALIER GARDE L'ORDRE QU'IL AVAIT. Les trier a nouveau ici defferait le travail de
    * `rankSearchResults` — qui departage deja deux villes homonymes par leur taille puis par
-   * leur distance, et le reste par la distance seule. */
-  return [...villes, ...vip, ...reste];
+   * leur distance, et le reste par la distance seule.
+   *
+   * QUATRE PALIERS DEPUIS LE 3 NOVEMBRE : la wilaya, la ville exacte, le VIP, le reste. */
+  return [...wilayas, ...villes, ...vip, ...reste];
 }

@@ -15,7 +15,13 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { classerPoint18, PERIMETRE_VIP_M, rankSearchResults } from '../src/shared/search';
+import {
+  classerPoint18,
+  estWilayaVisee,
+  PERIMETRE_VIP_M,
+  rankSearchResults,
+  wilayasVisees,
+} from '../src/shared/search';
 
 type Fiche = {
   name: string;
@@ -37,7 +43,9 @@ function verifier(nom: string, ok: boolean, detail = '') {
 /** Le classement complet, tel que l'application l'applique : rang, puis paliers du point 18. */
 function classer(fiches: Fiche[], requete: string, moi: { lat: number; lon: number } | null) {
   const rangs = rankSearchResults(fiches, requete, moi);
+  const visees = wilayasVisees(requete);
   return classerPoint18(rangs, {
+    estWilaya: (r) => estWilayaVisee(r, visees),
     estVilleExacte: (r) => r.exactCity === true,
     estVip: (r) => (r as unknown as Fiche).vip === true,
     distanceM: (r) => r.distanceM,
@@ -164,6 +172,82 @@ verifier(
  * Ce qui les separe est que le nom tape est EXACTEMENT celui de l'une et seulement une partie de
  * celui de l'autre. C'est ce que verifie ce bloc.
  */
+/* ------------------------------------------------------------------ */
+/* La saisie PARTIELLE d'un nom de wilaya                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * PERSONNE NE TAPE << Tizi Ouzou >> EN ENTIER. On tape << tizi >>, on regarde la premiere
+ * suggestion, on appuie. Le classement ne reconnaissait pourtant une ville que sur un nom
+ * COMPLET : avec quatre lettres, Tizi Ouzou retombait dans le lot commun ou seule la distance
+ * compte, et depuis Alger un commerce nomme << Tizi Pneus >> a trois cents metres passait
+ * devant la wilaya a cent kilometres.
+ *
+ * C'est le meme symptome que << Tipaza >>, corrige deux fois deja, mais par une TROISIEME
+ * porte : la premiere fois le classement etait faux, la deuxieme un bloc remontait les
+ * partenaires par-dessus, ici la ville n'etait tout simplement pas reconnue comme telle. Trois
+ * causes differentes pour un seul defaut visible — d'ou ce controle, qui vise la cause et non
+ * le symptome.
+ */
+console.log('\nUN NOM DE WILAYA TAPE A MOITIE');
+
+const tiziPartiel: Fiche[] = [
+  { name: 'Tizi Pneus', lat: 36.75, lon: 3.058, source: 'win', vip: true },
+  { name: 'Tizi Auto', lat: 36.752, lon: 3.059, source: 'win' },
+  { name: 'Tizi Ouzou', lat: 36.7118, lon: 4.0458, osmKey: 'place', osmValue: 'city', type: 'city', source: 'photon' },
+];
+const r9 = classer(tiziPartiel, 'tizi', ALGER);
+verifier(
+  '« tizi » suggere la WILAYA en premier',
+  r9[0]?.name === 'Tizi Ouzou',
+  r9.map((r) => r.name).join(' · '),
+);
+verifier(
+  'et les lieux ajoutes suivent, VIP avant simple',
+  r9.findIndex((r) => r.name === 'Tizi Pneus') < r9.findIndex((r) => r.name === 'Tizi Auto'),
+);
+
+console.log("\nCE QUE LA SAISIE DESIGNE, ET CE QU'ELLE NE DESIGNE PAS");
+verifier('« tizi » designe Tizi Ouzou', wilayasVisees('tizi').join(',') === 'Tizi Ouzou', wilayasVisees('tizi').join(', '));
+verifier(
+  "« ain » en designe deux, et c'est normal",
+  wilayasVisees('ain').length === 2,
+  wilayasVisees('ain').join(', '),
+);
+verifier(
+  '« bej » trouve Bejaia malgre les accents',
+  wilayasVisees('bej').includes('Béjaïa'),
+  wilayasVisees('bej').join(', '),
+);
+verifier(
+  "« msila » trouve M'Sila malgre l'apostrophe",
+  wilayasVisees('msila').includes("M'Sila"),
+  wilayasVisees('msila').join(', '),
+);
+verifier(
+  'une seule lettre ne designe rien',
+  wilayasVisees('a').length === 0,
+  'sinon cinq wilayas occuperaient la tete et la suggestion ne suggererait plus rien',
+);
+verifier(
+  '« pharmacie » ne designe aucune wilaya',
+  wilayasVisees('pharmacie').length === 0,
+);
+
+/* UNE RUE QUI PORTE LE NOM D'UNE WILAYA N'EST PAS LA WILAYA. Sans ce controle, la << rue de
+ * Tizi Ouzou >> a Alger monterait au premier palier, devant la ville elle-meme. */
+console.log('\nUNE RUE DU MEME NOM NE PREND PAS LA PLACE DE LA WILAYA');
+const rueHomonyme: Fiche[] = [
+  { name: 'Tizi Ouzou', lat: 36.77, lon: 3.05, osmKey: 'highway', osmValue: 'residential', type: 'street', source: 'photon' },
+  { name: 'Tizi Ouzou', lat: 36.7118, lon: 4.0458, osmKey: 'place', osmValue: 'city', type: 'city', source: 'photon' },
+];
+const r10 = classer(rueHomonyme, 'tizi', ALGER);
+verifier(
+  'la ville passe devant la rue homonyme, pourtant bien plus proche',
+  (r10[0] as unknown as Fiche).osmValue === 'city',
+  r10.map((r) => `${r.name} (${(r as unknown as Fiche).osmValue})`).join(' · '),
+);
+
 /* ------------------------------------------------------------------ */
 /* L'ordre des trois familles : ville, VIP, puis le reste              */
 /* ------------------------------------------------------------------ */

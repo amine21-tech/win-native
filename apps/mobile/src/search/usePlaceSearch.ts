@@ -14,6 +14,8 @@ import {
   mergeCurated,
   normalizeCity,
   classerPoint18,
+  estWilayaVisee,
+  wilayasVisees,
   PERIMETRE_VIP_M,
   rankSearchResults,
   resolveCategoryQuery,
@@ -440,7 +442,15 @@ async function runTextSearch(
    * reste. La remontee des fiches WIN par le nom (`hoistOwnPlaces`) ne s'applique plus qu'au
    * TROISIEME palier — c'est elle qui delogeait la ville de Tipaza au profit d'un commerce
    * << Tipaza Pneus >> enregistre a Alger. */
+  /* LES WILAYAS QUE DESIGNE LA SAISIE, calculees une seule fois : la liste des 58 noms est
+   * parcourue par requete, pas par resultat. */
+  const visees = wilayasVisees(q);
+
   const classe = classerPoint18(hoistOwnPlaces(ranked, q), {
+    /* PREMIER PALIER : la wilaya, meme sur un nom partiel. Taper << tizi >> doit suggerer
+     * Tizi Ouzou avant tout le reste — c'est ce qu'on cherche quand on tape le debut d'un nom
+     * de wilaya, et non un commerce qui le porte. */
+    estWilaya: (r) => estWilayaVisee(r, visees),
     estVilleExacte: (r) => r.exactCity === true,
     /* << VIP >> COUVRE DEUX CHOSES, et c'est voulu : les lieux enregistres comme PARTENAIRES
      * (ajoutes avec le code VIP, `isPartner`) et les adresses que l'utilisateur a lui-meme
