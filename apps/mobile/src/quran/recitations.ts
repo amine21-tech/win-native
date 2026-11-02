@@ -25,6 +25,35 @@ export type Recitation = {
   /** Les trois protectrices se suivent : un seul fichier ne les contient pas toutes. */
   suite?: number[];
   /**
+   * Adresse complete, quand le fichier ne vient PAS du serveur habituel.
+   *
+   * AL-BAQARA EST LE SEUL CAS, et il vaut d'etre explique. Le client signalait un probleme de
+   * son sur cette sourate et sur elle seule. Mesure des sept fichiers, le 2 novembre :
+   *
+   *     Al-Fatiha   192 kbps     1,3 Mo
+   *     AL-BAQARA   320 kbps   237,6 Mo   <- seule a 320
+   *     Al-Kahf     192 kbps    39,8 Mo
+   *     Ya-Sin      192 kbps    17,8 Mo
+   *     Ar-Rahman   192 kbps    12,3 Mo
+   *     Al-Mulk     192 kbps     8,5 Mo
+   *     Al-Ikhlas   160 kbps     0,4 Mo
+   *
+   * Trois cent vingt kilobits par seconde, c'est QUARANTE kilo-octets a recevoir chaque
+   * seconde, pendant une heure quarante-trois, sans interruption. Sur une connexion mobile
+   * algerienne, la moindre faiblesse vide la reserve du lecteur et le son se coupe. Les autres
+   * sourates tiennent parce qu'elles demandent moitie moins, et surtout parce qu'elles sont
+   * courtes : un fichier de huit minutes se remplit d'avance, pas un de deux heures.
+   *
+   * On prend donc la meme recitation, du meme recitateur, en 128 kbps : 120 Mo au lieu de 238,
+   * soit seize kilo-octets par seconde. Le reste de la liste ne bouge pas — on ne change pas
+   * ce qui marche.
+   *
+   * AUCUN DE CES FICHIERS N'A DE TABLE DE RECHERCHE (ni Xing, ni Info, ni VBRI). Se deplacer
+   * dans la sourate est donc approximatif, chez l'une comme chez l'autre : ce n'est pas une
+   * regression, c'est ainsi depuis le debut.
+   */
+  url?: string;
+  /**
    * Fichier servi par NOTRE serveur, pour ce qui n'existe pas en sourate entiere.
    *
    * Le verset du Trone est le verset 255 d'Al-Baqara : aucun fichier de sourate ne le contient
@@ -37,7 +66,14 @@ export type Recitation = {
 
 export const RECITATIONS: Recitation[] = [
   { numero: 1, arabe: 'الفاتحة', latin: 'Al-Fatiha', duree: '~1 min' },
-  { numero: 2, arabe: 'البقرة', latin: 'Al-Baqara', duree: '~2 h' },
+  {
+    numero: 2,
+    arabe: 'البقرة',
+    latin: 'Al-Baqara',
+    duree: '~2 h',
+    // 128 kbps au lieu de 320 : voir la note sur `url`. Meme recitateur, meme recitation.
+    url: 'https://download.quranicaudio.com/quran/ali_jaber/002.mp3',
+  },
   {
     numero: 255,
     arabe: 'آية الكرسي',
@@ -71,5 +107,6 @@ export function urlSourate(numero: number): string {
 /** Les fichiers a enchainer pour une entree de la liste. */
 export function urlsDe(r: Recitation): string[] {
   if (r.fichierLocal) return [`${apiBase()}/uploads/audio/${r.fichierLocal}`];
+  if (r.url) return [r.url];
   return (r.suite ?? [r.numero]).map(urlSourate);
 }

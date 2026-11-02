@@ -103,10 +103,20 @@ function obtenirLecteur(): AudioPlayer {
       return;
     }
 
+    /* << CHARGE >> COUVRE DEUX SITUATIONS, et n'en couvrait qu'une.
+     *
+     * L'ancienne regle etait `ni en train de jouer, ni charge`. Elle attrapait le DEBUT — le
+     * fichier n'est pas encore arrive — mais pas la PAUSE FORCEE en cours de route : quand la
+     * reserve se vide sur une connexion faible, le fichier reste charge et la lecture
+     * s'arrete. On tombait alors dans ni l'un ni l'autre, et le bouton revenait a << lecture >>
+     * sans un mot. Vu de l'utilisateur, le son s'arrete tout seul et rien ne l'explique —
+     * c'est exactement ce que le client decrit sur Al-Baqara.
+     *
+     * `isBuffering` dit precisement cela : le lecteur veut jouer, et attend des octets. */
+    const attend = status.isBuffering || (!status.playing && !status.isLoaded);
     useQuranPlayer.setState({
       joue: status.playing,
-      // Demande, mais ni charge ni en train de jouer : le fichier arrive encore.
-      charge: !status.playing && !status.isLoaded,
+      charge: attend && useQuranPlayer.getState().enCours !== null,
     });
   });
 
