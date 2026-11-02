@@ -24,9 +24,6 @@ type Props = {
  * sous-categories, sauf s'il n'en a qu'une seule — elle est alors cherchee
  * directement, comme runCategorySearch()/le clic sur `.grp` en v83.
  */
-/** Le noir demande par le client pour le libelle Emploi (correction C5). */
-const NOIR_EMPLOI = '#1A2319';
-
 export function CategoryChips({ onPick, onEmploi, colors }: Props) {
   const { t } = useTranslation();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
@@ -59,8 +56,18 @@ export function CategoryChips({ onPick, onEmploi, colors }: Props) {
             {/* TEXTE NOIR et non or (correction C5 du 31 octobre). L'or sur fond blanc n'avait
                 pas assez de contraste : il se lisait bien sur une capture d'ecran, mal au
                 soleil, et c'est la seule condition qui compte dans une voiture. La bordure
-                reste doree — elle suffit a distinguer la rubrique sans toucher au texte. */}
-            <Text style={[typography.caption, styles.grpLabel, { color: NOIR_EMPLOI }]}>
+                reste doree — elle suffit a distinguer la rubrique sans toucher au texte.
+
+                LE NOIR ETAIT ECRIT EN DUR, et c'est ce qui l'a fait disparaitre en mode nuit :
+                du #1A2319 sur un fond sombre ne se voit pas. Le defaut etait previsible et
+                personne ne l'a vu — C5 a ete demandee, appliquee et verifiee de jour.
+
+                Il suit donc `colors.text`, comme le libelle de TOUS les autres groupes. C'est
+                d'ailleurs ce que C5 demandait vraiment : << comme les autres, et non en or >>.
+                De jour cela donne le meme noir a six millièmes près ; de nuit, le blanc cassé
+                de la palette sombre. Une couleur ecrite en dur dans une application qui a deux
+                themes est une erreur en attente. */}
+            <Text style={[typography.caption, styles.grpLabel, { color: colors.text }]}>
               {t('jobs.shortTitle')}
             </Text>
           </Pressable>

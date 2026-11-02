@@ -2,7 +2,7 @@
   "expo": {
     "name": "WIN",
     "slug": "win-dz",
-    "version": "1.0.111",
+    "version": "1.0.112",
     "orientation": "default",
     "scheme": "win",
     "userInterfaceStyle": "automatic",
@@ -12,7 +12,7 @@
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.windz.app",
-      "versionCode": 111,
+      "versionCode": 112,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0A5840"
