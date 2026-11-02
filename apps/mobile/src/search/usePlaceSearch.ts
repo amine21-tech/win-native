@@ -14,6 +14,7 @@ import {
   mergeCurated,
   normalizeCity,
   classerPoint18,
+  estLieuPublic,
   estWilayaVisee,
   wilayasVisees,
   PERIMETRE_VIP_M,
@@ -451,6 +452,10 @@ async function runTextSearch(
      * Tizi Ouzou avant tout le reste — c'est ce qu'on cherche quand on tape le debut d'un nom
      * de wilaya, et non un commerce qui le porte. */
     estWilaya: (r) => estWilayaVisee(r, visees),
+    /* DEUXIEME PALIER : les etablissements PUBLICS — hopital, mairie, gare, ecole, poste.
+     * Quand on tape le nom de l'un d'eux, on ne cherche jamais un commerce qui porte le meme
+     * nom. Les commerces, eux, restent dans les paliers VIP et simple. */
+    estPublic: (r) => estLieuPublic(r),
     estVilleExacte: (r) => r.exactCity === true,
     /* << VIP >> COUVRE DEUX CHOSES, et c'est voulu : les lieux enregistres comme PARTENAIRES
      * (ajoutes avec le code VIP, `isPartner`) et les adresses que l'utilisateur a lui-meme

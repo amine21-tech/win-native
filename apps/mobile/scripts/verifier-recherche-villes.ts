@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   classerPoint18,
+  estLieuPublic,
   estWilayaVisee,
   PERIMETRE_VIP_M,
   rankSearchResults,
@@ -32,6 +33,7 @@ type Fiche = {
   type?: string;
   source: 'win' | 'photon';
   vip?: boolean;
+  category?: string;
 };
 
 let fautes = 0;
@@ -46,6 +48,7 @@ function classer(fiches: Fiche[], requete: string, moi: { lat: number; lon: numb
   const visees = wilayasVisees(requete);
   return classerPoint18(rangs, {
     estWilaya: (r) => estWilayaVisee(r, visees),
+    estPublic: (r) => estLieuPublic(r),
     estVilleExacte: (r) => r.exactCity === true,
     estVip: (r) => (r as unknown as Fiche).vip === true,
     distanceM: (r) => r.distanceM,
@@ -247,6 +250,63 @@ verifier(
   (r10[0] as unknown as Fiche).osmValue === 'city',
   r10.map((r) => `${r.name} (${(r as unknown as Fiche).osmValue})`).join(' · '),
 );
+
+/* ------------------------------------------------------------------ */
+/* Le palier des lieux PUBLICS                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * << UN ENDROIT PUBLIC, PUIS LES PETITES VILLES >>, demande du 3 novembre. Un hopital, une
+ * mairie, une gare passent devant un village homonyme et devant les lieux ajoutes : quand on
+ * tape le nom d'un de ces etablissements, on ne cherche jamais un commerce qui porte le meme
+ * nom.
+ *
+ * LE RISQUE EST QUE CE PALIER AVALE LA MOITIE DE LA CARTE. Un restaurant, un cafe, une banque,
+ * une station-service sont utiles mais pas publics ; une pharmacie non plus — elle est privee,
+ * meme de garde, et l'y mettre ferait passer toutes les pharmacies de la ville devant les
+ * villages. Ce controle existe surtout pour tenir cette frontiere.
+ */
+console.log('\nUN ENDROIT PUBLIC PASSE DEVANT LES PETITES VILLES');
+
+const publics: Fiche[] = [
+  { name: 'Ben Aknoun', lat: 36.76, lon: 3.0, osmKey: 'place', osmValue: 'village', type: 'village', source: 'photon' },
+  { name: 'Ben Aknoun', lat: 36.755, lon: 3.01, osmKey: 'amenity', osmValue: 'hospital', type: 'hospital', source: 'photon' },
+  { name: 'Ben Aknoun Auto', lat: 36.754, lon: 3.012, source: 'win' },
+];
+const r11 = classer(publics, 'Ben Aknoun', ALGER);
+verifier(
+  "l'hopital passe devant le village homonyme",
+  (r11[0] as unknown as Fiche).osmValue === 'hospital',
+  r11.map((r) => r.name + ' (' + String((r as unknown as Fiche).osmValue ?? 'win') + ')').join(' - '),
+);
+
+console.log('\nLA FRONTIERE DU MOT PUBLIC');
+const estPublic = (f: Partial<Fiche>) =>
+  estLieuPublic({ name: '', lat: 0, lon: 0, ...f } as never);
+
+for (const [nom, f] of [
+  ['un hopital', { osmKey: 'amenity', osmValue: 'hospital' }],
+  ['une mairie', { osmKey: 'amenity', osmValue: 'townhall' }],
+  ['une gare', { osmKey: 'railway', osmValue: 'station' }],
+  ['un aeroport', { osmKey: 'aeroway', osmValue: 'aerodrome' }],
+  ['une ecole', { osmKey: 'amenity', osmValue: 'school' }],
+  ['une mosquee', { osmKey: 'amenity', osmValue: 'place_of_worship' }],
+  ['une fiche WIN administration', { category: 'administration' }],
+] as [string, Partial<Fiche>][]) {
+  verifier('  public : ' + nom, estPublic(f));
+}
+
+for (const [nom, f] of [
+  ['un restaurant', { osmKey: 'amenity', osmValue: 'restaurant' }],
+  ['un cafe', { osmKey: 'amenity', osmValue: 'cafe' }],
+  ['une banque', { osmKey: 'amenity', osmValue: 'bank' }],
+  ['une station-service', { osmKey: 'amenity', osmValue: 'fuel' }],
+  ['une pharmacie', { category: 'pharmacie' }],
+  ['un hotel', { category: 'hotel' }],
+  ['une ville', { osmKey: 'place', osmValue: 'city', type: 'city' }],
+] as [string, Partial<Fiche>][]) {
+  verifier('  PAS public : ' + nom, !estPublic(f), 'sinon ce palier avalerait la moitie de la carte');
+}
 
 /* ------------------------------------------------------------------ */
 /* L'ordre des trois familles : ville, VIP, puis le reste              */

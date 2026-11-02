@@ -754,9 +754,72 @@ export function estWilayaVisee(r: RankableResult, visees: readonly string[]): bo
   return visees.some((w) => normalizeCity(w) === n);
 }
 
+/**
+ * LES LIEUX PUBLICS, troisieme palier du classement (demande du 3 novembre).
+ *
+ * CE QUE << PUBLIC >> VEUT DIRE ICI : un etablissement que l'on cherche parce qu'on en a
+ * besoin, pas parce qu'on veut y acheter quelque chose. Un hopital, une mairie, une gare, une
+ * ecole, une poste, un commissariat. Ils passent devant les petites villes et devant les lieux
+ * ajoutes, pour une raison simple : quand on tape le nom d'un de ces etablissements, on ne
+ * cherche jamais un commerce qui porte le meme nom.
+ *
+ * CE QUI N'EN EST PAS, et il faut etre net, sans quoi le palier avalerait la moitie de la
+ * carte : un restaurant, un cafe, un hotel, une banque, un garage, une station-service, un
+ * magasin. Tous utiles, aucun public. Une pharmacie non plus — elle est privee, meme de garde,
+ * et la mettre ici ferait passer toutes les pharmacies de la ville devant les villages.
+ *
+ * ON RECONNAIT PAR DEUX CHEMINS. Nos propres fiches portent une `category` ; celles
+ * d'OpenStreetMap portent `osmKey`/`osmValue`. Les deux vocabulaires ne se recouvrent pas, et
+ * ignorer l'un des deux reviendrait a ne classer qu'une moitie des resultats.
+ */
+const CATEGORIES_PUBLIQUES = new Set([
+  'hopital',
+  'ecole',
+  'universite',
+  'mosquee',
+  'administration',
+  'poste',
+  'transport',
+]);
+
+const VALEURS_OSM_PUBLIQUES = new Set([
+  'hospital',
+  'clinic',
+  'doctors',
+  'townhall',
+  'police',
+  'fire_station',
+  'school',
+  'college',
+  'university',
+  'post_office',
+  'courthouse',
+  'embassy',
+  'library',
+  'place_of_worship',
+  'bus_station',
+  'station',
+  'halt',
+  'aerodrome',
+  'terminal',
+  'ferry_terminal',
+]);
+
+export function estLieuPublic(r: RankableResult & { category?: string }): boolean {
+  if (cityRank(r) > 0) return false; // une ville n'est pas un etablissement
+  if (r.category && CATEGORIES_PUBLIQUES.has(r.category)) return true;
+  const v = (r.osmValue || '').toLowerCase();
+  const t = (r.type || '').toLowerCase();
+  const k = (r.osmKey || '').toLowerCase();
+  if (k === 'railway' || k === 'aeroway') return true;
+  return VALEURS_OSM_PUBLIQUES.has(v) || VALEURS_OSM_PUBLIQUES.has(t);
+}
+
 export type ClassementPoint18Options<T> = {
   /** Vrai si ce resultat est une WILAYA que designe la saisie, meme partielle. Premier palier. */
   estWilaya?: (r: T) => boolean;
+  /** Vrai si ce resultat est un etablissement PUBLIC. Deuxieme palier. */
+  estPublic?: (r: T) => boolean;
   /** Vrai si ce resultat est une ville dont le nom correspond exactement a la saisie. */
   estVilleExacte: (r: T) => boolean;
   /** Vrai si ce resultat est une adresse enregistree par l'utilisateur. */
@@ -767,6 +830,7 @@ export type ClassementPoint18Options<T> = {
 
 export function classerPoint18<T>(resultats: T[], o: ClassementPoint18Options<T>): T[] {
   const wilayas: T[] = [];
+  const publics: T[] = [];
   const villes: T[] = [];
   const vip: T[] = [];
   const reste: T[] = [];
@@ -777,6 +841,10 @@ export function classerPoint18<T>(resultats: T[], o: ClassementPoint18Options<T>
      * de wilaya, pas un commerce qui le porte. */
     if (o.estWilaya?.(r)) {
       wilayas.push(r);
+      continue;
+    }
+    if (o.estPublic?.(r)) {
+      publics.push(r);
       continue;
     }
     if (o.estVilleExacte(r)) {
@@ -798,6 +866,7 @@ export function classerPoint18<T>(resultats: T[], o: ClassementPoint18Options<T>
    * `rankSearchResults` — qui departage deja deux villes homonymes par leur taille puis par
    * leur distance, et le reste par la distance seule.
    *
-   * QUATRE PALIERS DEPUIS LE 3 NOVEMBRE : la wilaya, la ville exacte, le VIP, le reste. */
-  return [...wilayas, ...villes, ...vip, ...reste];
+   * CINQ PALIERS DEPUIS LE 3 NOVEMBRE : la wilaya, le lieu public, la ville exacte, le VIP,
+   * puis le reste. */
+  return [...wilayas, ...publics, ...villes, ...vip, ...reste];
 }
