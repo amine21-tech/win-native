@@ -12,6 +12,8 @@ type RawManeuver = {
   length: number;
   begin_shape_index: number;
   lanes?: RawLane[];
+  /** Valhalla marque d'un drapeau les manoeuvres qui se font sur un grand axe. */
+  highway?: boolean;
 };
 
 type RawLane = { directions: number; valid?: number; active?: number };
@@ -78,6 +80,14 @@ export type Maneuver = {
   shapeIndex: number;
   /** Voies a prendre a cette manoeuvre, de gauche a droite. Vide quand la donnee n'existe pas. */
   lanes: Lane[];
+  /**
+   * Cette manoeuvre se fait-elle sur une AUTOROUTE ou une voie rapide ?
+   *
+   * Valhalla pose ce drapeau sur les manoeuvres d'un grand axe — `motorway` et `trunk` au sens
+   * d'OpenStreetMap, avec leurs bretelles. C'est la seule information de classe de route qu'il
+   * nous donne, et elle suffit : le client limite le guidage de voie a ces routes-la.
+   */
+  surAutoroute: boolean;
   /** Distance depuis le depart, le long du trace, a laquelle commence cette manoeuvre.
    * Permet d'afficher « dans 250 m » en distance REELLEMENT parcourue plutot qu'a vol
    * d'oiseau, et de faire descendre la distance restante en continu. */
@@ -132,6 +142,10 @@ function normalize(trip: RawTrip, narration: 'fr' | 'en'): Route {
       valid: lane.valid ?? 0,
       active: lane.active ?? 0,
     })),
+    /* ABSENT VAUT FAUX : sur les versions de Valhalla qui ne posent pas ce drapeau, le
+     * guidage de voie ne s'affiche simplement pas. C'est le bon defaut — mieux vaut ne rien
+     * montrer que le montrer sur une rue a voie unique, ou il n'a aucun sens. */
+    surAutoroute: m.highway === true,
   }));
   return {
     distanceM: trip.summary.length * 1000,

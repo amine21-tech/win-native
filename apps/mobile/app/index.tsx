@@ -285,7 +285,7 @@ function degradeTrace(
    * pouvoir etre eprouve sans telephone : voir scripts/verifier-degrade.ts, qui verifie sur
    * treize cas limites qu'aucun palier ne cesse de croitre. Un seul palier fautif fait rejeter
    * la couche entiere par MapLibre et le trace disparait en silence. */
-  const paliers = paliersDuTrace(parcouru, avant, fait, bandes, (c) => rgba(c, OPACITE_PARCOURU));
+  const paliers = paliersDuTrace(parcouru, avant, fait, bandes, (c, o) => rgba(c, o));
   return ['interpolate', ['linear'], ['line-progress'], ...paliers] as LineGradient;
 }
 
@@ -320,19 +320,23 @@ function pointAtDistance(route: Route, metres: number): [number, number] | null 
  * ne disait pas — et il n'y a plus qu'une valeur a comprendre.
  */
 /**
- * OPACITE DE LA PORTION DEJA PARCOURUE — mise a 1 le 1er novembre, a la demande du client.
+ * OPACITE DE LA PORTION DEJA PARCOURUE — pour le HALO et la BORDURE, pas pour le trace.
  *
- * Le trace s'affichait en deux teintes : vert pale derriere le vehicule, vert franc devant.
- * L'idee etait de montrer d'un coup d'oeil ou l'on en est. Le client la refuse : << la couleur
- * sera verte, je ne veux pas de degradement de la couleur, ce sera tres vert >>.
+ * ELLE A FAIT UN ALLER-RETOUR, ET IL FAUT DIRE POURQUOI. Elle valait 0,25 : le trace
+ * s'affichait en deux teintes, vert pale derriere le vehicule, vert franc devant. Le client
+ * l'a refusee le 1er novembre — << la couleur sera verte, je ne veux pas de degradement >> —
+ * parce qu'a 25 % le vert ne se distinguait plus d'une route ordinaire et que le trace
+ * semblait COUPE au niveau du vehicule.
  *
- * Il a une raison que la capture rend evidente : sur une carte claire, le vert a 25 % ne se
- * distingue plus d'une route ordinaire. Le trace semblait COUPE au niveau du vehicule, comme
- * si l'itineraire commencait la — alors qu'on voulait seulement dire qu'il etait deja fait.
+ * Son document du 3 novembre demande l'effet COMETE : plein devant, fondu derriere. Ce n'est
+ * pas un retour en arriere, et la nuance est tout le sujet. Ses deux reproches etaient
+ * << le degrade apparait aussi DEVANT la fleche >> et << la route jaune transparait sous la
+ * ligne verte >>. L'ancienne version faisait les deux ; la comete n'en fait aucun : devant
+ * elle est opaque a cent pour cent, et derriere elle s'efface au lieu de palir.
  *
- * La valeur reste une constante plutot qu'une suppression du code : les bandes de trafic
- * passent par le meme mecanisme, et le jour ou l'on voudra remontrer la progression, il n'y a
- * qu'un nombre a changer.
+ * Le trace principal ne se sert donc plus de cette constante — il a sa propre courbe, dans
+ * degradeTrace.ts. Elle reste a 1 pour le halo et la bordure, qui n'ont jamais eu de queue de
+ * comete : les faire palir derriere le vehicule dessinerait un second degrade sous le premier.
  */
 const OPACITE_PARCOURU = 1;
 

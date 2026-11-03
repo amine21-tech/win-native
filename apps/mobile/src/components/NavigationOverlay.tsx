@@ -220,7 +220,11 @@ export const NavigationOverlay = memo(function NavigationOverlay({
             n'apparaissent qu'a cinq cents metres d'une bifurcation, et seulement la ou
             OpenStreetMap connait les marquages au sol. */}
         {!arrived && !recalculating ? (
-          <LaneGuidance lanes={nextManeuver?.lanes ?? []} distanceM={distanceToUpcoming} />
+          <LaneGuidance
+            lanes={nextManeuver?.lanes ?? []}
+            distanceM={distanceToUpcoming}
+            surAutoroute={nextManeuver?.surAutoroute ?? false}
+          />
         ) : null}
 
         {/* La pastille de recalcul, posee SOUS le bandeau et par-dessus la carte : elle dit que

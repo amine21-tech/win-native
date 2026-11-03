@@ -20,10 +20,24 @@ import { radius, spacing, type Palette } from '../theme';
  * Rien ne s'affiche quand la donnee n'existe pas : OpenStreetMap ne porte les marquages au sol
  * (`turn:lanes`) que sur une partie du reseau, surtout en Algerie. Une voie inventee serait
  * pire que pas de voie du tout.
+ *
+ * AUTOROUTE ET VOIE RAPIDE UNIQUEMENT depuis le 3 novembre, et au moins deux voies. La
+ * POSITION, elle, ne change pas : le client demandait une barre en bas, mais son point 5 du
+ * 27 octobre exigeait l'inverse — << integrees dans le bandeau vert EN HAUT, pas un widget
+ * separe >>. On garde le bandeau, decision prise avec lui ; seules les conditions de
+ * declenchement suivent le nouveau document.
  */
 
 /** Distance d'apparition : au-dela, le conducteur ne peut encore rien faire de l'information. */
 export const LANE_GUIDANCE_VISIBLE_M = 500;
+
+/**
+ * NOMBRE MINIMAL DE VOIES — correctif 1 du 3 novembre.
+ *
+ * Une seule voie peinte n'est pas un choix : elle ne dit pas ou se placer, elle dit seulement
+ * ce qui est ecrit par terre. Le guidage ne sert que la ou il y a une decision a prendre.
+ */
+export const LANE_GUIDANCE_MIN = 2;
 
 /* Une voie porte souvent PLUSIEURS directions peintes (tout droit + a droite). On dessine la
  * plus parlante : celle qui correspond au mouvement le plus marque. L'ordre de ce tableau est
@@ -74,12 +88,27 @@ function glyphFor(lane: Lane): string {
 export function LaneGuidance({
   lanes,
   distanceM,
+  surAutoroute,
 }: {
   lanes: Lane[];
   /** Distance restante jusqu'a la bifurcation, ou `null` si elle est inconnue. */
   distanceM: number | null;
+  /** La manoeuvre se fait-elle sur une autoroute ou une voie rapide ? */
+  surAutoroute: boolean;
 }) {
-  if (lanes.length === 0 || distanceM == null || distanceM > LANE_GUIDANCE_VISIBLE_M) return null;
+  /* AUTOROUTE ET VOIE RAPIDE UNIQUEMENT, et au moins deux voies — correctif 1 du 3 novembre.
+   *
+   * << Elle NE s'active PAS sur les virages normaux en ville, les carrefours classiques, les
+   * ronds-points, ni sur une route a voie unique. >>
+   *
+   * Le client a raison, et pour une raison qu'on ne voit qu'au volant : en ville, les voies
+   * changent a chaque carrefour et l'affichage clignoterait d'un feu a l'autre sans jamais
+   * rien apprendre. Rater une file en ville coute un tour du pate de maisons ; la rater avant
+   * une sortie d'autoroute coute dix kilometres. C'est la que l'information vaut. */
+  if (!surAutoroute) return null;
+  if (lanes.length < LANE_GUIDANCE_MIN || distanceM == null || distanceM > LANE_GUIDANCE_VISIBLE_M) {
+    return null;
+  }
 
   return (
     <View style={styles.row} pointerEvents="none">

@@ -209,6 +209,32 @@ verifier(
     'panneauHeight' not in overlay and 'bannerHeight + spacing.sm' in overlay,
     "il n'y a plus deux hauteurs a additionner, le bandeau contient tout",
 )
+# ------------------------------------------------------------------ correctif 1, 3 novembre
+voies = lire(RACINE / 'apps/mobile/src/components/LaneGuidance.tsx')
+# LE PERIMETRE DU GUIDAGE DE VOIE, resserre le 3 novembre : autoroute ou voie rapide, et au
+# moins deux voies. Sans ces deux conditions l'affichage apparaissait a chaque carrefour de
+# ville, ou il clignote d'un feu a l'autre sans rien apprendre.
+#
+# LA POSITION, elle, ne bouge pas. Le document du 3 novembre demande une barre en BAS ; le
+# point 5 du 27 octobre exigeait l'inverse, << integrees dans le bandeau vert EN HAUT, pas un
+# widget separe >>. On garde le bandeau — decision prise avec le client — et ce controle le
+# fige pour qu'un futur lecteur du document ne croie pas a un oubli.
+verifier(
+    'guidage de voie : autoroute ou voie rapide uniquement',
+    'surAutoroute' in voies and 'if (!surAutoroute) return null;' in voies,
+    'pas sur un carrefour de ville, ou il clignoterait d un feu a l autre',
+)
+verifier(
+    'guidage de voie : au moins deux voies',
+    'LANE_GUIDANCE_MIN = 2' in voies,
+    'une seule voie peinte ne dit pas ou se placer',
+)
+verifier(
+    'guidage de voie : toujours DANS le bandeau du haut',
+    '<LaneGuidance' in overlay.split('</Pressable>')[0],
+    'le point 05 du 27 octobre l exige ; le document du 3 novembre demandait une barre en bas',
+)
+
 verifier('le nom de la rue est affiche', 'maneuver.streetName' in panneau)
 verifier('la distance est affichee', 'formatDistance(distanceM)' in panneau)
 verifier('la deuxieme consigne, en plus petit dessous', 'montrerSuivante' in panneau)

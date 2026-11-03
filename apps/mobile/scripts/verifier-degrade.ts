@@ -14,9 +14,16 @@
  * Usage, depuis la racine du depot :
  *   npx tsx apps/mobile/scripts/verifier-degrade.ts
  */
-import { paliersDuTrace, type BandeTrafic } from '../src/navigation/degradeTrace';
+import {
+  OPACITE_QUEUE,
+  paliersDuTrace,
+  QUEUE_COMETE,
+  type BandeTrafic,
+} from '../src/navigation/degradeTrace';
 
-const attenuer = (c: string) => `${c}@25`;
+/* On encode l'opacite dans la couleur pour pouvoir la relire : le vrai `teinter` rend du
+ * rgba(), illisible a l'oeil dans un test. */
+const attenuer = (c: string, o: number) => `${c}@${o.toFixed(3)}`;
 
 type Cas = { nom: string; fait: number; bandes: BandeTrafic[] };
 
@@ -115,3 +122,79 @@ if (fautes > 0) {
   process.exit(1);
 }
 console.log(`${CAS.length} cas : tous les paliers croissent strictement et restent dans [0,1].`);
+
+
+/* ------------------------------------------------------------------ */
+/* La forme de la COMETE                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * CE QUE LES TREIZE CAS CI-DESSUS NE VOIENT PAS. Ils verifient que MapLibre accepte les
+ * paliers — qu'ils croissent, qu'ils restent dans [0,1]. Ils ne regardent pas les COULEURS, et
+ * c'est pourtant la que vit l'effet demande le 3 novembre : opaque devant la fleche, efface
+ * derriere.
+ *
+ * Un degrade qui palit aussi DEVANT reste parfaitement valide pour MapLibre. Il passerait les
+ * treize cas sans rien dire — et c'est exactement le defaut que le client reproche :
+ * << le degrade apparait aussi devant la fleche, trace flou et illisible >>.
+ */
+console.log('LA COMETE : OPAQUE DEVANT, EFFACEE DERRIERE');
+
+let fautesComete = 0;
+function comete(nom: string, ok: boolean, detail = '') {
+  console.log(`  ${ok ? 'ok  ' : 'FAUX'}  ${nom}${detail ? `  — ${detail}` : ''}`);
+  if (!ok) fautesComete++;
+}
+
+const FAIT = 0.5;
+const paliersComete = paliersDuTrace('#VERT', '#VERT', FAIT, [], attenuer);
+const lus: { x: number; opacite: number }[] = [];
+for (let i = 0; i < paliersComete.length; i += 2) {
+  const x = paliersComete[i] as number;
+  const couleur = paliersComete[i + 1] as string;
+  lus.push({ x, opacite: Number(couleur.split('@')[1]) });
+}
+console.log('  ' + lus.map((l) => `${l.x.toFixed(3)}->${l.opacite.toFixed(2)}`).join('  '));
+
+const devant = lus.filter((l) => l.x > FAIT);
+comete(
+  'tout ce qui est DEVANT la fleche est opaque',
+  devant.length > 0 && devant.every((l) => l.opacite === 1),
+  'c est le reproche principal du client : le fondu ne doit jamais passer devant',
+);
+comete(
+  'le depart du trajet est completement transparent',
+  lus[0]!.opacite === 0,
+  `${lus[0]!.opacite} a la position ${lus[0]!.x}`,
+);
+comete(
+  'la trainee atteint son maximum JUSTE derriere la fleche',
+  Math.abs((lus.find((l) => l.x === FAIT)?.opacite ?? -1) - OPACITE_QUEUE) < 1e-9,
+  `${OPACITE_QUEUE} attendu`,
+);
+comete(
+  'la trainee ne remonte jamais au-dela de son maximum',
+  lus.filter((l) => l.x <= FAIT).every((l) => l.opacite <= OPACITE_QUEUE + 1e-9),
+  'sinon on ne distinguerait plus le parcouru du restant',
+);
+comete(
+  'elle ne couvre pas tout le trajet',
+  (lus.find((l) => l.x > 0 && l.opacite === 0)?.x ?? 0) > 0,
+  `queue de ${QUEUE_COMETE * 100} % du trajet`,
+);
+
+/* AU DEPART, LA QUEUE DEBORDERAIT AVANT LE DEBUT DU TRAJET. La borne negative doit etre
+ * ramenee a 0 sans casser la croissance des paliers — c'est le cas limite qui ferait rejeter
+ * la couche entiere. */
+const auDepart = paliersDuTrace('#VERT', '#VERT', 0.01, [], attenuer);
+comete(
+  'juste apres le depart, les paliers restent valides',
+  auDepart.filter((_, i) => i % 2 === 0).every((x, i, t) => i === 0 || (x as number) > (t[i - 1] as number)),
+  JSON.stringify(auDepart.filter((_, i) => i % 2 === 0)),
+);
+
+if (fautesComete > 0) {
+  console.log('\n' + fautesComete + ' verification(s) de la comete en echec.');
+  process.exit(1);
+}
+console.log('\nLa comete est pleine devant et s efface derriere.');
