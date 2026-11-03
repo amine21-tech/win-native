@@ -568,7 +568,9 @@
     "previewEdit": "✎ بدّل",
     "previewPublishNow": "✔ انشر دروك",
     "alertsUnavailable": "السيرفر مازال ما عندوش هاذ الخدمة. عيّط للتحديث تع API ومن بعد حلّ هاذ الشاشة من جديد.",
-    "alertsFailed": "ما تسجلش: {{raison}}"
+    "alertsFailed": "ما تسجلش: {{raison}}",
+    "alertNotPublished": "⚠ التبديل ما تنشرش — اضغط على انشر.",
+    "alertOffPublished": "التنبيه مطفي: ما يبان والو لحتى واحد."
   },
   "approach": {
     "prefix": "رد بالك،",

@@ -568,7 +568,9 @@
     "previewEdit": "✎ تعديل",
     "previewPublishNow": "✔ انشر الآن",
     "alertsUnavailable": "الخادم لا يملك هذه الوظيفة بعد. حدّث الواجهة البرمجية ثم أعد فتح هذه الشاشة.",
-    "alertsFailed": "فشل الحفظ: {{raison}}"
+    "alertsFailed": "فشل الحفظ: {{raison}}",
+    "alertNotPublished": "⚠ تعديل غير منشور — اضغط على نشر.",
+    "alertOffPublished": "التنبيه مطفأ: لا شيء يُعرض لأحد."
   },
   "approach": {
     "prefix": "انتبه،",

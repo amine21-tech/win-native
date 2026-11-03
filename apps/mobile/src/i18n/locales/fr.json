@@ -568,7 +568,9 @@
     "previewEdit": "✎ Modifier",
     "previewPublishNow": "✔ Publier maintenant",
     "alertsUnavailable": "Le serveur n'a pas encore cette fonction. Mettez l'API à jour, puis rouvrez cet écran.",
-    "alertsFailed": "L'enregistrement a échoué : {{raison}}"
+    "alertsFailed": "L'enregistrement a échoué : {{raison}}",
+    "alertNotPublished": "⚠ Modification non publiée — appuyez sur Publier.",
+    "alertOffPublished": "Alerte éteinte : rien ne s’affiche chez personne."
   },
   "approach": {
     "prefix": "Attention,",

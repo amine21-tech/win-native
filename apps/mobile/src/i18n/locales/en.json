@@ -568,7 +568,9 @@
     "previewEdit": "✎ Edit",
     "previewPublishNow": "✔ Publish now",
     "alertsUnavailable": "The server does not have this feature yet. Update the API, then reopen this screen.",
-    "alertsFailed": "Saving failed: {{raison}}"
+    "alertsFailed": "Saving failed: {{raison}}",
+    "alertNotPublished": "⚠ Change not published — press Publish.",
+    "alertOffPublished": "Alert switched off: nothing is shown to anyone."
   },
   "approach": {
     "prefix": "Caution,",

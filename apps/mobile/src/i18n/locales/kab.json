@@ -568,7 +568,9 @@
     "previewEdit": "✎ Ẓreg",
     "previewPublishNow": "✔ Suffeɣ tura",
     "alertsUnavailable": "Aqeddac ur yesɛi ara tamahilt-a ar tura. Leqqem API, sakin ldi tiskant-a tikkelt-nniḍen.",
-    "alertsFailed": "Askelsu ur yeddi ara : {{raison}}"
+    "alertsFailed": "Askelsu ur yeddi ara : {{raison}}",
+    "alertNotPublished": "⚠ Asnifel ur yettwasuffeɣ ara — senned ɣef Suffeɣ.",
+    "alertOffPublished": "Amenɣi yensa : ulac acu i d-yettbanen i yiwen."
   },
   "approach": {
     "prefix": "Ḥader,",

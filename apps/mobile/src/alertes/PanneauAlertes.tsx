@@ -195,6 +195,23 @@ function Vigilance({
   const meteo = alerte.type === 'weather';
   const manquePhenomene = meteo && active && phenomenes.length === 0;
 
+  /**
+   * LE FORMULAIRE DIFFERE-T-IL DE CE QUI EST PUBLIE ?
+   *
+   * C'est la question que l'ecran ne posait pas, et c'est tout le defaut. L'etat du formulaire
+   * est local jusqu'a la publication — ce qui est juste — mais la ligne d'etat lisait ce meme
+   * etat local et annoncait << Alerte desactivee : rien n'est affiche >> des qu'on touchait
+   * l'interrupteur. Le fondateur eteignait, lisait que c'etait eteint, fermait l'ecran, et la
+   * banniere continuait d'apparaitre chez tout le monde. L'ecran ne mentait pas par erreur de
+   * calcul : il repondait a une autre question que celle qu'on lui posait.
+   */
+  const memeListe = (a: readonly string[], b: readonly string[]) =>
+    a.length === b.length && [...a].sort().join('|') === [...b].sort().join('|');
+  const nonPublie =
+    active !== alerte.active ||
+    !memeListe(wilayas, alerte.wilayas ?? []) ||
+    (meteo && !memeListe(phenomenes, alerte.phenomena ?? []));
+
   const publier = useMutation({
     mutationFn: () =>
       api(`/admin/alertes/${alerte.type}`, {
@@ -221,7 +238,16 @@ function Vigilance({
     [alerte.type, wilayas, phenomenes, meteo],
   );
 
-  const publiable = vuEnApercu && !manquePhenomene && !publier.isPending;
+  /**
+   * ETEINDRE NE DEMANDE PAS D'APERCU, et c'est le second defaut corrige.
+   *
+   * L'apercu est obligatoire parce que publier allume une banniere chez tous les utilisateurs
+   * du pays et que rien ne la rattrape. Eteindre fait l'inverse : cela ne montre rien a
+   * personne. Exiger l'apercu d'une banniere qui ne sera plus affichee n'etait pas une
+   * precaution, c'etait un obstacle — et un obstacle place precisement sur le geste urgent,
+   * celui qu'on fait quand l'alerte n'a plus lieu d'etre.
+   */
+  const publiable = (!active || vuEnApercu) && !manquePhenomene && !publier.isPending;
 
   return (
     <View style={[styles.carte, { borderColor: colors.border }]}>
@@ -292,15 +318,24 @@ function Vigilance({
           explication se lit comme une panne, et on recommence au lieu de corriger. */}
       {manquePhenomene ? (
         <Text style={[typography.caption, { color: ROUGE }]}>{t('admin.alertNeedPhenomenon')}</Text>
-      ) : !vuEnApercu ? (
+      ) : active && !vuEnApercu ? (
         <Text style={[typography.caption, { color: colors.textMuted }]}>
           {t('admin.alertPreviewFirst')}
         </Text>
       ) : null}
 
-      <Text style={[typography.caption, { color: active ? VERT : colors.textMuted }]}>
-        {active ? t('admin.alertOn') : t('admin.alertOff')}
+      {/* CETTE LIGNE DECRIT CE QUI EST PUBLIE, jamais ce qui est coche. C'est la correction du
+          3 novembre : elle lisait l'interrupteur, donc elle annoncait l'extinction avant qu'elle
+          soit partie. Une ligne d'etat qui parle du formulaire ne sert a rien — le formulaire
+          est sous les yeux, c'est l'etat du SERVEUR qu'on ne voit pas. */}
+      <Text style={[typography.caption, { color: alerte.active ? VERT : colors.textMuted }]}>
+        {alerte.active ? t('admin.alertOn') : t('admin.alertOffPublished')}
       </Text>
+      {nonPublie ? (
+        <Text style={[typography.caption, { color: ROUGE, fontWeight: '800' }]}>
+          {t('admin.alertNotPublished')}
+        </Text>
+      ) : null}
       {message ? <Text style={[typography.caption, { color: colors.textMuted }]}>{message}</Text> : null}
 
       <Apercu
