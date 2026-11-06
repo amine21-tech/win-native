@@ -1,4 +1,5 @@
 import * as Speech from 'expo-speech';
+import { arreterClips, jouerClips, type CleVoix } from './voixKab';
 import type { Language } from '../shared';
 import { storage, StorageKeys } from '../store/storage';
 
@@ -199,7 +200,20 @@ async function resolveVoice(lang: Language): Promise<string | undefined> {
  * navigation s'enchainent a quelques secondes d'intervalle, et refaire ce tri a chaque
  * virage serait du gaspillage.
  */
-export function speakGuidance(text: string, lang: Language): void {
+export function speakGuidance(text: string, lang: Language, clips?: readonly CleVoix[]): void {
+  /* LE TAMAZIGHT PASSE PAR DES ENREGISTREMENTS, et seulement quand la phrase entiere existe.
+   *
+   * Android ne sait pas lire le kabyle : la demande retombe sans un mot sur la langue du
+   * telephone, et l'utilisateur qui a choisi le tamazight se faisait guider en francais sans
+   * comprendre pourquoi. On joue donc des clips — voir voixKab.ts.
+   *
+   * Des que l'un des morceaux manque, l'appelant ne transmet AUCUN clip et on retombe ici sur
+   * la synthese francaise. Un demi-clip suivi d'un demi-francais serait pire que les deux. */
+  if (lang === 'kab' && clips && clips.length > 0) {
+    Speech.stop();
+    jouerClips(clips);
+    return;
+  }
   if (!text) return;
   const language = ttsLanguage(lang);
   void resolveVoice(lang).then((voice) => {
@@ -214,7 +228,8 @@ export function speakGuidance(text: string, lang: Language): void {
   });
 }
 
-/** Arrete la phrase en cours. */
+/** Arrete la phrase en cours, synthese comme enregistrement. */
 export function stopSpeaking(): void {
   Speech.stop();
+  arreterClips();
 }

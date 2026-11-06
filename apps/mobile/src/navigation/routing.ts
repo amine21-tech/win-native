@@ -14,6 +14,7 @@ type RawManeuver = {
   lanes?: RawLane[];
   /** Valhalla marque d'un drapeau les manoeuvres qui se font sur un grand axe. */
   highway?: boolean;
+  roundabout_exit_count?: number;
 };
 
 type RawLane = { directions: number; valid?: number; active?: number };
@@ -88,6 +89,14 @@ export type Maneuver = {
    * nous donne, et elle suffit : le client limite le guidage de voie a ces routes-la.
    */
   surAutoroute: boolean;
+  /**
+   * Rang de la sortie a prendre dans un rond-point, quand Valhalla le connait.
+   *
+   * << Sortez du rond-point >> ne dit pas LAQUELLE, et c'est pourtant la seule chose qu'on a
+   * besoin de savoir. Le francais le tire du texte de Valhalla ; la voix tamazight, faite
+   * d'enregistrements, a besoin du nombre pour choisir le bon clip.
+   */
+  sortieRondPoint: number | null;
   /** Distance depuis le depart, le long du trace, a laquelle commence cette manoeuvre.
    * Permet d'afficher « dans 250 m » en distance REELLEMENT parcourue plutot qu'a vol
    * d'oiseau, et de faire descendre la distance restante en continu. */
@@ -146,6 +155,7 @@ function normalize(trip: RawTrip, narration: 'fr' | 'en'): Route {
      * guidage de voie ne s'affiche simplement pas. C'est le bon defaut — mieux vaut ne rien
      * montrer que le montrer sur une rue a voie unique, ou il n'a aucun sens. */
     surAutoroute: m.highway === true,
+    sortieRondPoint: m.roundabout_exit_count ?? null,
   }));
   return {
     distanceM: trip.summary.length * 1000,

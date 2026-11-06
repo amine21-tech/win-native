@@ -1,4 +1,5 @@
 import { speakGuidance, stopSpeaking } from '../speech/voice';
+import { clipDistance, clipManoeuvre, type CleVoix } from '../speech/voixKab';
 import { phraseItineraireRecalcule, phraseRouteBloquee, phraseSortieRatee } from './instructions';
 import { useSpokenLanguage } from '../speech/useSpokenLanguage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -355,7 +356,7 @@ export function useNavigationSession(params: {
          * recalcul, en revanche, rien ne parlait — le conducteur voyait le trace changer sans
          * savoir si le calcul avait abouti. */
         if (!premier && voiceRef.current) {
-          speakGuidance(phraseItineraireRecalcule(spokenLangRef.current), spokenLangRef.current);
+          speakGuidance(phraseItineraireRecalcule(spokenLangRef.current), spokenLangRef.current, ['itineraireRecalcule']);
         }
       } catch {
         setError(true);
@@ -669,7 +670,8 @@ export function useNavigationSession(params: {
       departureSaidRef.current = true;
       const first = route.maneuvers[0];
       if (first && voiceGuidanceEnabled) {
-        speakGuidance(localizedInstruction(first, spokenLang), spokenLang);
+        speakGuidance(localizedInstruction(first, spokenLang), spokenLang,
+          ((c) => (c ? [c] : undefined))(clipManoeuvre(first.type, first.sortieRondPoint)));
         return;
       }
     }
@@ -686,18 +688,29 @@ export function useNavigationSession(params: {
     const stage = announcedForRef.current.stage;
 
     const instruction = localizedInstruction(nextManeuver, spokenLang);
+    /* LE CLIP TAMAZIGHT DE LA MANOEUVRE. Absent pour les manoeuvres qui n'ont pas ete
+     * enregistrees — on laisse alors `clips` vide et la synthese francaise prend le relais. */
+    const cleManoeuvre = clipManoeuvre(nextManeuver.type, nextManeuver.sortieRondPoint);
+
     let phrase: string | null = null;
+    let clips: CleVoix[] | undefined;
     if (distanceToNextManeuverM <= finalM && stage < 2) {
       announcedForRef.current = { index: target, stage: 2 };
       phrase = instruction;
+      clips = cleManoeuvre ? [cleManoeuvre] : undefined;
     } else if (distanceToNextManeuverM <= preM && stage < 1) {
       announcedForRef.current = { index: target, stage: 1 };
       // « Dans 300 metres, tournez a droite » — arrondi parle, comme en v83.
       phrase = `${spokenDistance(distanceToNextManeuverM, spokenLang)}, ${lowerFirst(instruction)}`;
+      /* DEUX CLIPS A LA SUITE, et les DEUX doivent exister. Dire << dans 300 metres >> en
+       * kabyle puis rien du tout laisserait le conducteur sans la consigne — la partie qui
+       * compte. Il manque l'un des deux : tout passe en francais. */
+      const cleDistance = clipDistance(distanceToNextManeuverM);
+      clips = cleDistance && cleManoeuvre ? [cleDistance, cleManoeuvre] : undefined;
     }
 
     if (!phrase || !voiceGuidanceEnabled) return;
-    speakGuidance(phrase, spokenLang);
+    speakGuidance(phrase, spokenLang, clips);
   }, [active, route, nextManeuver, distanceToNextManeuverM, maneuverIndex, spokenLang, voiceGuidanceEnabled]);
 
   /**
@@ -747,6 +760,9 @@ export function useNavigationSession(params: {
    */
   const recalculerPourBlocage = useCallback(
     (from: Coords) => {
+      /* << Route bloquee. Recalcul en cours. >> En kabyle on n'a que la seconde moitie :
+       * `recalculEnCours`. La premiere — le constat — n'a pas ete enregistree, et c'est elle
+       * qui explique POURQUOI le trajet change. On laisse donc tout passer en francais. */
       if (voiceGuidanceEnabled) speakGuidance(phraseRouteBloquee(spokenLang), spokenLang);
       void loadRoute(from);
     },

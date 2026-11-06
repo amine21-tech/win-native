@@ -326,6 +326,15 @@ const UNITS: Record<Language, { m: string; km: string; prefix: string }> = {
 };
 
 /**
+ * LE PALIER REELLEMENT PRONONCE, extrait de `spokenDistance` le 6 novembre.
+ *
+ * Il en etait le coeur, enfoui dans une interpolation de chaine. L'extraire sert a une chose
+ * precise : la voix TAMAZIGHT est faite d'enregistrements, et le clip << dans 300 metres >>
+ * doit etre choisi sur le MEME arrondi que la phrase francaise. Deux arrondis separes auraient
+ * fini par diverger — la voix francaise aurait dit 300 la ou la kabyle en aurait dit 500, et
+ * personne n'aurait pu s'en apercevoir sans parler les deux langues.
+ */
+/**
  * « Dans 300 metres » — port direct de `sayIn` en v83.
  *
  * Deux details comptent, et aucun n'est cosmetique. L'arrondi est PARLE (300, 200, 100,
@@ -334,12 +343,26 @@ const UNITS: Record<Language, { m: string; km: string; prefix: string }> = {
  * plutot qu'abregee, parce que la prononciation de « m » depend du moteur vocal du
  * telephone — certains disent « metres », d'autres epellent la lettre.
  */
+export function palierParleM(meters: number): number {
+  /* AU-DELA DE 400 m, ON ARRONDIT A LA CENTAINE, et c'est une correction.
+   *
+   * L'echelle d'origine s'arretait a 300 : tout ce qui depassait 250 m etait annonce
+   * << dans 300 metres >>. Sur une sortie a 800 m, la voix disait donc 300 — cinq cents metres
+   * de moins que la realite.
+   *
+   * Et c'etait ATTEIGNABLE : la premiere annonce se declenche dix-huit secondes avant la
+   * manoeuvre, plafonnees a 800 m. A vitesse d'autoroute on y est. Le defaut n'a ete trouve
+   * qu'en construisant la voix tamazight, parce qu'il a fallu comparer le palier prononce au
+   * clip choisi — personne ne relit une interpolation de chaine en se demandant ce qu'elle
+   * donne a 800 metres. */
+  if (meters >= 400) return Math.round(meters / 100) * 100;
+  return meters >= 250 ? 300 : meters >= 150 ? 200 : meters >= 80 ? 100 : 50;
+}
+
 export function spokenDistance(meters: number, lang: Language): string {
   const units = UNITS[lang] ?? UNITS.fr;
-  const value =
-    meters >= 1000
-      ? `${Math.round(meters / 100) / 10} ${units.km}`
-      : `${meters >= 250 ? 300 : meters >= 150 ? 200 : meters >= 80 ? 100 : 50} ${units.m}`;
+  const palier = palierParleM(meters);
+  const value = meters >= 1000 ? `${palier / 1000} ${units.km}` : `${palier} ${units.m}`;
   return `${units.prefix} ${value}`;
 }
 

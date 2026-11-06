@@ -1,4 +1,5 @@
 import { speakGuidance } from '../speech/voice';
+import { clipDistance, type CleVoix } from '../speech/voixKab';
 import { useSpokenLanguage } from '../speech/useSpokenLanguage';
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -48,6 +49,20 @@ export { PALIERS_M } from './alerteApproche';
  * Sans itineraire — le temps qu'il se calcule, ou apres un ecart — on retombe sur la distance
  * directe. Mieux vaut une annonce approximative que pas d'annonce du tout.
  */
+/**
+ * Les signalements qui ont un enregistrement tamazight. Quatre sur treize.
+ *
+ * Les neuf autres — barrage, dos d'ane, trou, inondation, incendie, objet, voie fermee — n'ont
+ * pas ete enregistres. Ils passent par la synthese francaise plutot que par un clip voisin :
+ * annoncer << accident >> pour un dos d'ane ferait freiner brutalement sans raison.
+ */
+const CLIPS_SIGNALEMENT: Partial<Record<string, CleVoix>> = {
+  crash: 'accident',
+  jam: 'bouchon',
+  works: 'travaux',
+  radar: 'radar',
+};
+
 export function useApproachAlerts(params: {
   active: boolean;
   position: Coords | null;
@@ -160,7 +175,17 @@ export function useApproachAlerts(params: {
 
       if (decision.quoi === 'annoncer') {
         if (voiceRef.current) {
-          speakGuidance(phraseAnnonce(tRef.current, report, decision.palierM!), spokenLang);
+          /* LE CLIP TAMAZIGHT DU SIGNALEMENT. Seuls quatre types ont ete enregistres ; les
+           * autres passent par la synthese francaise, qui dit au moins de quoi il s'agit.
+           *
+           * << Attention >> OUVRE l'annonce et n'est pas optionnel : sans lui, le clip du type
+           * arriverait seul et se confondrait avec le nom d'un lieu qu'on cherche — c'est le
+           * meme mot enregistre deux fois dans deux contextes. */
+          const cleType = CLIPS_SIGNALEMENT[report.kind];
+          const cleDistance = clipDistance(decision.palierM!);
+          const clips: CleVoix[] | undefined =
+            cleType && cleDistance ? ['attention', cleDistance, cleType] : undefined;
+          speakGuidance(phraseAnnonce(tRef.current, report, decision.palierM!), spokenLang, clips);
         }
 
         /* La carte « Toujours la ? » se rouvre au second palier. Le signalement est le MEME
