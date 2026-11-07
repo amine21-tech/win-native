@@ -48,7 +48,14 @@ export function VoicePanel({ visible, lang, onClose, colors }: Props) {
     setPreferredVoiceId(identifier);
     setChosen(identifier);
     // On la fait parler tout de suite : c'est le seul moyen de juger une voix.
-    speakGuidance(t('voice.sample'), lang);
+    /* L'ECHANTILLON EN TAMAZIGHT EST FAIT DE DEUX CLIPS, et il fallait y penser : depuis que
+     * le kabyle ne retombe plus sur la synthese francaise, appuyer sur << ecouter >> ne
+     * produisait plus rien du tout. Un bouton muet se lit comme une panne.
+     *
+     * Les deux clips disent exactement la phrase de `voice.sample` — « Dans 300 metres,
+     * tournez a droite » — ce qui en fait aussi le meilleur essai possible : c'est la
+     * jointure entre deux enregistrements que l'on veut entendre avant de prendre la route. */
+    speakGuidance(t('voice.sample'), lang, ['d300m', 'tournerDroite']);
   };
 
   return (

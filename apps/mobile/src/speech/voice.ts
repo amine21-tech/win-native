@@ -201,17 +201,26 @@ async function resolveVoice(lang: Language): Promise<string | undefined> {
  * virage serait du gaspillage.
  */
 export function speakGuidance(text: string, lang: Language, clips?: readonly CleVoix[]): void {
-  /* LE TAMAZIGHT PASSE PAR DES ENREGISTREMENTS, et seulement quand la phrase entiere existe.
+  /* EN TAMAZIGHT, LES ENREGISTREMENTS OU RIEN — decision du client, 7 novembre.
    *
    * Android ne sait pas lire le kabyle : la demande retombe sans un mot sur la langue du
-   * telephone, et l'utilisateur qui a choisi le tamazight se faisait guider en francais sans
+   * telephone, et l'utilisateur qui choisit le tamazight se faisait guider en francais sans
    * comprendre pourquoi. On joue donc des clips — voir voixKab.ts.
    *
-   * Des que l'un des morceaux manque, l'appelant ne transmet AUCUN clip et on retombe ici sur
-   * la synthese francaise. Un demi-clip suivi d'un demi-francais serait pire que les deux. */
-  if (lang === 'kab' && clips && clips.length > 0) {
+   * CE QUI A CHANGE : la synthese francaise ne prend plus le relais. Le 6 novembre on la
+   * gardait en secours, pour qu'une manoeuvre soit toujours annoncee. Le client a essaye au
+   * volant et tranche l'inverse : une phrase francaise au milieu d'un guidage kabyle casse
+   * plus qu'elle n'aide — on l'entend arriver, on ne la comprend pas tout de suite, et le
+   * temps de s'y reprendre la manoeuvre est passee.
+   *
+   * IL FAUT LE DIRE CLAIREMENT : une manoeuvre sans enregistrement n'est plus annoncee DU
+   * TOUT en tamazight. Elle reste affichee a l'ecran, en grand, avec sa fleche — mais la voix
+   * se tait. C'est le choix du client, fait apres essai, et les vingt-six phrases manquantes
+   * lui ont ete listees pour qu'il les fasse enregistrer. */
+  if (lang === 'kab') {
     Speech.stop();
-    jouerClips(clips);
+    arreterClips();
+    if (clips && clips.length > 0) jouerClips(clips);
     return;
   }
   if (!text) return;

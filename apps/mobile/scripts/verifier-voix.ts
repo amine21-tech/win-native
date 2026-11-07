@@ -13,6 +13,9 @@
  * Usage, depuis la racine du depot :
  *   npx tsx apps/mobile/scripts/verifier-voix.ts
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { palierParleM, spokenDistance } from '../src/navigation/instructions';
 import { CLES_VOIX, clipDistance, clipManoeuvre } from '../src/speech/voixKabRegles';
 
@@ -206,6 +209,33 @@ verifier(
   `les ${citees.size} cles citees par les regles existent toutes`,
   inconnues.length === 0,
   inconnues.join(', ') || `sur ${toutes.size} enregistrements`,
+);
+
+/* ------------------------------------------------------------------ */
+console.log('\nEN TAMAZIGHT, LES ENREGISTREMENTS OU RIEN');
+
+/**
+ * LE CONTROLE PORTE SUR LE TEXTE DE voice.ts, et c'est volontaire. La regle n'est pas dans les
+ * regles de choix de clip — elle est dans la branche qui decide de parler ou non, et aucune
+ * fonction ne la rend observable. Un futur correctif qui remettrait la synthese francaise
+ * << pour que le conducteur soit toujours averti >> partirait d'une bonne intention et
+ * defairait une decision prise au volant.
+ *
+ * Le client a essaye les deux. Une phrase francaise au milieu d'un guidage kabyle casse plus
+ * qu'elle n'aide : on l'entend arriver, on ne la comprend pas tout de suite, et le temps de
+ * s'y reprendre la manoeuvre est passee.
+ */
+const voiceTs = readFileSync(resolve('apps/mobile/src/speech/voice.ts'), 'utf8');
+const brancheKab = voiceTs.slice(voiceTs.indexOf("if (lang === 'kab')"), voiceTs.indexOf('if (!text) return;'));
+verifier(
+  'la branche tamazight se termine par un retour, sans synthese',
+  /return;\s*\}/.test(brancheKab) && !brancheKab.includes('Speech.speak'),
+  'aucune phrase francaise ne doit sortir quand la langue est le tamazight',
+);
+verifier(
+  'elle coupe aussi ce qui parlait',
+  brancheKab.includes('Speech.stop()') && brancheKab.includes('arreterClips()'),
+  'sinon une annonce francaise en cours continuerait par-dessus le clip',
 );
 
 console.log(
