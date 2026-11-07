@@ -23,6 +23,7 @@ const IMAGES = {
   'me-label-fr': require('../../assets/map/me-label-fr.png'),
   'me-label-en': require('../../assets/map/me-label-en.png'),
   'me-label-ar': require('../../assets/map/me-label-ar.png'),
+  'me-label-kab': require('../../assets/map/me-label-kab.png'),
 };
 
 /** Distance, en dp, entre le centre du rond et la pointe de l'etiquette : la pointe touche le
@@ -45,7 +46,19 @@ export function MeMarker({ lat, lon, labelLang }: Props) {
     [lat, lon],
   );
 
-  const label = labelLang == null ? null : labelLang === 'en' ? 'me-label-en' : labelLang === 'fr' ? 'me-label-fr' : 'me-label-ar';
+  /* UNE ETIQUETTE PAR LANGUE, et le kabyle en avait besoin : la chaine se terminait par
+   * l'arabe, si bien qu'un utilisateur en tamazight lisait « أنا هنا » sur la carte. Ce n'est
+   * pas du francais, mais ce n'est pas sa langue non plus. */
+  const label =
+    labelLang == null
+      ? null
+      : labelLang === 'en'
+        ? 'me-label-en'
+        : labelLang === 'fr'
+          ? 'me-label-fr'
+          : labelLang === 'kab'
+            ? 'me-label-kab'
+            : 'me-label-ar';
 
   return (
     <>

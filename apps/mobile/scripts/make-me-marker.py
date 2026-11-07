@@ -73,7 +73,8 @@ def make_dot(scale):
 # « أنت هنا » = [ا final][ن medial][ه initial] espace [ت final][ن initial][أ isole]
 AR_VISUAL = '\ufe8e\ufee8\ufeeb \ufe96\ufee7\ufe83'
 
-LABELS = {'fr': 'Vous êtes ici', 'en': 'You are here', 'ar': AR_VISUAL}
+# Le kabyle s'ecrit en caracteres latins : meme police, meme rendu que le francais.
+LABELS = {'fr': 'Vous êtes ici', 'en': 'You are here', 'ar': AR_VISUAL, 'kab': 'Atan-ik dagi'}
 
 
 def make_label(lang, text, scale):

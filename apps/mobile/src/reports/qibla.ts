@@ -166,15 +166,57 @@ function hijriFromGregorian(date: Date): { day: number; month: number; year: num
   return { day, month, year };
 }
 
+/**
+ * JOURS ET MOIS EN KABYLE, parce qu'Android n'en a pas.
+ *
+ * `Intl.DateTimeFormat` ne connait aucune locale kabyle : la demande retombe sur la langue par
+ * defaut, et l'ecran Qibla affichait << vendredi 7 novembre 2026 >> en francais au milieu
+ * d'une interface en tamazight. Le client le refuse — en tamazight, tout doit etre en
+ * tamazight.
+ *
+ * Dix-neuf mots suffisent a s'en passer. Ils sont ecrits ici plutot que dans les fichiers de
+ * langue parce qu'ils ne sont pas des libelles d'interface : ce sont les pieces d'une date que
+ * l'on assemble, et i18next ne sait pas les indexer par numero de jour.
+ *
+ * A FAIRE RELIRE PAR UN LOCUTEUR, comme le reste des textes kabyles.
+ */
+const JOURS_KAB = ['Acer', 'Arim', 'Aram', 'Ahad', 'Amhad', 'Sem', 'Sed'];
+export const MOIS_KAB = [
+  'Yennayer',
+  'Fuṛaṛ',
+  'Meɣres',
+  'Yebrir',
+  'Mayyu',
+  'Yunyu',
+  'Yulyu',
+  'Ɣuct',
+  'Ctembeṛ',
+  'Tubeṛ',
+  'Nunember',
+  'Duǧembeṛ',
+];
+
+/** La date gregorienne en kabyle : « Sem 7 Nunember 2026 ». */
+function dateKabyle(d: Date): string {
+  return `${JOURS_KAB[d.getDay()]} ${d.getDate()} ${MOIS_KAB[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** Le seul nom du jour, pour la ligne hegirienne. */
+function jourKabyle(d: Date): string {
+  return JOURS_KAB[d.getDay()]!;
+}
+
 export function hijriDate(lang: Language, date = new Date()): string {
   const { day, month, year } = hijriFromGregorian(date);
   const monthName = (HIJRI_MONTHS[lang] ?? HIJRI_MONTHS.fr)[month - 1] ?? '';
-  const weekday = new Intl.DateTimeFormat(
-    lang === 'en' ? 'en-US' : lang === 'fr' || lang === 'kab' ? 'fr-FR' : 'ar-DZ',
-    {
-      weekday: 'long',
-    },
-  ).format(date);
+  /* LE KABYLE A SES PROPRES NOMS DE JOURS. Il passait par la locale francaise faute de mieux,
+   * et la ligne hegirienne commencait donc par << vendredi >> au milieu du tamazight. */
+  const weekday =
+    lang === 'kab'
+      ? jourKabyle(date)
+      : new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : lang === 'fr' ? 'fr-FR' : 'ar-DZ', {
+          weekday: 'long',
+        }).format(date);
   const hijriLabel =
     { fr: "de l'Hégire", ar: 'هجري', dz: 'هجري', en: 'Hijri', kab: 'n Hijra' }[lang] ?? "de l'Hégire";
   const sep = lang === 'ar' || lang === 'dz' ? '، ' : ', ';
@@ -182,11 +224,11 @@ export function hijriDate(lang: Language, date = new Date()): string {
 }
 
 export function gregorianDate(lang: Language, date = new Date()): string {
-  /* LE KABYLE N'A PAS DE LOCALE Intl SUR ANDROID. On lui sert le francais pour le nom du jour
-   * et du mois : c'est la langue seconde de tous les locuteurs kabyles d'Algerie, alors qu'un
-   * repli silencieux sur l'anglais afficherait << Monday >> au milieu d'une phrase kabyle. */
-  const locale =
-    { fr: 'fr-FR', en: 'en-US', ar: 'ar-DZ', dz: 'ar-DZ', kab: 'fr-FR' }[lang] ?? 'fr-FR';
+  /* LE KABYLE N'A PAS DE LOCALE Intl SUR ANDROID, et on ne lui sert plus le francais : le
+   * client veut du tamazight partout quand le tamazight est choisi. Dix-neuf mots ecrits a la
+   * main suffisent — voir JOURS_KAB et MOIS_KAB. */
+  if (lang === 'kab') return dateKabyle(date);
+  const locale = { fr: 'fr-FR', en: 'en-US', ar: 'ar-DZ', dz: 'ar-DZ' }[lang] ?? 'fr-FR';
   try {
     return new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(
       date,

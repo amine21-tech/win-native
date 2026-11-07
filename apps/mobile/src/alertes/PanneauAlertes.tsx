@@ -24,6 +24,7 @@ import {
   type Language,
   type Phenomene,
 } from '../shared';
+import { MOIS_KAB } from '../reports/qibla';
 import { radius, spacing, typography, type Palette } from '../theme';
 
 /**
@@ -527,11 +528,16 @@ function ChoixWilayas({
 /* La liste des douze fetes                                            */
 /* ------------------------------------------------------------------ */
 
-/** « 18 février » : le mois vient d'Intl, pour ne pas ecrire douze noms dans cinq langues. */
+/** « 18 février » : le mois vient d'Intl, sauf en kabyle qu'Intl ne connait pas. */
 function dateLisible(dateFixe: string | null, lang: Language, t: (c: string) => string): string {
   if (!dateFixe) return t('admin.variableDate');
   const [jour, mois] = dateFixe.split('-').map(Number);
   const d = new Date(Date.UTC(2000, (mois ?? 1) - 1, jour ?? 1));
+  /* EN TAMAZIGHT, PAS DE FRANCAIS, meme ici. Cet ecran est reserve a l'administrateur et la
+   * tentation serait de laisser passer — mais le client a ete net : quand le tamazight est
+   * choisi, tout est en tamazight. Les noms de mois viennent de qibla.ts, ou ils servent deja
+   * a la date de l'ecran Qibla : les ecrire deux fois les ferait diverger. */
+  if (lang === 'kab') return `${jour} ${MOIS_KAB[(mois ?? 1) - 1]}`;
   const locale = lang === 'en' ? 'en-US' : lang === 'ar' || lang === 'dz' ? 'ar-DZ' : 'fr-FR';
   try {
     return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(d);
