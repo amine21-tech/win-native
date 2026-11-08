@@ -85,7 +85,10 @@
     "badge_object": "Obstacle",
     "badge_pothole": "Damage",
     "badge_flood": "Flooded",
-    "badge_fire": "Fire nearby"
+    "badge_fire": "Fire nearby",
+    "waste": "Illegal dumping",
+    "sub_waste": "Rubbish dumped by the road",
+    "badge_waste": "Fly-tipping"
   },
   "nav": {
     "start": "Start",
@@ -610,9 +613,9 @@
   "unlock": {
     "title": "Tunisia 🇹🇳",
     "offerBefore": "Navigate in Tunisia too —",
-    "price": "{{price}} DA, unlimited lifetime access",
-    "offerAfter": "(one-time payment).",
-    "step1": "Send {{price}} DA via BaridiMob to the account below, with your phone number as reference.",
+    "price": "{{price}} DA per year",
+    "offerAfter": "(yearly subscription).",
+    "step1": "Send {{price}} DA via BaridiMob or CIB to the account below, using your phone number as the reference.",
     "step2": "Enter that same number, then tap “I have paid”.",
     "paid": "I have paid",
     "pending": "Payment being checked. Tunisia access will open automatically once it is validated.",
@@ -621,7 +624,10 @@
     "note": "Your access is tied to this phone. It is activated as soon as our team has confirmed the payment.",
     "noAccount": "The payment account is not available yet. Please try again later.",
     "phoneInvalid": "Invalid phone number.",
-    "tooMany": "Too many requests. Try again in a few minutes."
+    "tooMany": "Too many requests. Try again in a few minutes.",
+    "validUntil": "Subscription valid until {{date}}.",
+    "lifetime": "Your access is for life: you paid before the move to a yearly subscription.",
+    "renew": "Renew"
   },
   "jobs": {
     "title": "Jobs near you",

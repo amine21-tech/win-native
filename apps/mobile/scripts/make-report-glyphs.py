@@ -177,6 +177,29 @@ def flamme(d, S):
     )
 
 
+def poubelle(d, S):
+    """Un bac a ordures — les dechets sauvages.
+
+    POURQUOI UN BAC ET NON UN TAS. Un monticule informe, a dix-huit points, ne se distingue pas
+    d'une flaque ni d'un nid-de-poule : trois dessins arrondis et pleins. Le bac a un couvercle
+    et des parois droites, c'est-a-dire des angles — et les angles sont ce qui se reconnait
+    encore a cette taille, depuis un pare-brise.
+    """
+    # Le couvercle, une barre franche en haut, avec sa petite poignee.
+    d.rectangle([S * 0.18, S * 0.24, S * 0.82, S * 0.34], fill=BLANC)
+    d.rectangle([S * 0.42, S * 0.16, S * 0.58, S * 0.24], fill=BLANC)
+    # Le bac, legerement trapezoidal : plus etroit en bas, comme tous les bacs.
+    d.polygon(
+        [
+            (S * 0.24, S * 0.40),
+            (S * 0.76, S * 0.40),
+            (S * 0.68, S * 0.84),
+            (S * 0.32, S * 0.84),
+        ],
+        fill=BLANC,
+    )
+
+
 # Un pictogramme par TYPE de signalement. Les trois forces (police, gendarmerie, armee)
 # partagent le carre du barrage : la maquette ne les distingue pas, et sur la carte c'est la
 # couleur institutionnelle qui le fait deja.
@@ -194,6 +217,7 @@ PICTOS = {
     'pothole': lambda d, S: oeil(d, S, False),
     'flood': lambda d, S: vagues(d, S, 3),
     'fire': flamme,
+    'waste': poubelle,
 }
 
 

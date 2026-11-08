@@ -549,10 +549,17 @@ const styles = StyleSheet.create({
   },
   badgeFormuleTexte: { color: '#FFFFFF', fontSize: 9, fontWeight: '800' as const },
 
+  /* BORDURE OR DE 2 POINTS, RAYON 12 — correctif du 8 novembre, point 8.
+   *
+   * Elle etait d'un point, dans le gris des puces (PUCE). L'or est la couleur de l'employeur
+   * dans ce module : le badge << Mis en avant >>, le bouton << Publier une offre >>, et
+   * maintenant le cadre de l'annonce. Les trois boutons de contact demandes par le document —
+   * Tel, WhatsApp, Y aller — et la distance GPS en temps reel etaient deja en place depuis le
+   * 27 octobre ; c'est la seule chose qui manquait au point 8. */
   carte: {
-    borderWidth: 1,
-    borderColor: PUCE,
-    borderRadius: radius.lg,
+    borderWidth: 2,
+    borderColor: OR,
+    borderRadius: 12,
     padding: spacing.md,
     marginBottom: spacing.sm,
     gap: spacing.sm,

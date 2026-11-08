@@ -15,6 +15,7 @@ import {
   normalizeCity,
   classerPoint18,
   estLieuPublic,
+  estQuartierVise,
   estWilayaVisee,
   wilayasVisees,
   PERIMETRE_VIP_M,
@@ -457,6 +458,11 @@ async function runTextSearch(
      * nom. Les commerces, eux, restent dans les paliers VIP et simple. */
     estPublic: (r) => estLieuPublic(r),
     estVilleExacte: (r) => r.exactCity === true,
+    /* QUATRIEME PALIER : le QUARTIER ou la DAIRA que designe la saisie — rang 2 du correctif
+     * du 8 novembre. Taper << bab el oued >> depuis Alger-centre ramenait une boulangerie du
+     * meme nom a quatre cents metres avant le quartier a trois kilometres, parce que seule la
+     * distance departageait. */
+    estQuartier: (r) => estQuartierVise(r, q),
     /* << VIP >> COUVRE DEUX CHOSES, et c'est voulu : les lieux enregistres comme PARTENAIRES
      * (ajoutes avec le code VIP, `isPartner`) et les adresses que l'utilisateur a lui-meme
      * mises de cote. Les deux sont des resultats CHOISIS, par le client ou par l'utilisateur,

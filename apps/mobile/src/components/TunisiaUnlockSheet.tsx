@@ -18,8 +18,15 @@ import { radius, spacing, type Palette } from '../theme';
 import type { UnlockInfo } from '../unlock/useTunisiaUnlock';
 
 /**
- * « Tunisie 🇹🇳 » — l'ecran de deblocage payant, repris du panneau `tnPanel` de la version web :
- * offre (200 DA, acces illimite a vie, paiement unique), deux etapes, un champ, un bouton.
+ * « Tunisie 🇹🇳 » — l'ecran de l'abonnement, repris du panneau `tnPanel` de la version web :
+ * offre (200 DA par an), deux etapes, un champ, un bouton.
+ *
+ * ABONNEMENT ANNUEL DEPUIS LE 8 NOVEMBRE (point 9 du correctif : << 200 DA/an, paiement CIB ou
+ * BaridiMob >>). C'etait un paiement unique, acces a vie.
+ *
+ * LES CLIENTS D'AVANT GARDENT LEUR ACCES A VIE, et l'ecran le leur DIT — c'est l'objet de
+ * `unlock.lifetime`. Sans cette phrase, un client qui a paye pour un acces illimite verrait un
+ * panneau parlant d'abonnement annuel et croirait devoir repayer.
  *
  * Difference voulue avec le site : pas de code de deblocage a recevoir par SMS. Le client donne
  * son numero, qui sert de reference du virement, et l'administrateur valide depuis l'espace
@@ -36,7 +43,7 @@ type Props = {
 };
 
 export function TunisiaUnlockSheet({ visible, onClose, info, loading, onRequest, onRefresh, colors }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const [phone, setPhone] = useState('');
   const [sending, setSending] = useState(false);
@@ -45,6 +52,15 @@ export function TunisiaUnlockSheet({ visible, onClose, info, loading, onRequest,
   const status = info?.TN ?? 'none';
   const price = info?.priceDa ?? 200;
   const account = info?.payout;
+  /* DATE DE FIN, dans la langue de l'interface. `null` avec un etat << paid >> veut dire A VIE :
+   * ce sont les abonnements d'avant le 8 novembre. */
+  const finAbonnement = info?.expiresAt
+    ? new Date(info.expiresAt).toLocaleDateString(i18n.language, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : null;
 
   const submit = async () => {
     const cleaned = phone.trim();
@@ -82,7 +98,14 @@ export function TunisiaUnlockSheet({ visible, onClose, info, loading, onRequest,
               {loading ? (
                 <ActivityIndicator color={colors.accent} style={{ marginVertical: spacing.xl }} />
               ) : status === 'paid' ? (
-                <Text style={[styles.done, { color: colors.accentDark }]}>✓ {t('unlock.unlocked')}</Text>
+                <>
+                  <Text style={[styles.done, { color: colors.accentDark }]}>✓ {t('unlock.unlocked')}</Text>
+                  {/* CE QUI SE PASSE ENSUITE, et c'est le minimum : un abonnement dont on ne
+                      connait pas la date de fin se termine toujours par surprise. */}
+                  <Text style={[styles.note, { color: colors.textMuted }]}>
+                    {finAbonnement ? t('unlock.validUntil', { date: finAbonnement }) : t('unlock.lifetime')}
+                  </Text>
+                </>
               ) : status === 'pending' ? (
                 <>
                   <Text style={[styles.pending, { color: colors.text }]}>⏳ {t('unlock.pending')}</Text>

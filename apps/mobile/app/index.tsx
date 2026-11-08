@@ -7,6 +7,7 @@ import {
   type CameraRef,
   type MapRef,
 } from '@maplibre/maplibre-react-native';
+import type { FilterSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useKeepAwake } from 'expo-keep-awake';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -37,6 +38,7 @@ import { NavigationOverlay } from '../src/components/NavigationOverlay';
 import { useLocalSearchParams } from 'expo-router';
 import {
   paliersDuTrace,
+  rgba,
   type BandeTrafic as BandeTraficPartagee,
 } from '../src/navigation/degradeTrace';
 import { PlaceSheet, type SelectedPlace } from '../src/components/PlaceSheet';
@@ -56,7 +58,7 @@ import { Toast } from '../src/components/Toast';
 import { VoicePanel } from '../src/components/VoicePanel';
 import { TripSummary, type Trip } from '../src/components/TripSummary';
 import { useRealtime } from '../src/hooks/useRealtime';
-import { NavArrow } from '../src/components/NavArrow';
+import { NavArrow, TAILLE_HALO } from '../src/components/NavArrow';
 import { TunisiaUnlockSheet } from '../src/components/TunisiaUnlockSheet';
 import { useTunisiaUnlock } from '../src/unlock/useTunisiaUnlock';
 import { LocateIcon } from '../src/components/LocateIcon';
@@ -78,6 +80,7 @@ import { PositionSheet } from '../src/components/PositionSheet';
 import { OR_MARQUEUR, pictoSignalisation, SIGNALISATION } from '../src/map/signalisation';
 import { PICTOS_SIGNALISATION } from '../src/map/pictos';
 import { projeterSurTrace } from '../src/navigation/alerteApproche';
+import { PulseSignalements } from '../src/map/PulseSignalements';
 import { useApproachAlerts } from '../src/navigation/useApproachAlerts';
 import { useLiveLocation } from '../src/navigation/useLiveLocation';
 import { hasVoiceFor } from '../src/speech/voice';
@@ -136,16 +139,31 @@ const HEADER_HEIGHT = 102;
  * et l'empeche de se confondre avec une route du fond de meme teinte. Le liseré clair (`halo`)
  * reste en-dessous des deux : lui seul detache l'itineraire des nationales algeriennes, peintes
  * en orange et en beige dans ce style. */
-/* `main` de jour vaut #0B5B2C depuis le 27 octobre : c'est le vert que le client donne dans ses
- * maquettes, au point pres, et qui est aussi celui des cartes metriques et des boutons de la
- * feuille de navigation. Il etait a #0D6E4F, imperceptiblement different — mais c'est
- * exactement le genre d'ecart qui fait qu'une application ne semble pas d'une seule main.
+/* `main` DE JOUR EST REPASSE A #0D6E4F le 8 novembre, et l'aller-retour merite d'etre note.
+ *
+ * Il valait #0D6E4F a l'origine, puis #0B5B2C depuis le 27 octobre — c'etait alors << le vert
+ * que le client donne dans ses maquettes >>, et aussi celui des boutons et des cartes
+ * metriques. Son correctif visuel du 8 novembre redonne #0D6E4F pour le TRACE, en toutes
+ * lettres et avec le code couleur.
+ *
+ * On ne change que le trace. Le vert de l'interface — boutons, bandeaux, cartes — reste a
+ * #0B5B2C : le document ne parle que du trace, et aligner tout le reste sur une couleur qu'il
+ * ne mentionne pas serait decider a sa place.
+ *
+ * `parcouru` EST NOUVEAU, et c'est la deuxieme moitie de l'effet comete. Le trace deja
+ * parcouru n'est plus le meme vert attenue : c'est un vert CLAIR distinct, #B4E6D2, valeur du
+ * document. La distinction se voit mieux qu'une difference d'opacite sur la meme teinte.
  *
  * LA NUIT NE SUIT PAS. Un vert fonce sur un fond sombre disparait, et c'est precisement ce que
  * le client avait signale avant — ses maquettes sont dessinees de jour. Le turquoise reste. */
+/* Le type du filtre d'une couche vient de la specification de style de MapLibre, que le paquet
+ * React Native reexpedie telle quelle. L'ecrire a la main — un tableau d'expressions — serait
+ * recopier une grammaire entiere pour une seule ligne. */
+type FiltreCouche = FilterSpecification;
+
 const ROUTE_COLORS = {
-  day: { main: '#0B5B2C', casing: '#063B2A', halo: '#FFFFFF', alt: '#9AA89F' },
-  night: { main: '#2EE6A6', casing: '#0B6B4E', halo: '#06251C', alt: '#5B6B63' },
+  day: { main: '#0D6E4F', casing: '#063B2A', halo: '#FFFFFF', alt: '#9AA89F', parcouru: '#B4E6D2' },
+  night: { main: '#2EE6A6', casing: '#0B6B4E', halo: '#06251C', alt: '#5B6B63', parcouru: '#1B4D3E' },
 } as const;
 
 /* Epaisseur des traces, selon le zoom.
@@ -206,13 +224,6 @@ type LineGradient = NonNullable<React.ComponentProps<typeof Layer>['paint']> ext
     ? G
     : never
   : never;
-
-/** Couleur hexadecimale rendue transparente. MapLibre n'accepte pas de teinter une couleur
- * dans une expression : il faut donc lui donner la couleur deja diluee. */
-function rgba(hex: string, alpha: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
-}
 
 /**
  * LE TRACE NE SE COUPE PLUS EN DEUX : IL SE TEINTE.
@@ -869,6 +880,60 @@ export default function MapScreen() {
     onRemoved: (reportId) => setLiveReports((current) => current.filter((r) => r.id !== reportId)),
   });
 
+  /* Distance deja parcourue sur l'itineraire. Elle sert a mesurer ce qui reste jusqu'a un
+   * signalement LE LONG DE LA ROUTE — la seule mesure qui corresponde a ce que la voix annonce
+   * (<< dans 100 metres >> veut dire cent metres de conduite, pas a vol d'oiseau). */
+  const avanceSurTraceM = useMemo(
+    () => (nav.route && nav.progress ? traveledMeters(nav.route, nav.progress) : 0),
+    [nav.route, nav.progress],
+  );
+
+  /**
+   * POSITION DE CHAQUE SIGNALEMENT LE LONG DU TRACE, en metres depuis le depart.
+   *
+   * CALCULEE UNE FOIS PAR ITINERAIRE, et c'est tout l'enjeu — correctif du 8 novembre,
+   * point 6 : << l'icone disparait automatiquement apres que le conducteur l'a depassee >>.
+   *
+   * La facon evidente de le faire serait de reconstruire les donnees de la couche a chaque
+   * point GPS en y posant un drapeau << depasse >>. Ce serait reenvoyer a la carte la liste
+   * entiere des signalements une fois par seconde, c'est-a-dire refaire exactement la faute
+   * qui produisait les saccades d'octobre et qu'on a corrigee en passant le trace en
+   * `line-gradient`.
+   *
+   * On pose donc sur chaque point sa POSITION FIXE sur le trace, qui ne change que si
+   * l'itineraire change, et c'est le FILTRE de la couche — un seul nombre — qui bouge avec le
+   * vehicule. */
+  const positionsSurTrace = useMemo(
+    /* `null` PLUTOT QU'UNE TABLE VIDE, et c'est une contrainte de ce fichier : `Map` y designe
+     * le composant de carte de MapLibre, importe en haut, qui masque le `Map` de JavaScript.
+     * `new Map()` ne compile donc pas ici. */
+    () => (navigating && nav.route ? projeterSurTrace(nav.route, liveReports) : null),
+    [navigating, nav.route, liveReports],
+  );
+
+  /**
+   * FILTRE DES COUCHES DE SIGNALEMENT : on garde ce qui est encore devant nous.
+   *
+   * MARGE DE QUARANTE METRES derriere le vehicule, et elle n'est pas decorative. Le calage sur
+   * la route a une precision de cet ordre, et un signalement qui disparaitrait a l'instant ou
+   * on arrive dessus s'effacerait sous les yeux du conducteur au moment ou il le cherche. On
+   * l'efface donc quarante metres APRES l'avoir passe, c'est-a-dire une fois qu'il est
+   * derriere le pare-brise.
+   *
+   * HORS NAVIGATION, RIEN N'EST EFFACE. Tous les points portent alors -1, et c'est la
+   * premiere branche du filtre — l'egalite explicite a -1 — qui les garde. Se fier a la
+   * comparaison numerique seule ne marcherait pas : des que l'avance depasse trente-neuf
+   * metres, -1 devient inferieur au seuil et TOUS les signalements disparaitraient.
+   */
+  const filtreNonDepasse = useMemo<FiltreCouche>(
+    () => [
+      'any',
+      ['==', ['get', 'surTraceM'], -1],
+      ['>', ['get', 'surTraceM'], avanceSurTraceM - 40],
+    ],
+    [avanceSurTraceM],
+  );
+
   /** Les signalements passent a la carte sous forme de GeoJSON. */
   const reportsGeoJson = useMemo<GeoJSON.FeatureCollection>(
     () => ({
@@ -888,11 +953,20 @@ export default function MapScreen() {
            * permet de reconnaitre un signalement sans s'arreter dessus. */
           libelle: `${t(`report.${report.kind}`)}
 ${t(`report.badge_${report.kind}`)}`,
+          /* DATE DE CREATION EN MILLISECONDES, pour l'anneau qui pulse (point 6 : << pulsation
+           * si signalement recent >>). C'est le FILTRE de la couche qui la compare a l'heure
+           * courante : un signalement cesse de pulser au bout de dix minutes sans qu'on
+           * reconstruise cette liste. Voir PulseSignalements. */
+          creeA: Date.parse(report.createdAt) || 0,
+          /* SA POSITION SUR LE TRACE, en metres depuis le depart — ou -1 quand il n'est pas sur
+           * notre route, ou qu'on ne navigue pas. Le filtre des couches s'en sert pour effacer
+           * ce qu'on a depasse ; -1 n'est jamais efface, puisqu'il n'est pas sur le trajet. */
+          surTraceM: positionsSurTrace?.get(report.id)?.distanceDepuisDepart ?? -1,
         },
         geometry: { type: 'Point', coordinates: [report.lon, report.lat] },
       })),
     }),
-    [liveReports, nuit, t],
+    [liveReports, nuit, t, positionsSurTrace],
   );
 
   /** Marqueur de destination : celle choisie dans la fiche du lieu, ou celle en cours
@@ -1293,14 +1367,6 @@ ${t(`report.badge_${report.kind}`)}`,
   useEffect(() => () => {
     if (approachTimerRef.current) clearTimeout(approachTimerRef.current);
   }, []);
-
-  /* Distance deja parcourue sur l'itineraire. Elle sert a mesurer ce qui reste jusqu'a un
-   * signalement LE LONG DE LA ROUTE — la seule mesure qui corresponde a ce que la voix annonce
-   * (<< dans 100 metres >> veut dire cent metres de conduite, pas a vol d'oiseau). */
-  const avanceSurTraceM = useMemo(
-    () => (nav.route && nav.progress ? traveledMeters(nav.route, nav.progress) : 0),
-    [nav.route, nav.progress],
-  );
 
   useApproachAlerts({
     /* ALERTE MEME SANS GUIDAGE (point 13 du client, 28 octobre). Elle etait liee a
@@ -2207,8 +2273,19 @@ ${t(`report.badge_${report.kind}`)}`,
                 ? {
                     /* Le trace principal porte DEUX informations a la fois : ou l'on en est, et
                        ce qui ralentit devant. Voir degradeTrace. */
+                    /* LA TRAINEE ETAIT NOIRE, et personne ne pouvait le voir en relisant.
+                     *
+                     * On passait ici `rgba(main, 1)` — une couleur DEJA au format rgba() —
+                     * a une fonction qui applique ensuite l'opacite avec `rgba(hex, o)`. Elle
+                     * lisait `parseInt('gba(13, 110, 79, 1)', 16)`, obtenait NaN, et NaN
+                     * decale vaut zero : la traine sortait en `rgba(0, 0, 0, o)`. Du noir.
+                     *
+                     * Le defaut date du 3 novembre, quand le rappel est passe de `attenuer`
+                     * (une couleur) a `teinter` (une couleur ET une opacite) sans que cet
+                     * appel suive. verifier-degrade.ts ne pouvait pas l'attraper : il fournit
+                     * son propre `teinter` de test, qui ne compose pas de rgba(). */
                     'line-gradient': degradeTrace(
-                      rgba(routeColors.main, OPACITE_PARCOURU),
+                      routeColors.parcouru,
                       routeColors.main,
                       avanceFraction,
                       bandesTrafic,
@@ -2333,12 +2410,20 @@ ${t(`report.badge_${report.kind}`)}`,
           onPress={onReportsPress}
           hitbox={{ top: 16, right: 16, bottom: 16, left: 16 }}
         >
+          {/* L'ANNEAU QUI PULSE AUTOUR D'UN SIGNALEMENT RECENT (point 6 du 8 novembre). Pose
+              AVANT le marqueur, donc dessous : une onde qui passerait par-dessus le
+              pictogramme le masquerait a chaque battement. Voir PulseSignalements pour la
+              raison du composant separe — l'animation re-rend dix fois par seconde, et elle ne
+              doit pas re-rendre cet ecran. */}
+          <PulseSignalements source="reports" />
+
           {/* MARQUEUR DE SIGNALISATION — maquette validee du 31 octobre (correction C1).
               Anneau dore, disque a la couleur du type, pictogramme blanc, et dessous le nom du
               type avec son badge. L'ancienne version dessinait un point de sept pixels surmonte
               d'un emoji que la police des tuiles ne contient pas : il n'apparaissait jamais. */}
           <Layer
             id="reports-ring"
+            filter={filtreNonDepasse}
             type="circle"
             source="reports"
             paint={{
@@ -2351,6 +2436,7 @@ ${t(`report.badge_${report.kind}`)}`,
           />
           <Layer
             id="reports-disc"
+            filter={filtreNonDepasse}
             type="circle"
             source="reports"
             paint={{
@@ -2360,6 +2446,7 @@ ${t(`report.badge_${report.kind}`)}`,
           />
           <Layer
             id="reports-icon"
+            filter={filtreNonDepasse}
             type="symbol"
             source="reports"
             layout={{
@@ -2378,6 +2465,7 @@ ${t(`report.badge_${report.kind}`)}`,
               l'autre. Le marqueur, lui, reste. */}
           <Layer
             id="reports-label"
+            filter={filtreNonDepasse}
             type="symbol"
             source="reports"
             layout={{
@@ -2518,13 +2606,16 @@ ${t(`report.badge_${report.kind}`)}`,
           style={[
             styles.navPuck,
             {
-              left: (mapW + navPadding.left) / 2 - NAV_PUCK_SIZE / 2,
-              top: (mapH + navPadding.top) / 2 - NAV_PUCK_SIZE / 2,
+              left: (mapW + navPadding.left) / 2 - TAILLE_HALO / 2,
+              top: (mapH + navPadding.top) / 2 - TAILLE_HALO / 2,
             },
           ]}
         >
-          {/* Meme couleur que l'itineraire : vert WIN de jour, turquoise de nuit. */}
-          <NavArrow size={NAV_PUCK_SIZE} color={routeColors.main} />
+          {/* OR LE JOUR, VERTE LA NUIT — correctif du 8 novembre. Elle prenait la couleur du
+              trace ; posee SUR ce trace, elle s'y confondait. Le halo, lui, fait 112 points de
+              bout en bout : c'est pourquoi le centrage se fait sur TAILLE_HALO et non sur la
+              taille de la fleche, sinon le halo serait decale d'un demi-anneau. */}
+          <NavArrow size={NAV_PUCK_SIZE} night={scheme === 'dark'} />
         </View>
       ) : null}
 
@@ -3020,8 +3111,12 @@ const styles = StyleSheet.create({
 
   navPuck: {
     position: 'absolute',
-    width: NAV_PUCK_SIZE,
-    height: NAV_PUCK_SIZE,
+    /* LA BOITE FAIT LA TAILLE DU HALO, PAS CELLE DE LA FLECHE. Les trois anneaux du 8 novembre
+     * montent a 56 points de rayon, soit 112 de bout en bout, autour d'une fleche de 40. Tant
+     * que la boite faisait 40, Android rognait les anneaux au bord de la vue : il n'en restait
+     * qu'un carre de halo. */
+    width: TAILLE_HALO,
+    height: TAILLE_HALO,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 6,

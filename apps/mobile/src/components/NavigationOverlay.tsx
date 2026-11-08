@@ -224,12 +224,9 @@ export const NavigationOverlay = memo(function NavigationOverlay({
             lanes={nextManeuver?.lanes ?? []}
             distanceM={distanceToUpcoming}
             surAutoroute={nextManeuver?.surAutoroute ?? false}
+            nomVoie={nextManeuver?.streetName ?? null}
           />
         ) : null}
-
-        {/* La pastille de recalcul, posee SOUS le bandeau et par-dessus la carte : elle dit que
-            l'application travaille sans effacer la consigne. Voir RecalcToast. */}
-        <RecalcToast visible={recalculating} lent={recalculLent} top={bannerHeight + spacing.sm} />
 
         {/* ECHEC DU CALCUL (point 15.A). Il n'etait affiche NULLE PART : l'application
             renoncait en silence, la pastille disparaissait, et le conducteur restait avec
@@ -247,6 +244,18 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         <View style={styles.grip} />
       </Pressable>
 
+
+      {/* LA PASTILLE DE RECALCUL, EN BAS DE L'ECRAN (correctif du 8 novembre).
+          Elle etait accrochee sous le bandeau de consigne ; le document la veut en bas, sur une
+          carte visible a 100 %. Elle sort donc du bandeau — elle etait son enfant, en position
+          absolue — pour devenir un element de l'ecran, pose au-dessus du cadre du bas quand
+          celui-ci est ouvert. `pointerEvents="none"` : elle ne prend aucun geste, un conducteur
+          doit pouvoir faire glisser la carte pendant le calcul. */}
+      <RecalcToast
+        visible={recalculating}
+        lent={recalculLent}
+        bottom={(bottomOpen ? bottomBarHeight : 0) + bottomInset + spacing.md}
+      />
 
       {/* Compteur de vitesse et limite reglementaire, EN HAUT A GAUCHE et l'un sous l'autre,
           comme sur le site (`.speed-badge` puis `.limit-badge`). Ils etaient en bas, et un

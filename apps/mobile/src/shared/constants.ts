@@ -57,6 +57,21 @@ export const REPORT_KINDS = [
   /* Les travaux manquaient. Ils ne sont ni un bouchon ni une route coupee : la voie passe, mais
    * lentement, et souvent pendant des semaines. */
   'works',
+  /* LES DECHETS SAUVAGES — correctif du 8 novembre, point 5.
+   *
+   * Le document les veut EN DERNIER dans le menu, seuls sur leur ligne, avec un badge
+   * << NOUVEAU >> dore. Ce sont les decharges en bord de route : ni un danger immediat ni un
+   * ralentissement, mais une nuisance que l'application est bien placee pour cartographier,
+   * puisqu'elle a deja la position et la photo.
+   *
+   * SON DOCUMENT EN LISTE SEPT EN TOUT, ET ON EN GARDE QUATORZE. Sa liste de sept est une
+   * SELECTION — bouchon, accident, barrage, route bloquee, travaux, objet, dechets — qui laisse
+   * tomber le radar, le dos d'ane, le trou, l'incendie, l'inondation et deux des trois forces.
+   * Ce sont des types deja en service, deja signales par des conducteurs, et deja en base. Les
+   * retirer effacerait des donnees reelles pour suivre une liste qui ne dit nulle part qu'elle
+   * remplace l'existante. Decision prise avec arsanne : on garde les treize et on ajoute les
+   * dechets. */
+  'waste',
 ] as const;
 export type ReportKind = (typeof REPORT_KINDS)[number];
 
@@ -89,6 +104,7 @@ export const PERMANENT_KINDS: readonly ReportKind[] = [
   'gendarmerie',
   'armee',
   'block',
+  'waste',
 ];
 
 /**
@@ -119,6 +135,13 @@ export const TEMPORARY_TTL_MINUTES: Record<ReportKind, number> = {
    * heures couvrent la journee de travail qui a motive le signalement, et le chantier encore la
    * demain sera resignale par le premier conducteur qui le traverse. */
   works: 720,
+  /* LES DECHETS SONT PERMANENTS, comme le trou et le dos d'ane.
+   *
+   * Une decharge sauvage ne se dissipe pas : elle grossit. Lui donner une echeance, c'est
+   * decider qu'elle aura disparu dans N heures — exactement l'hypothese qui a fait retirer
+   * l'echeance de la route bloquee le 28 octobre. Elle s'efface donc par vote, quand trois
+   * conducteurs repondent << plus la >> parce que le terrain a ete nettoye. */
+  waste: 0,
 };
 
 /**

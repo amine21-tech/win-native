@@ -34,4 +34,5 @@ export const PICTOS_SIGNALISATION: Record<ReportKind, number> = {
   pothole: require('../../assets/map/sig-pothole.png'),
   flood: require('../../assets/map/sig-flood.png'),
   fire: require('../../assets/map/sig-fire.png'),
+  waste: require('../../assets/map/sig-waste.png'),
 };

@@ -1,6 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { LANE, type Lane } from '../navigation/routing';
-import { radius, spacing, type Palette } from '../theme';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { FlecheVoie } from './FlecheVoie';
+import { surGrandAxe } from '../navigation/grandAxe';
+import type { Lane } from '../navigation/routing';
 
 /**
  * Voies a prendre a l'approche d'une bifurcation (point 4 du client).
@@ -39,37 +41,33 @@ export const LANE_GUIDANCE_VISIBLE_M = 500;
  */
 export const LANE_GUIDANCE_MIN = 2;
 
-/* Une voie porte souvent PLUSIEURS directions peintes (tout droit + a droite). On dessine la
- * plus parlante : celle qui correspond au mouvement le plus marque. L'ordre de ce tableau est
- * donc un ordre de priorite, du plus tranche au plus neutre.
+/**
+ * LES NEUF FLECHES SONT DESSINEES, et la table de caracteres a disparu — correctif du
+ * 8 novembre, point 4.
  *
- * Les fleches sont EXACTEMENT celles du bandeau de consigne (voir instructions.ts), et non des
- * fleches pleines plus epaisses : celles du bandeau sont deja affichees tous les jours sur les
- * telephones du client. Un caractere absent de la police s'afficherait en carre vide, et
- * l'information disparaitrait au moment precis ou elle compte. */
-const GLYPHS: [number, string][] = [
-  [LANE.reverse, '↩'],
-  [LANE.sharpLeft, '↰'],
-  [LANE.left, '↰'],
-  [LANE.slightLeft, '↖'],
-  [LANE.mergeToLeft, '↖'],
-  [LANE.sharpRight, '↱'],
-  [LANE.right, '↱'],
-  [LANE.slightRight, '↗'],
-  [LANE.mergeToRight, '↗'],
-  [LANE.through, '↑'],
-  [LANE.none, '↑'],
-];
+ * Elle associait onze directions a six caracteres : ↩ ↰ ↖ ↱ ↗ ↑. << Tournez a gauche >> et
+ * << serrez franchement a gauche >> partageaient donc le MEME signe, alors que sur une
+ * bifurcation d'autoroute ils menent a deux routes differentes. Voir FlecheVoie.tsx pour les
+ * neuf traces et pour la raison technique — un caractere absent de la police s'affiche en
+ * carre vide.
+ */
 
-/** Fleche a dessiner pour une voie : celle de la direction ACTIVE si la voie en a une (c'est
- * le mouvement a faire), sinon celle de tout ce qui y est peint. */
-function glyphFor(lane: Lane): string {
-  const mask = lane.active || lane.directions;
-  for (const [bit, glyph] of GLYPHS) {
-    if (mask & bit) return glyph;
-  }
-  return '↑';
-}
+/**
+ * LE CLIGNOTEMENT DE LA VOIE RECOMMANDEE : de 1,0 a 0,2 en 500 ms, aller-retour, sans fin.
+ * Valeurs du document.
+ *
+ * C'est deux fois plus rapide que la respiration de la fleche de position (1200 ms), et c'est
+ * voulu : l'une signale que le guidage est vivant, l'autre qu'il y a une DECISION a prendre
+ * dans les trois cents metres. Un clignotement lent se regarde ; un clignotement vif se
+ * remarque.
+ */
+const CLIGNOTEMENT_MS = 500;
+const CLIGNOTEMENT_MIN = 0.2;
+
+/** Fond des voies a eviter : le vert fonce du document. Elles restent VISIBLES — les effacer
+ *  empecherait de compter les files et de savoir laquelle est la bonne. */
+const FOND_AUTRE = '#0D6E4F';
+const FOND_RECOMMANDE = '#FFFFFF';
 
 /**
  * LES VOIES SONT DESSINEES DANS LE BANDEAU VERT, pas sous lui (point 5 du client, 27 octobre :
@@ -89,13 +87,42 @@ export function LaneGuidance({
   lanes,
   distanceM,
   surAutoroute,
+  nomVoie,
 }: {
   lanes: Lane[];
   /** Distance restante jusqu'a la bifurcation, ou `null` si elle est inconnue. */
   distanceM: number | null;
   /** La manoeuvre se fait-elle sur une autoroute ou une voie rapide ? */
   surAutoroute: boolean;
+  /** Nom de la voie, seul moyen de reconnaitre une NATIONALE : voir grandAxe.ts. */
+  nomVoie?: string | null;
 }) {
+  /* LE CLIGNOTEMENT TOURNE MEME QUAND RIEN N'EST AFFICHE, et c'est une contrainte de React et
+   * non un choix : un hook ne peut pas etre appele apres un `return`. L'animation est native
+   * et ne touche pas au fil JavaScript — la faire tourner pour rien ne coute rien. */
+  const clignote = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const boucle = Animated.loop(
+      Animated.sequence([
+        Animated.timing(clignote, {
+          toValue: CLIGNOTEMENT_MIN,
+          duration: CLIGNOTEMENT_MS,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(clignote, {
+          toValue: 1,
+          duration: CLIGNOTEMENT_MS,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    boucle.start();
+    return () => boucle.stop();
+  }, [clignote]);
+
   /* AUTOROUTE ET VOIE RAPIDE UNIQUEMENT, et au moins deux voies — correctif 1 du 3 novembre.
    *
    * << Elle NE s'active PAS sur les virages normaux en ville, les carrefours classiques, les
@@ -105,7 +132,10 @@ export function LaneGuidance({
    * changent a chaque carrefour et l'affichage clignoterait d'un feu a l'autre sans jamais
    * rien apprendre. Rater une file en ville coute un tour du pate de maisons ; la rater avant
    * une sortie d'autoroute coute dix kilometres. C'est la que l'information vaut. */
-  if (!surAutoroute) return null;
+  /* AUTOROUTE, VOIE RAPIDE *ET NATIONALE* depuis le 8 novembre. Valhalla ne marque pas les
+   * nationales taguees `primary` : on les reconnait a leur nom — << RN 12 >>, << N5 >>. Voir
+   * grandAxe.ts. */
+  if (!surGrandAxe(surAutoroute, nomVoie)) return null;
   if (lanes.length < LANE_GUIDANCE_MIN || distanceM == null || distanceM > LANE_GUIDANCE_VISIBLE_M) {
     return null;
   }
@@ -116,10 +146,22 @@ export function LaneGuidance({
         /* `active` = la voie ou l'on est deja bien place ; `valid` = elle mene quand meme la ou
          * l'on va. Les deux comptent comme « a prendre » pour l'affichage. */
         const aPrendre = lane.active !== 0 || lane.valid !== 0;
+        /* LA CASE RECOMMANDEE EST UN FOND BLANC QUI CLIGNOTE, les autres un vert fonce fixe —
+         * et c'est le fond qui porte l'etat, pas la fleche. Faire clignoter la FLECHE la
+         * ferait disparaitre la moitie du temps ; faire clignoter le fond la laisse lisible
+         * en permanence tout en attirant l'oeil. */
         return (
-          <Text key={i} style={[styles.glyph, aPrendre ? styles.glypheBon : styles.glypheAutre]}>
-            {glyphFor(lane)}
-          </Text>
+          <Animated.View
+            key={i}
+            style={[
+              styles.case,
+              aPrendre
+                ? { backgroundColor: FOND_RECOMMANDE, opacity: clignote }
+                : { backgroundColor: FOND_AUTRE },
+            ]}
+          >
+            <FlecheVoie lane={lane} size={26} couleur={aPrendre ? FOND_AUTRE : '#FFFFFF'} />
+          </Animated.View>
         );
       })}
     </View>
@@ -129,10 +171,15 @@ export function LaneGuidance({
 const styles = StyleSheet.create({
   // Une simple rangee, posee dans le bandeau : ni carte, ni bordure, ni ombre. Elle fait
   // partie du bandeau, elle ne se pose plus dessus.
-  row: { flexDirection: 'row', gap: 4, alignItems: 'center', marginTop: 2 },
-  glyph: { fontSize: 22, fontWeight: '800' as const, width: 32, textAlign: 'center' },
-  glypheBon: { color: '#FFFFFF' },
-  /* Les voies a eviter restent VISIBLES, a quarante pour cent : les effacer tout a fait
-   * empecherait de compter les files et de savoir laquelle est la bonne. */
-  glypheAutre: { color: '#FFFFFF', opacity: 0.4 },
+  row: { flexDirection: 'row', gap: 4, alignItems: 'center', marginTop: 4 },
+  /* Chaque voie dans sa case, comme le montre la maquette : les fleches etaient posees cote a
+   * cote sans fond, et sur l'aplat vert du bandeau on ne voyait plus ou s'arretait une file et
+   * ou commencait la suivante. */
+  case: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

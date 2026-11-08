@@ -1,6 +1,12 @@
 import { speakGuidance, stopSpeaking } from '../speech/voice';
 import { clipDistance, clipManoeuvre, type CleVoix } from '../speech/voixKab';
-import { phraseItineraireRecalcule, phraseRouteBloquee, phraseSortieRatee } from './instructions';
+import { EST_SORTIE, manoeuvreRatee } from './manoeuvreRatee';
+import {
+  phraseItineraireRecalcule,
+  phraseRouteBloquee,
+  phraseSortieRatee,
+  phraseVirageManque,
+} from './instructions';
 import { useSpokenLanguage } from '../speech/useSpokenLanguage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { localizedInstruction, lowerFirst, spokenDistance } from './instructions';
@@ -67,17 +73,11 @@ const RECALC_COOLDOWN_MS = 6_000;
  */
 const RECALCUL_LENT_MS = 3_000;
 
-/**
- * Types de manoeuvre Valhalla qui designent une BRETELLE ou une SORTIE.
- *
- * 17 a 21 : bretelle tout droit, a droite, a gauche, puis sortie a droite et a gauche. Ce sont
- * les seules manoeuvres qu'on peut rater sans s'ecarter franchement de la route — d'ou leur
- * traitement a part.
- */
-const EST_SORTIE = new Set([17, 18, 19, 20, 21]);
 
-/** Depassement au-dela duquel une sortie est consideree comme ratee (point 10B du client). */
-const SORTIE_RATEE_M = 30;
+/* LA REGLE DU VIRAGE RATE VIT DANS manoeuvreRatee.ts, hors de ce suivi : elle est faite de
+ * quatre nombres et d'une condition a deux termes, et elle est eprouvee par
+ * scripts/verifier-manoeuvre-ratee.ts. Le code du document — un simple seuil de vingt metres —
+ * recalculerait a chaque virage PRIS ; le second terme est ce qui l'en empeche. */
 
 /**
  * PRE-CALCUL ANTICIPATIF (point 10C du client, 27 octobre).
@@ -254,7 +254,7 @@ export function useNavigationSession(params: {
   /* L'annonce de sortie ratee est prononcee depuis le suivi, qui tourne hors du rendu React.
    * Elle a donc besoin de la langue parlee et du reglage de voix par REFERENCE : les lire
    * directement figerait les valeurs du premier rendu pour toute la navigation. */
-  const direSortieRateeRef = useRef<() => void>(() => {});
+  const direManoeuvreRateeRef = useRef<(sortie: boolean) => void>(() => {});
 
   /**
    * Itineraire de repli prepare a l'avance, et la sortie pour laquelle il l'a ete.
@@ -559,12 +559,19 @@ export function useNavigationSession(params: {
       repliRef.current = { pour: null, route: null, enCours: false };
     }
 
+    /* LA REGLE S'APPLIQUE DESORMAIS A TOUS LES VIRAGES, pas seulement aux sorties (correctif
+     * du 8 novembre, point 3) : vingt metres au-dela du point de manoeuvre, et hors du trace.
+     * Le texte annonce differe selon le cas — dire << sortie manquee >> a quelqu'un qui vient
+     * de depasser une rue l'enverrait chercher une bretelle qui n'existe pas. */
     const manoeuvreDepassee = currentRoute.maneuvers[idx];
     if (
       manoeuvreDepassee &&
-      EST_SORTIE.has(manoeuvreDepassee.type) &&
-      traveled - (currentRoute.cumulativeM[manoeuvreDepassee.shapeIndex] ?? 0) > SORTIE_RATEE_M &&
-      located.distanceM > tolerance &&
+      manoeuvreRatee({
+        type: manoeuvreDepassee.type,
+        depassementM: traveled - (currentRoute.cumulativeM[manoeuvreDepassee.shapeIndex] ?? 0),
+        ecartM: located.distanceM,
+        toleranceM: tolerance,
+      }) &&
       sortieRateeRef.current !== manoeuvreDepassee.shapeIndex &&
       cooledDown
     ) {
@@ -573,7 +580,7 @@ export function useNavigationSession(params: {
       offRouteScoreRef.current = 0;
       offRouteDistanceRef.current = 0;
       offRouteSinceRef.current = 0;
-      direSortieRateeRef.current();
+      direManoeuvreRateeRef.current(EST_SORTIE.has(manoeuvreDepassee.type));
 
       /* LE REPLI PREPARE S'AFFICHE TOUT DE SUITE, sans appel reseau — c'est tout l'objet du
        * pre-calcul. Il part d'un point DEVINE, a quelques dizaines de metres pres : on lance
@@ -656,8 +663,17 @@ export function useNavigationSession(params: {
   /* La phrase de sortie ratee, tenue a jour pour le suivi (point 10B). Couper la voix de
    * guidage la coupe aussi : c'est un choix explicite du conducteur, et une sortie manquee ne
    * justifie pas de passer outre — l'ecran, lui, affiche deja le recalcul. */
-  direSortieRateeRef.current = () => {
-    if (voiceGuidanceEnabled) speakGuidance(phraseSortieRatee(spokenLang), spokenLang);
+  direManoeuvreRateeRef.current = (sortie: boolean) => {
+    if (!voiceGuidanceEnabled) return;
+    /* LE CLIP TAMAZIGHT EXISTE, ET IL N'ETAIT PAS JOUE. En kabyle la voix ne dit que des
+     * enregistrements ; sans cle de clip, `speakGuidance` se taisait — y compris pour une
+     * sortie manquee, alors que << recalculEnCours >> fait partie des 68 enregistrements
+     * livres. Le conducteur kabyle voyait donc l'application recalculer sans un mot. */
+    speakGuidance(
+      sortie ? phraseSortieRatee(spokenLang) : phraseVirageManque(spokenLang),
+      spokenLang,
+      ['recalculEnCours'],
+    );
   };
 
   useEffect(() => {

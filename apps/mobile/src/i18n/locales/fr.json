@@ -85,7 +85,10 @@
     "badge_object": "Obstacle",
     "badge_pothole": "Dégradation",
     "badge_flood": "Submersion",
-    "badge_fire": "Feu proche"
+    "badge_fire": "Feu proche",
+    "waste": "Déchets sauvages",
+    "sub_waste": "Décharge en bord de route",
+    "badge_waste": "Dépôt sauvage"
   },
   "nav": {
     "start": "C'est parti",
@@ -610,9 +613,9 @@
   "unlock": {
     "title": "Tunisie 🇹🇳",
     "offerBefore": "Naviguez aussi en Tunisie —",
-    "price": "{{price}} DA, accès illimité à vie",
-    "offerAfter": "(paiement unique).",
-    "step1": "Envoyez {{price}} DA via BaridiMob au compte ci-dessous, avec votre numéro de téléphone en référence.",
+    "price": "{{price}} DA par an",
+    "offerAfter": "(abonnement annuel).",
+    "step1": "Envoyez {{price}} DA via BaridiMob ou CIB au compte ci-dessous, avec votre numéro de téléphone en référence.",
     "step2": "Saisissez ce même numéro, puis appuyez sur « J’ai payé ».",
     "paid": "J’ai payé",
     "pending": "Paiement en cours de vérification. L’accès à la Tunisie s’ouvrira automatiquement dès sa validation.",
@@ -621,7 +624,10 @@
     "note": "Votre accès est lié à ce téléphone. Il est activé dès que notre équipe a vérifié la réception du paiement.",
     "noAccount": "Le compte de paiement n’est pas encore disponible. Réessayez plus tard.",
     "phoneInvalid": "Numéro de téléphone invalide.",
-    "tooMany": "Trop de demandes. Réessayez dans quelques minutes."
+    "tooMany": "Trop de demandes. Réessayez dans quelques minutes.",
+    "validUntil": "Abonnement valable jusqu’au {{date}}.",
+    "lifetime": "Votre accès est à vie : vous avez payé avant le passage à l’abonnement annuel.",
+    "renew": "Renouveler"
   },
   "jobs": {
     "title": "Emploi près de vous",

@@ -18,6 +18,7 @@ import {
   OPACITE_QUEUE,
   paliersDuTrace,
   QUEUE_COMETE,
+  rgba,
   type BandeTrafic,
 } from '../src/navigation/degradeTrace';
 
@@ -193,8 +194,115 @@ comete(
   JSON.stringify(auDepart.filter((_, i) => i % 2 === 0)),
 );
 
-if (fautesComete > 0) {
-  console.log('\n' + fautesComete + ' verification(s) de la comete en echec.');
-  process.exit(1);
+console.log(
+  fautesComete > 0
+    ? '\n' + fautesComete + ' verification(s) de la comete en echec.'
+    : '\nLa comete est pleine devant et s efface derriere.',
+);
+
+
+/* ------------------------------------------------------------------ */
+/* LES VRAIES COULEURS, AVEC LE VRAI rgba()                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * CETTE SECTION EXISTE A CAUSE D'UN DEFAUT QUE TOUT LE RESTE DE CE FICHIER A LAISSE PASSER.
+ *
+ * Pendant trois versions, la trainee derriere le vehicule etait NOIRE. L'ecran passait a
+ * `paliersDuTrace` une couleur deja au format `rgba(...)` ; le vrai compositeur la redilue avec
+ * `parseInt(hex.slice(1), 16)`, obtient NaN, et NaN decale a droite vaut zero. Toute la trainee
+ * sortait en `rgba(0, 0, 0, o)`.
+ *
+ * POURQUOI LES CONTROLES CI-DESSUS NE POUVAIENT PAS LE VOIR : ils fournissent leur propre
+ * `teinter` de test, `attenuer`, qui colle simplement « @0.600 » au bout du nom de la couleur.
+ * Pratique pour relire une opacite, mais c'est un faux — il ne compose aucun rgba() et ne peut
+ * donc pas se tromper comme le vrai. Un test qui remplace la piece suspecte par une piece saine
+ * ne prouve rien sur la piece suspecte.
+ *
+ * On eprouve donc ici le VRAI `rgba`, avec les VRAIES constantes de l'ecran, et on regarde la
+ * chaine produite. Un canal a zero sur un vert est un noir : c'est la signature exacte du
+ * defaut, et elle est desormais lisible par une machine.
+ */
+console.log('\nLES COULEURS SORTENT VERTES, ET NON NOIRES');
+
+let fautesCouleur = 0;
+function couleur(nom: string, ok: boolean, detail = '') {
+  console.log(`  ${ok ? 'ok  ' : 'FAUX'}  ${nom}${detail ? `  — ${detail}` : ''}`);
+  if (!ok) fautesCouleur++;
 }
-console.log('\nLa comete est pleine devant et s efface derriere.');
+
+/* Les valeurs exactes de ROUTE_COLORS, recopiees a la main : si l'ecran change de vert, ce test
+ * doit etre relu, et non suivre en silence. Jour ET nuit, parce que les deux etaient cassees. */
+const TRACE = {
+  jour: { main: '#0D6E4F', parcouru: '#B4E6D2' },
+  nuit: { main: '#2EE6A6', parcouru: '#1B4D3E' },
+} as const;
+
+for (const [mode, c] of Object.entries(TRACE)) {
+  const paliers = paliersDuTrace(c.parcouru, c.main, 0.5, [], rgba);
+  const couleurs: string[] = [];
+  for (let i = 1; i < paliers.length; i += 2) couleurs.push(paliers[i] as string);
+
+  const malformees = couleurs.filter((t) => !/^rgba\(\d+, \d+, \d+, [\d.]+\)$/.test(t));
+  couleur(
+    `${mode} : les ${couleurs.length} couleurs sont des rgba() valides`,
+    malformees.length === 0,
+    malformees.slice(0, 2).join(' · ') || couleurs[couleurs.length - 1]!,
+  );
+
+  const noires = couleurs.filter((t) => /^rgba\(0, 0, 0,/.test(t));
+  couleur(
+    `${mode} : aucune n'est noire`,
+    noires.length === 0,
+    noires.length > 0
+      ? `${noires.length} palier(s) en ${noires[0]} — c'est LE defaut de la v116 a la v119`
+      : 'le defaut de la v116 : rgba() appliquee deux fois de suite',
+  );
+
+  /* ON VERIFIE QUE LE VERT EST LE BON, et pas seulement qu'il n'est pas noir. Une couleur
+   * decalee d'un octet — un `slice(0)` au lieu d'un `slice(1)` — produirait un rgba() valide,
+   * non noir, et completement faux. */
+  const n = parseInt(c.main.slice(1), 16);
+  const attendu = `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, 1)`;
+  couleur(
+    `${mode} : devant la fleche, c'est bien ${c.main}`,
+    couleurs[couleurs.length - 1] === attendu,
+    `${couleurs[couleurs.length - 1]} (attendu ${attendu})`,
+  );
+
+  /* ET DERRIERE, LE VERT CLAIR DU DOCUMENT — pas le meme vert attenue. C'est la demande du
+   * 8 novembre : << vert fonce DEVANT, vert clair DERRIERE >>. Deux teintes distinctes se
+   * distinguent a l'oeil bien mieux que deux opacites de la meme teinte. */
+  const nq = parseInt(c.parcouru.slice(1), 16);
+  const teteTrainee = couleurs[Math.floor((couleurs.length - 1) / 2)];
+  couleur(
+    `${mode} : derriere la fleche, c'est bien ${c.parcouru}`,
+    (teteTrainee ?? '').startsWith(`rgba(${(nq >> 16) & 255}, ${(nq >> 8) & 255}, ${nq & 255},`),
+    `${teteTrainee}`,
+  );
+}
+
+/**
+ * LE CONTROLE QUI AURAIT ATTRAPE LE DEFAUT A L'EPOQUE. On refait la faute exacte de l'ecran —
+ * passer une couleur deja diluee — et on exige que ca eclate. Tant que ce controle passe, la
+ * meme erreur ne peut plus produire du noir en silence : elle produit un message.
+ */
+let aEclate = false;
+try {
+  rgba('rgba(13, 110, 79, 1)', 0.6);
+} catch {
+  aEclate = true;
+}
+couleur(
+  'une couleur deja diluee est REFUSEE, au lieu de devenir noire',
+  aEclate,
+  'c est la faute exacte commise le 3 novembre',
+);
+
+console.log(
+  fautesCouleur === 0
+    ? '\nLe trace sort vert, devant comme derriere.\n'
+    : `\nA CORRIGER : ${fautesCouleur} verification(s) de couleur en echec.\n`,
+);
+
+if (fautesComete > 0 || fautesCouleur > 0) process.exit(1);

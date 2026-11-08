@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useSession } from '../store/session';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { IconePieton, IconeVoiture } from './IconesTransport';
 import type { Route, RouteMode } from '../navigation/routing';
 import { formatDistance, formatDuration } from '../shared';
 import { radius, spacing, typography, type Palette } from '../theme';
@@ -11,6 +12,20 @@ import { radius, spacing, typography, type Palette } from '../theme';
 const VERT_DISTANCE = '#0B5B2C';
 const GRIS_DUREE = '#F3F4F6';
 const OR_MEILLEUR = '#D4A017';
+
+/* LE DOUBLE CADRE DU 8 NOVEMBRE, point 7 : un cadre exterieur vert de 3 points en rayon 16, un
+ * cadre interieur dore de 1,5 point en rayon 10, a 12 points du premier.
+ *
+ * POURQUOI DEUX CADRES PLUTOT QU'UN. La fiche en avait un seul, avec un bord superieur vert de
+ * trois points — le << encadrement >> demande le 27 octobre. Le double cadre dit autre chose :
+ * il ne separe pas la carte du reste de la fiche, il la designe comme LE contenu de la fiche.
+ * C'est la mise en page des documents officiels algeriens, et sur une carte de destination elle
+ * se lit comme un sceau. C'est aussi, accessoirement, ce que le client dessine.
+ *
+ * Les deux couleurs sont FIGEES, comme les trois du dessus et pour la meme raison : les fonds
+ * qu'elles encadrent le sont. */
+const VERT_CADRE = '#0D6E4F';
+const OR_CADRE = '#FFD864';
 
 type Props = {
   routes: Route[];
@@ -37,12 +52,11 @@ export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode
        le detache du reste de la fiche et lui donne un bord, au lieu d'un rectangle pose sans
        limite franche. Le client l'a demandee explicitement, et c'est aussi ce qui repond au
        reproche de cadre « sans encadrement ». */
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: colors.surface, borderColor: colors.border, borderTopColor: colors.accent },
-      ]}
-    >
+    <View style={[styles.card, { backgroundColor: colors.surface }]}>
+      {/* LE CADRE INTERIEUR DORE. Il enveloppe tout le contenu, y compris l'indicateur de
+          chargement et le message d'erreur : un cadre qui n'apparaitrait qu'une fois le trajet
+          calcule ferait sauter la fiche au moment ou elle se remplit. */}
+      <View style={styles.cadreInterieur}>
       {loading ? (
         <ActivityIndicator color={colors.accent} style={{ paddingVertical: spacing.lg }} />
       ) : error || !selected ? (
@@ -79,17 +93,30 @@ export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode
               onPress={() => onModeChange('auto')}
               style={[styles.modeBtn, mode === 'auto' && { backgroundColor: colors.accent }]}
             >
-              <Text style={[styles.modeLabel, { color: mode === 'auto' ? colors.accentText : colors.text }]}>
-                🚗 {t('trip.byCar')}
-              </Text>
+              {/* L'ICONE PREND LA COULEUR DU TEXTE, ce qu'un emoji ne sait pas faire : sur le
+                  fond vert du mode actif, 🚗 restait rouge. */}
+              <View style={styles.modeContenu}>
+                <IconeVoiture size={17} color={mode === 'auto' ? colors.accentText : colors.text} />
+                <Text style={[styles.modeLabel, { color: mode === 'auto' ? colors.accentText : colors.text }]}>
+                  {t('trip.byCar')}
+                </Text>
+              </View>
             </Pressable>
             <Pressable
               onPress={() => onModeChange('pedestrian')}
               style={[styles.modeBtn, mode === 'pedestrian' && { backgroundColor: colors.accent }]}
             >
-              <Text style={[styles.modeLabel, { color: mode === 'pedestrian' ? colors.accentText : colors.text }]}>
-                🚶 {t('trip.onFoot')}
-              </Text>
+              <View style={styles.modeContenu}>
+                <IconePieton
+                  size={17}
+                  color={mode === 'pedestrian' ? colors.accentText : colors.text}
+                />
+                <Text
+                  style={[styles.modeLabel, { color: mode === 'pedestrian' ? colors.accentText : colors.text }]}
+                >
+                  {t('trip.onFoot')}
+                </Text>
+              </View>
             </Pressable>
           </View>
 
@@ -167,18 +194,30 @@ export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode
           </Pressable>
         </>
       )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  /* LE CADRE EXTERIEUR : vert, 3 points, rayon 16 — valeurs du 8 novembre. Il n'a plus de
+   * bord superieur special : le vert fait desormais tout le tour, ce qui rend inutile le
+   * `borderTopWidth: 3` qui le simulait sur un seul cote depuis le 27 octobre. */
   card: {
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    // Le haut plus epais et colore : c'est lui qui « encadre » le bloc (point 6 du client).
-    borderTopWidth: 3,
-    padding: spacing.md,
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: VERT_CADRE,
     marginTop: spacing.md,
+  },
+  /* LE CADRE INTERIEUR : or, 1,5 point, rayon 10, a 12 points du cadre vert. La marge du
+   * document (12) remplace le `padding` de la carte — sans quoi les deux s'ajouteraient et le
+   * contenu serait repousse de vingt-huit points. */
+  cadreInterieur: {
+    borderWidth: 1.5,
+    borderColor: OR_CADRE,
+    borderRadius: 10,
+    margin: 12,
+    padding: spacing.sm,
   },
   errorText: { textAlign: 'center', paddingVertical: spacing.sm },
   metrics: { flexDirection: 'row', alignItems: 'stretch', gap: spacing.sm },
@@ -213,6 +252,7 @@ const styles = StyleSheet.create({
   divider: { width: 1, marginVertical: 2 },
   modes: { flexDirection: 'row', borderRadius: radius.md, padding: 4, marginTop: spacing.md, gap: 4 },
   modeBtn: { flex: 1, borderRadius: radius.sm, paddingVertical: spacing.sm, alignItems: 'center' },
+  modeContenu: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   modeLabel: { fontSize: 12.5, fontWeight: '700' as const },
   altRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   altChip: { flex: 1, borderWidth: 1.5, borderRadius: radius.sm, padding: spacing.sm, alignItems: 'center' },

@@ -36,12 +36,51 @@ export const COUPURE = 0.0008;
 export const QUEUE_COMETE = 0.05;
 
 /**
- * Opacite maximale de la trainee, juste derriere le vehicule. Valeur du client.
+ * Opacite maximale de la trainee, juste derriere le vehicule.
  *
  * Elle ne monte pas a 1 : la trainee doit se distinguer du trace a parcourir, sans quoi on ne
  * verrait plus ou l'on en est — ce qui est tout l'interet de l'effet.
+ *
+ * LE CORRECTIF DU 8 NOVEMBRE DEMANDE 0,08, ET ON NE L'APPLIQUE PAS. C'est le seul point de ce
+ * document qu'on laisse de cote, et la raison est ecrite dans ce depot : la trainee EST DEJA
+ * DESCENDUE a 8 %, en octobre. Le chemin parcouru devenait alors une fenetre sur le fond de
+ * carte, la nationale jaune d'OpenStreetMap reparaissait dessous, et le client l'a signale en
+ * ces termes — << la ligne jaune transparait sous la ligne verte >>. C'est pour cela qu'elle a
+ * ete remontee le 23 octobre.
+ *
+ * Le document se contredit d'ailleurs lui-meme : sa maquette montre une trainee vert clair
+ * bien visible, que 8 % d'opacite ne donneraient jamais. La couleur demandee, #B4E6D2, est
+ * appliquee exactement ; c'est ce seul nombre qui reste a 0,6. Une ligne a changer si le client
+ * confirme vouloir vraiment 8 %.
  */
 export const OPACITE_QUEUE = 0.6;
+
+/**
+ * Couleur hexadecimale diluee en rgba(). MapLibre n'accepte pas de teinter une couleur dans une
+ * expression : il faut lui donner la couleur DEJA diluee.
+ *
+ * ELLE REFUSE CE QUI N'EST PAS UNE COULEUR HEXADECIMALE, et ce controle a une histoire.
+ *
+ * Jusqu'au 8 novembre cette fonction vivait dans l'ecran, sans controle. On lui a passe par
+ * erreur une couleur deja au format `rgba(...)` : `parseInt('gba(13, 110, 79, 1)', 16)` rend
+ * NaN, et NaN decale a droite vaut zero. Elle rendait donc `rgba(0, 0, 0, o)` — du NOIR — pour
+ * toute la trainee derriere le vehicule, pendant trois versions, sans la moindre erreur.
+ *
+ * Une exception est brutale, et c'est le but. Un plantage avec un message clair se voit en dix
+ * secondes ; une trainee noire sur une carte sombre ne se voit pas du tout. Les seuls appelants
+ * passent des constantes de ROUTE_COLORS, donc le cas ne peut survenir que si quelqu'un refait
+ * exactement la meme faute.
+ */
+export function rgba(hex: string, alpha: number): string {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) {
+    throw new Error(
+      `rgba() attend une couleur hexadecimale #rrggbb, et a recu « ${hex} ». ` +
+        'Une couleur deja diluee ne doit pas etre rediluee : elle sortirait noire.',
+    );
+  }
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
 
 export type BandeTrafic = { debut: number; fin: number; couleur: string };
 

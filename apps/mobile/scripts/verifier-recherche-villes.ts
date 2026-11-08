@@ -18,6 +18,7 @@ import { resolve } from 'node:path';
 import {
   classerPoint18,
   estLieuPublic,
+  estQuartierVise,
   estWilayaVisee,
   PERIMETRE_VIP_M,
   rankSearchResults,
@@ -50,6 +51,7 @@ function classer(fiches: Fiche[], requete: string, moi: { lat: number; lon: numb
     estWilaya: (r) => estWilayaVisee(r, visees),
     estPublic: (r) => estLieuPublic(r),
     estVilleExacte: (r) => r.exactCity === true,
+    estQuartier: (r) => estQuartierVise(r, requete),
     estVip: (r) => (r as unknown as Fiche).vip === true,
     distanceM: (r) => r.distanceM,
   });
@@ -385,6 +387,113 @@ verifier(
 /* ------------------------------------------------------------------ */
 /* La liste a classer doit d'abord CONTENIR la ville                    */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* LE QUARTIER ET LA DAIRA — correctif du 8 novembre, point 11          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * LE DEFAUT, EN UNE PHRASE : on tape le nom d'un quartier, et une boulangerie du meme nom passe
+ * devant parce qu'elle est plus proche.
+ *
+ * C'est exactement le defaut << Tizi >> corrige le 2 novembre, un cran plus bas dans l'echelle
+ * administrative — et il avait survecu parce que la correction ne portait que sur les 58
+ * wilayas. Un quartier n'est ni une wilaya ni une ville exacte : il tombait dans le lot commun,
+ * ou seule la distance compte.
+ *
+ * Alger-centre : 36.7538 / 3.0588. Bab El Oued : 36.7906 / 3.0547, soit environ 4 km au nord.
+ */
+console.log('\nLE QUARTIER PASSE DEVANT LE COMMERCE HOMONYME PLUS PROCHE');
+
+const ALGER_CENTRE = { lat: 36.7538, lon: 3.0588 };
+
+const BAB_EL_OUED: Fiche[] = [
+  /* La boulangerie est a quatre cents metres, le quartier a quatre kilometres : dans un
+   * classement a la distance, elle gagne de dix longueurs. */
+  { name: 'Boulangerie Bab El Oued', lat: 36.7571, lon: 3.0601, osmKey: 'shop', osmValue: 'bakery', source: 'photon' },
+  { name: 'Bab El Oued', lat: 36.7906, lon: 3.0547, osmKey: 'place', osmValue: 'suburb', source: 'photon' },
+  { name: 'Rue Bab El Oued', lat: 36.7555, lon: 3.0575, osmKey: 'highway', osmValue: 'residential', source: 'photon' },
+];
+
+const ordreBEO = classer(BAB_EL_OUED, 'bab el oued', ALGER_CENTRE).map((r) => r.name);
+console.log('  ' + ordreBEO.join('  →  '));
+verifier(
+  'le quartier arrive en premier',
+  ordreBEO[0] === 'Bab El Oued',
+  'la boulangerie est dix fois plus proche, et ce n est pas elle qu on cherche',
+);
+verifier(
+  'la rue et le commerce restent derriere',
+  ordreBEO.indexOf('Rue Bab El Oued') > 0 && ordreBEO.indexOf('Boulangerie Bab El Oued') > 0,
+  'rangs 3 et 4 du document : rue, puis adresse',
+);
+
+console.log('\nLA VILLE RESTE DEVANT LE QUARTIER');
+
+/**
+ * L'ORDRE DU DOCUMENT EST << 1-Ville/Commune, 2-Quartier/Daira >>, et il faut le verifier dans
+ * ce sens-la : le quartier est teste APRES la ville dans la boucle, mais un `place=district`
+ * satisfait aussi `cityRank` — il aurait pu etre capte par le palier des villes, ou pose devant
+ * elles si l'ordre des tests avait ete pris pour l'ordre des paliers.
+ */
+const MELANGE: Fiche[] = [
+  { name: 'Hussein Dey', lat: 36.7406, lon: 3.1061, osmKey: 'place', osmValue: 'district', source: 'photon' },
+  { name: 'Hussein Dey', lat: 36.7400, lon: 3.1000, osmKey: 'place', osmValue: 'town', source: 'photon' },
+];
+const ordreMelange = classer(MELANGE, 'hussein dey', ALGER_CENTRE).map(
+  (r) => `${r.name} (${(r as unknown as Fiche).osmValue})`,
+);
+console.log('  ' + ordreMelange.join('  →  '));
+verifier(
+  'la commune passe devant la daira du meme nom',
+  ordreMelange[0]?.includes('town') === true,
+  'un place=district satisfait aussi cityRank : il aurait pu etre pris pour une ville',
+);
+
+console.log('\nUN NOM QUI NE CORRESPOND PAS NE REMONTE AUCUN QUARTIER');
+
+/**
+ * LE CONTROLE QUI EMPECHE LE PALIER D'AVALER LA CARTE. Les quartiers apparaissent dans les
+ * resultats des que leur description contient le mot tape. Sans exiger que leur NOM commence
+ * par la saisie, taper << pharmacie >> remonterait au quatrieme palier tous les quartiers des
+ * environs — devant les pharmacies.
+ */
+const PHARMACIES: Fiche[] = [
+  { name: 'Pharmacie Centrale', lat: 36.7540, lon: 3.0590, osmKey: 'amenity', osmValue: 'pharmacy', source: 'photon' },
+  { name: 'El Madania', lat: 36.7480, lon: 3.0620, osmKey: 'place', osmValue: 'suburb', source: 'photon' },
+];
+const ordrePharma = classer(PHARMACIES, 'pharmacie', ALGER_CENTRE).map((r) => r.name);
+console.log('  ' + ordrePharma.join('  →  '));
+verifier(
+  'le quartier ne passe pas devant la pharmacie cherchee',
+  ordrePharma[0] === 'Pharmacie Centrale',
+  'son nom ne commence pas par ce qui a ete tape',
+);
+
+console.log('\nLE QUARTIER NE DELOGE PAS LES PALIERS DEJA ACQUIS');
+
+/**
+ * LES DEUX DEMANDES ANTERIEURES DU MEME CLIENT. La wilaya (2 novembre) et le lieu public
+ * (3 novembre) passent avant le quartier : sa liste du 8 novembre ne les mentionne pas, mais
+ * elle ne les retire pas non plus, et un document qui ne parle pas d'une regle ne l'abroge pas.
+ */
+const TOUT: Fiche[] = [
+  { name: 'Hopital Bologhine', lat: 36.7960, lon: 3.0480, osmKey: 'amenity', osmValue: 'hospital', source: 'photon' },
+  { name: 'Bologhine', lat: 36.7980, lon: 3.0500, osmKey: 'place', osmValue: 'suburb', source: 'photon' },
+  { name: 'Bologhine Auto', lat: 36.7545, lon: 3.0592, osmKey: 'shop', osmValue: 'car_repair', vip: true, source: 'win' },
+];
+const ordreTout = classer(TOUT, 'bologhine', ALGER_CENTRE).map((r) => r.name);
+console.log('  ' + ordreTout.join('  →  '));
+verifier(
+  'le lieu public reste devant le quartier',
+  ordreTout[0] === 'Hopital Bologhine',
+  'deuxieme palier, acquis le 3 novembre',
+);
+verifier(
+  'le quartier passe devant le partenaire VIP',
+  ordreTout.indexOf('Bologhine') < ordreTout.indexOf('Bologhine Auto'),
+  'rang 2 du document, avant les lieux ajoutes par des clients',
+);
 
 /**
  * POURQUOI UN CONTROLE SUR LE TEXTE DU CODE, ici, parmi des controles de comportement.

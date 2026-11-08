@@ -23,8 +23,17 @@ type Props = {
  * differentes forment un damier ou plus rien ne ressort. Des cartes neutres, et la couleur
  * reservee a ce qui la merite vraiment — les trois ecussons du barrage, le badge << Nouveau >>.
  */
-const FOND_CARTE = '#F7F8F9';
-const BORDURE_CARTE = '#E4E6E8';
+/* LES VALEURS DU 8 NOVEMBRE : fond #FCFFFB, bordure #1A8A65 sur 2 points.
+ *
+ * Elles etaient en gris neutre (#F7F8F9 / #E4E6E8, 1 point). Le changement ne contredit pas la
+ * decision rappelee ci-dessus : ce qui avait ete refuse, ce sont onze bordures de couleurs
+ * DIFFERENTES, une par famille, qui faisaient un damier. Ici, les douze cartes partagent la
+ * MEME bordure verte — c'est l'inverse d'un damier, c'est une serie. */
+const FOND_CARTE = '#FCFFFB';
+const BORDURE_CARTE = '#1A8A65';
+const EPAISSEUR_CARTE = 2;
+/** Teinte de l'appui : la bordure verte est trop sombre pour servir de fond presse. */
+const FOND_CARTE_PRESSE = '#E8F3ED';
 
 /**
  * TEXTE DES CARTES — fixe, parce que LEUR FOND L'EST.
@@ -89,7 +98,7 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
             accessibilityLabel={t('addPlace.cancel')}
             style={({ pressed }) => [
               styles.fermer,
-              { backgroundColor: pressed ? BORDURE_CARTE : FOND_CARTE },
+              { backgroundColor: pressed ? FOND_CARTE_PRESSE : FOND_CARTE },
             ]}
           >
             {/* Meme raison : la pastille de fermeture est claire dans les deux themes. */}
@@ -106,6 +115,11 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
               {REPORT_MENU_ORDER.map((kind) => {
                 const estBarrage = kind === 'police';
                 const estNouveau = REPORT_FAMILLE[kind] === 'nouveau';
+                /* LES DECHETS PRENNENT TOUTE LA LARGEUR, seuls sur leur ligne — demande du
+                 * 8 novembre. C'est le seul type dont la place est fixee par le document, et
+                 * cela se defend : un type qui vient d'arriver se remarque d'autant plus qu'il
+                 * ne partage sa ligne avec rien. */
+                const pleineLargeur = kind === 'waste';
                 return (
                   <Pressable
                     key={kind}
@@ -114,7 +128,8 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
                     accessibilityLabel={t(`report.${kind}`)}
                     style={({ pressed }) => [
                       styles.item,
-                      { backgroundColor: pressed ? BORDURE_CARTE : FOND_CARTE, borderColor: BORDURE_CARTE },
+                      pleineLargeur ? styles.itemLarge : null,
+                      { backgroundColor: pressed ? FOND_CARTE_PRESSE : FOND_CARTE, borderColor: BORDURE_CARTE },
                     ]}
                   >
                     {estNouveau ? (
@@ -188,7 +203,7 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
               accessibilityState={{ checked: alertesActives }}
               style={({ pressed }) => [
                 styles.alertes,
-                { backgroundColor: pressed ? BORDURE_CARTE : FOND_CARTE, borderColor: BORDURE_CARTE },
+                { backgroundColor: pressed ? FOND_CARTE_PRESSE : FOND_CARTE, borderColor: BORDURE_CARTE },
               ]}
             >
               <View
@@ -216,7 +231,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    borderWidth: 1,
+    borderWidth: EPAISSEUR_CARTE,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -253,7 +268,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'space-between' },
   item: {
     width: '48%',
-    borderWidth: 1,
+    borderWidth: EPAISSEUR_CARTE,
     // 16 points : des angles plus doux que le reste de l'interface, parce que ces cartes se
     // touchent vite et mal.
     borderRadius: 16,
@@ -263,6 +278,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 3,
   },
+  itemLarge: { width: '100%' },
   emoji: { fontSize: 24 },
   itemLabel: { fontSize: 14, fontWeight: '800' as const, marginTop: 2 },
   itemSub: { fontSize: 10.5, textAlign: 'center', lineHeight: 13 },
@@ -288,10 +304,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 999,
-    backgroundColor: '#2E7D4F',
+    /* L'OR, et non le vert (8 novembre : << badge NOUVEAU dore >>, fond #D4A017, texte
+     * blanc). Le vert etait celui de l'interface : le badge se fondait dans le panneau qu'il
+     * etait justement cense faire remarquer. L'or ne sert qu'a cela dans l'application — il
+     * entoure les marqueurs et cerne la fleche — et il n'apparait nulle part ailleurs dans ce
+     * menu. */
+    backgroundColor: '#D4A017',
     elevation: 3,
   },
-  badgeText: { color: '#fff', fontSize: 9, fontWeight: '800' as const },
+  badgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '800' as const },
   // Le titre s'arrete avant la croix : sinon un libelle long passerait dessous.
   titre: { paddingRight: 40 },
   sousTitre: { paddingRight: 40, marginBottom: spacing.md },

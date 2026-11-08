@@ -85,7 +85,10 @@
     "badge_object": "Taɣawsa",
     "badge_pothole": "Axeṣṣar",
     "badge_flood": "Aman",
-    "badge_fire": "Times"
+    "badge_fire": "Times",
+    "waste": "Iɣbaren ibelɛanen",
+    "sub_waste": "Tanegrist ɣef rrif n ubrid",
+    "badge_waste": "Aḍeggeṛ n iɣbaren"
   },
   "nav": {
     "start": "Ad nruḥ",
@@ -610,9 +613,9 @@
   "unlock": {
     "title": "Tunes 🇹🇳",
     "offerBefore": "Inig ula di Tunes —",
-    "price": "{{price}} DA, anekcum war talast i lebda",
-    "offerAfter": "(aselki yiwet n tikkelt).",
-    "step1": "Azen {{price}} DA s BaridiMob ɣer umiḍan ddaw-a, s uṭṭun-ik n tilifun d tamsisɣelt.",
+    "price": "{{price}} DA i useggas",
+    "offerAfter": "(ajerred useggas).",
+    "step1": "Azen {{price}} DA s BaridiMob neɣ CIB ɣer umiḍan ddaw-a, s wuṭṭun n tiliɣri-k d tamsertit.",
     "step2": "Sekcem uṭṭun-a kan, sakin senned ɣef « Xellṣeɣ ».",
     "paid": "Xellṣeɣ",
     "pending": "Aselki yella deg usenqed. Anekcum ɣer Tunes ad yeldi s wudem awurman ticki yettwasentem.",
@@ -621,7 +624,10 @@
     "note": "Anekcum-ik yeqqen ɣer tilifun-a. Ad yermed ticki tarbaɛt-nneɣ tesenqed tirmit n uselki.",
     "noAccount": "Amiḍan n uselki mazal ur yelli ara. Ɛreḍ ticki.",
     "phoneInvalid": "Uṭṭun n tilifun d armeɣtu.",
-    "tooMany": "Aṭas n yisutar. Ɛreḍ ticki."
+    "tooMany": "Aṭas n yisutar. Ɛreḍ ticki.",
+    "validUntil": "Ajerred d ameɣtu arma d {{date}}.",
+    "lifetime": "Anekcum-ik d imezgi : txelleṣeḍ send ajerred useggas.",
+    "renew": "Snifel"
   },
   "jobs": {
     "title": "Axeddim ɣur-k",

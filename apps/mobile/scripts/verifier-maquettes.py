@@ -219,10 +219,22 @@ voies = lire(RACINE / 'apps/mobile/src/components/LaneGuidance.tsx')
 # point 5 du 27 octobre exigeait l'inverse, << integrees dans le bandeau vert EN HAUT, pas un
 # widget separe >>. On garde le bandeau — decision prise avec le client — et ce controle le
 # fige pour qu'un futur lecteur du document ne croie pas a un oubli.
+# ELARGI AUX NATIONALES LE 8 NOVEMBRE (point 4 : << sur autoroute ET route nationale >>). Le
+# controle portait sur le texte exact `if (!surAutoroute) return null;` ; il a donc echoue des
+# que la condition est passee par `surGrandAxe`, ce qui est son role — il tient la DECISION, et
+# une decision qui change doit casser son controle plutot que de se perdre.
+#
+# Ce qui reste fige est l'essentiel : la VILLE est exclue. C'est la raison d'etre du resserrage
+# du 3 novembre, et elle vaut toujours — en ville les voies changent a chaque carrefour.
 verifier(
-    'guidage de voie : autoroute ou voie rapide uniquement',
-    'surAutoroute' in voies and 'if (!surAutoroute) return null;' in voies,
+    'guidage de voie : grands axes uniquement, nationale comprise',
+    'surGrandAxe(surAutoroute, nomVoie)' in voies,
     'pas sur un carrefour de ville, ou il clignoterait d un feu a l autre',
+)
+verifier(
+    'la nationale est reconnue par son NOM, faute de mieux',
+    'estNationale' in lire(RACINE / 'apps/mobile/src/navigation/grandAxe.ts'),
+    'Valhalla ne marque que motorway et trunk : beaucoup de RN algeriennes sont en primary',
 )
 verifier(
     'guidage de voie : au moins deux voies',

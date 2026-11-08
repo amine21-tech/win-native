@@ -28,6 +28,11 @@ export const REPORT_MENU_ORDER: ReportKind[] = [
   'pothole',
   'flood',
   'fire',
+  /* LES DECHETS EN DERNIER, et seuls sur leur ligne — c'est ce que demande le document du
+   * 8 novembre, au mot pres : << position 7, seul sur sa ligne = pleine largeur, badge NOUVEAU
+   * dore >>. Le menu en compte douze cases et non sept (voir REPORT_KINDS), mais la place
+   * demandee est la meme : la DERNIERE. */
+  'waste',
 ];
 
 /**
@@ -46,6 +51,7 @@ export const REPORT_GENRE: Partial<Record<ReportKind, 'm' | 'f' | 'pl'>> = {
   flood: 'f', // « Inondation »
   block: 'f', // « Route bloquee »
   works: 'pl', // « Travaux »
+  waste: 'pl', // « Dechets sauvages »
 };
 
 /** Les trois forces, dans l'ordre de la maquette, avec leur couleur institutionnelle. */
@@ -74,7 +80,11 @@ export const REPORT_FAMILLE: Record<ReportKind, ReportFamille> = {
   jam: 'ralentit',
   bump: 'ralentit',
   pothole: 'ralentit',
-  works: 'nouveau',
+  /* LES TRAVAUX NE SONT PLUS UNE NOUVEAUTE. Ils portaient le badge << Nouveau >> depuis le
+   * 28 octobre ; onze jours et six versions plus tard, il ne dit plus rien d'utile et il
+   * volerait l'attention au seul type qui vient reellement d'arriver. */
+  works: 'ralentit',
+  waste: 'nouveau',
   police: 'info',
   gendarmerie: 'info',
   armee: 'info',
@@ -99,6 +109,7 @@ export const REPORT_EMOJI: Record<ReportKind, string> = {
    * cases du meme menu affichaient le meme pictogramme. Sur la maquette du client, les deux se
    * distinguent au premier regard — c'est tout l'interet d'une image. */
   works: '🏗️',
+  waste: '🗑️',
 };
 
 /**

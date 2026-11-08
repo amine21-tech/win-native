@@ -811,6 +811,62 @@ export function estLieuPublic(r: RankableResult & { category?: string }): boolea
   return VALEURS_OSM_PUBLIQUES.has(v) || VALEURS_OSM_PUBLIQUES.has(t);
 }
 
+/**
+ * LE QUARTIER ET LA DAIRA — correctif du 8 novembre, point 11.
+ *
+ * Le document donne quatre rangs : << 1-Ville/Commune, 2-Quartier/Daira, 3-Rue/Avenue,
+ * 4-Adresse exacte >>. Les rangs 3 et 4 existaient deja — le reste du classement les departage
+ * par la distance. Le rang 2 manquait completement : un quartier tombait dans le lot commun, ou
+ * seule la distance compte.
+ *
+ * CE QUE CELA CHANGEAIT CONCRETEMENT. On tape << bab el oued >> depuis Alger-centre. Le
+ * quartier est a trois kilometres ; une boulangerie << Bab El Oued >> a quatre cents metres
+ * passait devant, parce que plus proche. Le quartier est ce qu'on cherche quand on tape son nom
+ * — comme la wilaya l'est pour << tizi >>, et c'est exactement le meme defaut, un cran plus
+ * bas dans l'echelle administrative.
+ *
+ * LES VALEURS VIENNENT D'OPENSTREETMAP, qui n'a pas de mot pour << daira >>. Une daira
+ * algerienne y est tantot un `place=suburb` (quartier urbain), tantot un `place=district`,
+ * tantot une limite administrative de niveau 6 ou 7. On accepte donc toute la famille, et c'est
+ * sans risque : ces valeurs ne designent jamais un commerce.
+ *
+ * `locality` ET `hamlet` N'EN SONT PAS, volontairement. Ce sont des lieux-dits et des hameaux —
+ * `cityRank` les compte deja comme des villes de rang 1, et les faire basculer dans ce palier
+ * les ferait DESCENDRE sous les villes alors qu'ils en sont.
+ */
+const VALEURS_QUARTIER = new Set([
+  'suburb',
+  'neighbourhood',
+  'quarter',
+  'borough',
+  'city_district',
+  'city_block',
+  'district',
+  'subdistrict',
+]);
+
+/** Ce resultat designe-t-il un quartier ou une daira ? */
+export function estQuartier(r: RankableResult): boolean {
+  const v = (r.osmValue || '').toLowerCase();
+  const t = (r.type || '').toLowerCase();
+  return VALEURS_QUARTIER.has(v) || VALEURS_QUARTIER.has(t);
+}
+
+/**
+ * Ce quartier est-il celui que DESIGNE la saisie ?
+ *
+ * LE NOM DOIT CORRESPONDRE, et ce n'est pas une precaution de style. Sans ce controle, taper
+ * << pharmacie >> remonterait au deuxieme palier tous les quartiers des environs, qui
+ * apparaissent dans les resultats des que leur description contient le mot. On exige donc,
+ * comme pour la wilaya, que le nom du quartier commence par ce qui a ete tape.
+ */
+export function estQuartierVise(r: RankableResult, requete: string): boolean {
+  if (!estQuartier(r)) return false;
+  const q = normalizeCity(requete);
+  if (q.length < 2) return false;
+  return normalizeCity(r.name || '').startsWith(q);
+}
+
 export type ClassementPoint18Options<T> = {
   /** Vrai si ce resultat est une WILAYA que designe la saisie, meme partielle. Premier palier. */
   estWilaya?: (r: T) => boolean;
@@ -818,6 +874,9 @@ export type ClassementPoint18Options<T> = {
   estPublic?: (r: T) => boolean;
   /** Vrai si ce resultat est une ville dont le nom correspond exactement a la saisie. */
   estVilleExacte: (r: T) => boolean;
+  /** Vrai si ce resultat est le QUARTIER ou la DAIRA que designe la saisie. Quatrieme palier,
+   *  juste apres la ville — rang 2 du correctif du 8 novembre. */
+  estQuartier?: (r: T) => boolean;
   /** Vrai si ce resultat est une adresse enregistree par l'utilisateur. */
   estVip: (r: T) => boolean;
   /** Distance a l'utilisateur, en metres — `undefined` si la position est inconnue. */
@@ -828,6 +887,7 @@ export function classerPoint18<T>(resultats: T[], o: ClassementPoint18Options<T>
   const wilayas: T[] = [];
   const publics: T[] = [];
   const villes: T[] = [];
+  const quartiers: T[] = [];
   const vip: T[] = [];
   const reste: T[] = [];
 
@@ -847,6 +907,14 @@ export function classerPoint18<T>(resultats: T[], o: ClassementPoint18Options<T>
       villes.push(r);
       continue;
     }
+    /* LE QUARTIER EST TESTE APRES LA VILLE MAIS CLASSE APRES ELLE AUSSI : l'ordre des tests
+     * n'est pas l'ordre des paliers, et il faut les deux. Teste apres, parce qu'un
+     * `place=district` satisfait aussi `cityRank` et serait sinon capte par le palier des
+     * villes ; classe apres, parce que le document veut la ville d'abord. */
+    if (o.estQuartier?.(r)) {
+      quartiers.push(r);
+      continue;
+    }
     const d = o.distanceM(r);
     /* Sans position connue, on ne peut pas dire si un favori est << dans le perimetre >>. On
      * le traite alors comme VIP : c'est une adresse que l'utilisateur a lui-meme enregistree,
@@ -862,7 +930,10 @@ export function classerPoint18<T>(resultats: T[], o: ClassementPoint18Options<T>
    * `rankSearchResults` — qui departage deja deux villes homonymes par leur taille puis par
    * leur distance, et le reste par la distance seule.
    *
-   * CINQ PALIERS DEPUIS LE 3 NOVEMBRE : la wilaya, le lieu public, la ville exacte, le VIP,
-   * puis le reste. */
-  return [...wilayas, ...publics, ...villes, ...vip, ...reste];
+   * SIX PALIERS DEPUIS LE 8 NOVEMBRE : la wilaya, le lieu public, la ville exacte, le QUARTIER
+   * ou la daira, le VIP, puis le reste. Le quartier est le rang 2 du correctif du 8 novembre,
+   * insere dans l'echelle existante au lieu de la remplacer — decision prise avec arsanne : sa
+   * liste de quatre rangs ne mentionne ni le lieu public ni le VIP, qui sont deux demandes
+   * anterieures du meme client et qu'il n'a pas retirees. */
+  return [...wilayas, ...publics, ...villes, ...quartiers, ...vip, ...reste];
 }

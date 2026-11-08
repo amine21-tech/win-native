@@ -13,8 +13,8 @@ export type UnlockStatus = 'none' | 'pending' | 'paid';
  * y est donc un motif de rejet, et de suspension en cas de recidive.
  *
  * La version publiee sur Play ouvre donc la Tunisie sans paiement. Les versions distribuees
- * directement — site web, APK remis au client — ne dependent pas de Google et gardent le
- * deblocage a 200 DA. C'est la compilation qui tranche, par `EXPO_PUBLIC_PAID_UNLOCKS=0`, et
+ * directement — site web, APK remis au client — ne dependent pas de Google et gardent
+ * l'abonnement a 200 DA par an. C'est la compilation qui tranche, par `EXPO_PUBLIC_PAID_UNLOCKS=0`, et
  * non un reglage que l'on pourrait oublier de changer.
  */
 export const PAID_UNLOCKS_ENABLED = process.env.EXPO_PUBLIC_PAID_UNLOCKS !== '0';
@@ -22,6 +22,14 @@ export const PAID_UNLOCKS_ENABLED = process.env.EXPO_PUBLIC_PAID_UNLOCKS !== '0'
 export type UnlockInfo = {
   TN: UnlockStatus;
   priceDa: number;
+  /**
+   * Fin de l'abonnement, ou `null`.
+   *
+   * `null` AVEC UN ETAT << paid >> VEUT DIRE A VIE : ce sont les clients qui ont paye avant le
+   * 8 novembre, quand l'offre etait un paiement unique. Le serveur ne leur pose pas d'echeance
+   * — on ne retire pas ce qui a ete achete. Voir routes/unlocks.ts.
+   */
+  expiresAt: string | null;
   payout: { type: string; accountNumber: string; holderName: string } | null;
 };
 

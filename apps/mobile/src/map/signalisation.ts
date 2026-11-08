@@ -52,6 +52,12 @@ export const SIGNALISATION: Record<ReportKind, TeinteSignalisation> = {
   pothole: { jour: '#5D4037', nuit: '#BCAAA4', badge: 'pothole' },
   flood: { jour: '#01579B', nuit: '#4FC3F7', badge: 'flood' },
   fire: { jour: '#BF360C', nuit: '#FF7043', badge: 'fire' },
+  /* LE VERT OLIVE DES DECHETS (8 novembre). Le document ne donne pas de couleur de carte pour
+   * ce type — il ne parle que de son badge dans le menu. Choisie ici, et choisie VERTE parce
+   * que c'est la seule famille de teintes encore libre : la table compte deja trois rouges,
+   * deux bleus, trois ambres et trois bruns. Un quatrieme brun se confondrait avec le trou et
+   * la route coupee, un ambre avec les travaux. */
+  waste: { jour: '#558B2F', nuit: '#AED581', badge: 'waste' },
 };
 
 /**
@@ -95,4 +101,5 @@ export const FAMILLE_PICTO: Record<ReportKind, string> = {
   pothole: 'anneau',
   flood: 'vagues',
   fire: 'flamme',
+  waste: 'bac',
 };

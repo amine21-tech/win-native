@@ -239,6 +239,27 @@ export function phraseSortieRatee(lang: Language): string {
 }
 
 /**
+ * Annonce d'un VIRAGE manque (correctif du 8 novembre, point 3).
+ *
+ * Elle existe separement de la sortie manquee parce que dire << sortie manquee >> a un
+ * conducteur qui vient de depasser une rue est faux, et qu'une consigne fausse est pire qu'une
+ * consigne absente : il chercherait une bretelle qui n'existe pas.
+ *
+ * Meme construction en deux temps que les autres : le constat, puis ce qui se passe.
+ */
+const VIRAGE_MANQUE: Record<Language, string> = {
+  fr: 'Virage manqué. Recalcul en cours.',
+  en: 'Turn missed. Recalculating.',
+  ar: 'فاتك المنعطف. جارٍ إعادة الحساب.',
+  dz: 'فاتك الدوران. راني نحسب الطريق من جديد.',
+  kab: 'Tezri-ak tuɣalin. Nettḥaseb abrid tikkelt-nniḍen.',
+};
+
+export function phraseVirageManque(lang: Language): string {
+  return VIRAGE_MANQUE[lang] ?? VIRAGE_MANQUE.fr;
+}
+
+/**
  * Annonce d'une route bloquee confirmee devant nous (point 12 du client, 28 octobre).
  *
  * Elle vit ici pour la meme raison que la precedente : c'est le SUIVI qui la prononce, dans la

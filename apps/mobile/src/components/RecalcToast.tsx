@@ -22,7 +22,12 @@ import { radius, spacing } from '../theme';
  * dont il s'agit.
  */
 
-const VERT = '#0B5B2C';
+/* VERT #0D6E4F A 80 % D'OPACITE — valeurs du correctif du 8 novembre. La pastille etait en
+ * #0B5B2C opaque. Le document demande explicitement << fond #0D6E4F a 80 % opacite >> et
+ * << NE PAS bloquer la carte >> : a 80 %, la route se devine sous la pastille, ce qui change
+ * la facon dont on la lit — un message pose SUR la carte plutot qu'un morceau d'interface qui
+ * en prend la place. */
+const VERT = 'rgba(13, 110, 79, 0.8)';
 const DUREE_MS = 480;
 const DECALAGE_MS = 160;
 
@@ -52,18 +57,34 @@ function Point({ retard }: { retard: number }) {
 export function RecalcToast({
   visible,
   lent,
-  top,
+  bottom,
 }: {
   visible: boolean;
   /** Le calcul depasse trois secondes : presque toujours le reseau (point 15.A du client). */
   lent?: boolean;
-  top: number;
+  /** Distance au bas de l'ecran, en points. Calculee par l'appelant pour passer AU-DESSUS du
+   * cadre du bas quand il est ouvert. */
+  bottom: number;
 }) {
   const { t } = useTranslation();
   if (!visible) return null;
 
+  /* ELLE EST PASSEE EN BAS DE L'ECRAN — correctif du 8 novembre, << bandeau vert translucide
+   * EN BAS de l'ecran, carte visible a 100 % >>.
+   *
+   * Elle etait accrochee sous le bandeau de consigne, en haut. Ce n'etait pas absurde — on la
+   * voyait a l'endroit meme ou la consigne devenait douteuse — mais cela encombrait le tiers
+   * superieur de la carte, celui qu'on regarde en conduisant, et c'est le reproche que le
+   * client fait depuis trois documents a tout ce qui s'empile en haut.
+   *
+   * LA DUREE RESTE CELLE DU CALCUL, et non la seconde du document. Elle disparait quand le
+   * nouvel itineraire est pret : c'est la seule regle qui ne mente jamais. Une pastille qui
+   * s'effacerait au bout d'une seconde alors que le calcul dure encore laisserait le
+   * conducteur devant une consigne perimee sans rien lui dire — et un recalcul Valhalla tient
+   * presque toujours dans cette seconde, si bien que la difference ne se voit que les fois ou
+   * elle compte. */
   return (
-    <View style={[styles.wrap, { top }]} pointerEvents="none">
+    <View style={[styles.wrap, { bottom }]} pointerEvents="none">
       {/* LA PASTILLE CHANGE DE MOT, PAS DE FORME. Passer de l'orange au rouge, ou grossir,
           ferait croire a une panne : le calcul continue, et il aboutit presque toujours. Seul
           le texte dit ce qui se passe, et les trois points continuent de tourner. */}

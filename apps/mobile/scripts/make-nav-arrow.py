@@ -17,12 +17,15 @@ moteur que la rotation est exprimee par rapport au NORD : il compose lui-meme av
 de la carte, a chaque image, et la fleche montre toujours la bonne direction — carte tournee,
 inclinee ou non.
 
-DEUX COULEURS parce qu'une image ne se teinte pas : le vert WIN de jour, le turquoise de nuit.
-Ce sont exactement les deux couleurs de l'itineraire (ROUTE_COLORS dans app/index.tsx) — la
-fleche et le trace qu'elle suit doivent etre de la meme couleur.
+DEUX IMAGES parce qu'une image ne se teinte pas : la fleche OR du jour, la fleche VERTE de nuit.
+Ce sont les deux couleurs du correctif du 8 novembre, et elles ne suivent plus celles du trace —
+voir la note de NavArrow.tsx : une fleche de la couleur de l'itineraire, posee SUR cet
+itineraire, ne se distingue plus de lui.
 
 Le halo est DESSINE DANS L'IMAGE, et il ne respire pas. Celui du composant pulse pour signaler
-que le guidage est vivant ; ici la fleche se deplace sur la carte, ce qui le dit deja.
+que le guidage est vivant ; ici la fleche se deplace sur la carte, ce qui le dit deja. Ses trois
+anneaux ont en revanche exactement les rayons et les opacites du document, pour que les deux
+fleches aient la meme corpulence selon que la camera suit ou non.
 
 Relancer apres toute modification :  python scripts/make-nav-arrow.py
 """
@@ -32,19 +35,42 @@ from PIL import Image, ImageDraw
 OUT = os.path.join(os.path.dirname(__file__), '..', 'assets', 'map')
 SS = 4  # sur-echantillonnage, pour des bords lisses apres reduction
 
-# Memes valeurs que ROUTE_COLORS.day.main / ROUTE_COLORS.night.main.
-COULEURS = {
-    'day': (13, 110, 79),
-    'night': (46, 230, 166),
+# L'OR DES MARQUEURS WIN (#D4A017) et le VERT de nuit (#0D6E4F). Memes valeurs que OR_FLECHE et
+# VERT_FLECHE_NUIT dans src/components/NavArrow.tsx.
+OR = (212, 160, 23)
+VERT = (13, 110, 79)
+
+# Le lisere prend la couleur OPPOSEE au remplissage : une fleche or au centre d'un halo or ne
+# ferait qu'une seule tache. Voir la note de NavArrow.tsx, qui explique pourquoi ce detail
+# n'est pas une liberte prise avec le document mais la condition pour que sa consigne marche.
+FLECHES = {
+    'day': {'remplissage': OR, 'lisere': VERT},
+    'night': {'remplissage': VERT, 'lisere': OR},
 }
 
-# Cote de l'image en points : la MEME que NAV_PUCK_SIZE dans app/index.tsx, pour que la fleche
-# garde exactement la meme corpulence que le suivi s'interrompe ou non.
+# Cote de l'image en points : le plus grand anneau de bout en bout, soit 2 x 56. La MEME que
+# TAILLE_HALO dans NavArrow.tsx.
+#
+# Elle etait a 40 — la taille de la fleche seule — tant que le halo n'etait qu'un degrade serre
+# autour d'elle. Les trois anneaux du 8 novembre montent a 56 points de rayon : dans une image
+# de 40, ils seraient simplement coupes.
+TAILLE_DP = 112
+
+# Cote de la fleche elle-meme, en points : la MEME que NAV_PUCK_SIZE dans app/index.tsx, pour
+# que la fleche garde exactement la meme corpulence que le suivi s'interrompe ou non.
 #
 # Les deux avaient derive — 46 ici contre 40 la-bas — et le commentaire affirmait pourtant
 # qu'elles etaient egales. Personne ne pouvait le voir : les deux fleches ne s'affichent jamais
 # en meme temps, et un ecart de six points ne saute aux yeux que si on les compare cote a cote.
-TAILLE_DP = 40
+FLECHE_DP = 40
+
+# Les trois anneaux du document : rayon en points, couleur, opacite. Du plus large au plus
+# etroit, pour que les opacites se composent vers le centre.
+ANNEAUX = [
+    (56, (255, 220, 100), 0.15),
+    (40, (212, 160, 23), 0.28),
+    (26, (212, 160, 23), 0.45),
+]
 
 # Le triangle, repris trait pour trait de NavArrow.tsx (repere 0-128) : pointe haute, base
 # large, et un creux a l'arriere — c'est ce creux qui donne la direction au premier coup d'oeil
@@ -52,42 +78,29 @@ TAILLE_DP = 40
 BOX = 128.0
 TIP_Y, BASE_Y, NOTCH_Y, HALF_WIDTH = 16.0, 108.0, 88.0, 40.0
 
-# L'OR DES MARQUEURS WIN, qui remplace le disque blanc retire le 1er novembre a la demande du
-# client. Memes valeurs que OR_MARQUEUR dans src/map/signalisation.ts.
-OR = (212, 160, 23)
 EPAISSEUR_LISERE = 3.5
 
 
-def make_arrow(nom, couleur, scale):
+def make_arrow(nom, couleurs, scale):
     S = int(TAILLE_DP * scale * SS)
     img = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     c = S / 2.0
+    pts_par_px = S / float(TAILLE_DP)
 
-    # 1) le halo : un disque de la couleur du trace, tres transparent, qui detache la fleche du
-    #    fond de carte. Degrade en anneaux concentriques — assez pour l'oeil, et sans la boucle
-    #    pixel par pixel qui rendrait le script lent a 3x.
-    halo = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    dessin_halo = ImageDraw.Draw(halo)
-    R = S * 0.47
-    anneaux = 36
-    for i in range(anneaux, 0, -1):
-        d = i / float(anneaux)
-        r = R * d
-        a = int(255 * 0.30 * (1.0 - d) ** 1.6)
-        dessin_halo.ellipse([c - r, c - r, c + r, c + r], fill=couleur + (a,))
-    img.alpha_composite(halo)
+    # 1) LES TROIS ANNEAUX. Chacun est compose separement puis fondu, et non dessine
+    #    directement : un `ellipse` translucide pose sur un autre remplace la couleur au lieu de
+    #    s'y ajouter, si bien que le centre serait moins dense que le bord.
+    for rayon, couleur, opacite in ANNEAUX:
+        anneau = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+        r = rayon * pts_par_px
+        ImageDraw.Draw(anneau).ellipse(
+            [c - r, c - r, c + r, c + r],
+            fill=couleur + (int(round(255 * opacite)),),
+        )
+        img.alpha_composite(anneau)
 
-    # 2) LA FLECHE VERTE, CERNEE D'OR.
-    #
-    #    Un disque blanc opaque occupait cette place : la fleche etait remplie de la couleur de
-    #    l'itineraire et posee SUR cet itineraire, donc invisible, et il ne restait d'elle qu'un
-    #    lisere de deux pixels. Le client demande aujourd'hui de revenir au curseur d'avant,
-    #    << vert avec un petit peu de jaune >>, sans ce fond blanc.
-    #
-    #    On retire le disque sans ramener le defaut : le lisere passe du blanc a l'or de WIN, en
-    #    3,5 points. L'or entoure deja tous les marqueurs de l'application, il se detache du vert
-    #    du trace comme du beige du fond, et c'est exactement le jaune demande.
-    k = (S * 0.86) / BOX
+    # 2) LA FLECHE, CERNEE DE LA COULEUR OPPOSEE.
+    k = (FLECHE_DP * pts_par_px) / BOX
     ox = c - (BOX / 2.0) * k
     oy = c - (BOX / 2.0) * k
 
@@ -100,11 +113,10 @@ def make_arrow(nom, couleur, scale):
         pt(BOX / 2, NOTCH_Y),
         pt(BOX / 2 - HALF_WIDTH, BASE_Y),
     ]
-    dessin = ImageDraw.Draw(img)
-    dessin.polygon(
+    ImageDraw.Draw(img).polygon(
         triangle,
-        fill=couleur + (255,),
-        outline=OR + (255,),
+        fill=couleurs['remplissage'] + (255,),
+        outline=couleurs['lisere'] + (255,),
         width=max(1, int(EPAISSEUR_LISERE * k)),
     )
 
@@ -113,7 +125,7 @@ def make_arrow(nom, couleur, scale):
     petit.save(os.path.join(OUT, 'nav-arrow-%s%s.png' % (nom, suffix)))
 
 
-for nom, couleur in COULEURS.items():
+for nom, couleurs in FLECHES.items():
     for scale in (1, 2, 3):
-        make_arrow(nom, couleur, scale)
+        make_arrow(nom, couleurs, scale)
 print('nav-arrow-{day,night}.png ecrits en 1x/2x/3x dans assets/map')
