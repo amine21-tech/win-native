@@ -14,6 +14,9 @@
  * Usage, depuis la racine du depot :
  *   npx tsx apps/mobile/scripts/verifier-degrade.ts
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import {
   OPACITE_QUEUE,
   paliersDuTrace,
@@ -237,6 +240,29 @@ const TRACE = {
   jour: { main: '#0D6E4F', parcouru: '#B4E6D2' },
   nuit: { main: '#2EE6A6', parcouru: '#1B4D3E' },
 } as const;
+
+/**
+ * ET ON VERIFIE QUE CETTE COPIE EST ENCORE CELLE DE L'ECRAN.
+ *
+ * Sans ce controle, tout ce fichier ne prouverait rien sur l'application : il verifierait que
+ * #B4E6D2 sort bien de la fonction quand on lui donne #B4E6D2. C'est le meme genre de boucle
+ * fermee qui a laissé passer la trainee noire — un test qui fournit lui-meme la piece qu'il est
+ * cense eprouver.
+ *
+ * On lit donc les couleurs REELLES dans app/index.tsx, et on exige qu'elles coincident. Un futur
+ * changement de vert fera echouer ici, ce qui est le but : la valeur du client est inscrite dans
+ * un document, et on veut etre prevenu si quelqu'un la change sans le dire.
+ */
+const ecran = readFileSync(resolve('apps/mobile/app/index.tsx'), 'utf8');
+const bloc = ecran.slice(ecran.indexOf('const ROUTE_COLORS = {'), ecran.indexOf('} as const;', ecran.indexOf('const ROUTE_COLORS = {')));
+for (const [mode, c] of Object.entries(TRACE)) {
+  const ligne = bloc.split('\n').find((l) => l.trim().startsWith(`${mode === 'jour' ? 'day' : 'night'}:`)) ?? '';
+  couleur(
+    `${mode} : les couleurs testees sont bien celles de l'ecran`,
+    ligne.includes(`main: '${c.main}'`) && ligne.includes(`parcouru: '${c.parcouru}'`),
+    ligne.trim() || 'ligne introuvable dans ROUTE_COLORS',
+  );
+}
 
 for (const [mode, c] of Object.entries(TRACE)) {
   const paliers = paliersDuTrace(c.parcouru, c.main, 0.5, [], rgba);

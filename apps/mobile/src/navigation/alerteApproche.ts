@@ -111,6 +111,92 @@ export function projeterSurTrace(
 }
 
 /**
+ * Table de projections REUTILISABLE : la position de chaque signalement deja examine, ou `null`
+ * quand il n'est pas sur notre route.
+ *
+ * LE `null` EST LA MOITIE DE L'INTERET. Sans lui on ne saurait pas distinguer << pas encore
+ * examine >> de << examine, et il n'est pas sur la route >> : un signalement a deux kilometres de
+ * l'itineraire serait reprojete a chaque appel, et ce sont justement les plus nombreux.
+ */
+export type TableProjection = Map<string, SurTrace | null>;
+
+/**
+ * Met a jour les projections en ne calculant QUE les signalements nouveaux.
+ *
+ * POURQUOI CETTE FONCTION EXISTE, mesure a l'appui. `projeterSurTrace` balaie toute la geometrie
+ * pour CHAQUE signalement : `locateOnRoute` sans indice compare la position aux huit mille
+ * segments d'un Alger-Oran. Mesure le 8 novembre sur un ordinateur de bureau :
+ *
+ *     10 signalements sur 8000 points : 106 ms
+ *     30 signalements sur 8000 points : 294 ms
+ *     60 signalements sur 8000 points : 546 ms
+ *
+ * Sur un telephone, il faut compter trois a cinq fois plus. Or la liste des signalements change
+ * a chaque notification temps reel et a chaque rafraichissement des environs : recalculer tout
+ * a chaque fois figerait l'ecran une a trois secondes, en pleine navigation, et d'autant plus
+ * souvent qu'on traverse une zone ou les conducteurs signalent.
+ *
+ * Les positions, elles, NE CHANGENT PAS : un signalement est pose a un endroit, l'itineraire est
+ * fixe. Seuls les signalements qui viennent d'arriver ont besoin d'etre projetes — un ou deux a
+ * la fois, soit une dizaine de millisecondes.
+ *
+ * `deja` A ETE CALCULEE POUR LE MEME ITINERAIRE, et c'est a l'appelant de le garantir : passer
+ * `null` au changement d'itineraire. Reutiliser des positions calculees sur un autre trace
+ * donnerait des distances fausses — donc des icones qui s'effacent avant d'avoir ete depassees.
+ */
+export function majProjections(
+  route: TraceMesurable,
+  reports: { id: string; lat: number; lon: number }[],
+  deja: TableProjection | null,
+  /**
+   * Nombre maximal de projections NEUVES autorisees dans cet appel.
+   *
+   * POURQUOI UN BUDGET. Le cache rend les appels suivants gratuits, mais le PREMIER reste
+   * entier : 570 ms mesurees pour soixante signalements sur un Alger-Oran, soit une a trois
+   * secondes sur un telephone. Et il ne se produit pas a un moment anodin — il tombe au depart
+   * de la navigation, et surtout APRES CHAQUE RECALCUL. Depuis le 8 novembre un virage manque
+   * declenche un recalcul : l'ecran se figerait une seconde a l'instant precis ou le conducteur
+   * cherche ce qu'il doit faire.
+   *
+   * L'appelant decoupe donc le travail en lots et les etale sur plusieurs tours. Les
+   * signalements pas encore projetes sont simplement ABSENTS de la table, ce que l'ecran traite
+   * comme << pas sur notre route >> : leur icone reste affichee. La degradation est dans le bon
+   * sens — pendant une seconde, rien n'est efface, au lieu que tout soit fige.
+   */
+  budget = Number.POSITIVE_INFINITY,
+): { table: TableProjection; restants: number } {
+  /* ON REPART D'UNE TABLE NEUVE plutot que de modifier l'ancienne, pour que les signalements
+   * DISPARUS (expires, retires par vote) n'y restent pas indefiniment. Une table qui ne fait que
+   * grossir finirait par garder la moitie de l'Algerie pendant un trajet de six heures. */
+  const table: TableProjection = new Map();
+  let neuves = 0;
+  let restants = 0;
+  for (const r of reports) {
+    const connu = deja?.get(r.id);
+    /* `undefined` veut dire << absent de la table >> ; `null` veut dire << examine, pas sur la
+     * route >>. La distinction est tout l'interet du cache, et `has` serait ambigu ici parce
+     * qu'une valeur nulle est une reponse, pas une absence. */
+    if (connu !== undefined) {
+      table.set(r.id, connu);
+      continue;
+    }
+    if (neuves >= budget) {
+      restants += 1;
+      continue;
+    }
+    neuves += 1;
+    const projection = locateOnRoute([r.lon, r.lat], route.geometry);
+    table.set(
+      r.id,
+      projection.distanceM > SUR_LA_ROUTE_M
+        ? null
+        : { id: r.id, distanceDepuisDepart: traveledMeters(route, projection) },
+    );
+  }
+  return { table, restants };
+}
+
+/**
  * Ce qui reste a parcourir jusqu'a un signalement, ou `null` s'il ne nous concerne pas.
  *
  * AVEC itineraire : on ne garde que ce qui est pose SUR notre route (la table ne contient

@@ -36,7 +36,21 @@ export const RECENT_MS = 10 * 60 * 1000;
 const RAYON_MIN = 15;
 const RAYON_MAX = 30;
 
-export function PulseSignalements({ source }: { source: string }) {
+export function PulseSignalements({
+  source,
+  actif,
+}: {
+  source: string;
+  /**
+   * Y a-t-il quelque chose a animer ?
+   *
+   * LE MINUTEUR NE TOURNE PAS POUR RIEN. Dix rendus par seconde pendant des heures de
+   * navigation, alors qu'aucun signalement des environs n'a moins de dix minutes, c'est de la
+   * batterie depensee a animer un anneau que personne ne voit. L'ecran de carte sait, lui, si
+   * la liste contient un signalement recent.
+   */
+  actif: boolean;
+}) {
   /* La phase du cycle, de 0 a 1. */
   const [phase, setPhase] = useState(0);
   /* L'INSTANT, RELU A CHAQUE PAS. C'est lui qui fait qu'un signalement CESSE de pulser au bout
@@ -45,6 +59,7 @@ export function PulseSignalements({ source }: { source: string }) {
   const [maintenant, setMaintenant] = useState(() => Date.now());
 
   useEffect(() => {
+    if (!actif) return;
     const debut = Date.now();
     const minuteur = setInterval(() => {
       const t = Date.now();
@@ -52,7 +67,7 @@ export function PulseSignalements({ source }: { source: string }) {
       setMaintenant(t);
     }, PAS_MS);
     return () => clearInterval(minuteur);
-  }, []);
+  }, [actif]);
 
   const rayon = RAYON_MIN + (RAYON_MAX - RAYON_MIN) * phase;
   /* L'anneau s'efface en grandissant : c'est ce qui le fait lire comme une onde qui part du

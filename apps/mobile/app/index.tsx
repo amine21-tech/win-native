@@ -79,8 +79,8 @@ import { AlerteApproche } from '../src/components/AlerteApproche';
 import { PositionSheet } from '../src/components/PositionSheet';
 import { OR_MARQUEUR, pictoSignalisation, SIGNALISATION } from '../src/map/signalisation';
 import { PICTOS_SIGNALISATION } from '../src/map/pictos';
-import { projeterSurTrace } from '../src/navigation/alerteApproche';
-import { PulseSignalements } from '../src/map/PulseSignalements';
+import { majProjections, projeterSurTrace, type TableProjection } from '../src/navigation/alerteApproche';
+import { PulseSignalements, RECENT_MS } from '../src/map/PulseSignalements';
 import { useApproachAlerts } from '../src/navigation/useApproachAlerts';
 import { useLiveLocation } from '../src/navigation/useLiveLocation';
 import { hasVoiceFor } from '../src/speech/voice';
@@ -459,6 +459,15 @@ const SNAP_RADIUS_MAX_M = 120;
 /** Diametre du marqueur de navigation, en points. 40 est la valeur donnee par le client le
  * 27 octobre (« fleche position : taille 40dp ») ; il etait a 46. */
 const NAV_PUCK_SIZE = 40;
+
+/**
+ * Nombre de signalements projetes sur le trace par tour de boucle.
+ *
+ * HUIT, parce qu'un balayage de la geometrie d'un long trajet coute une dizaine de
+ * millisecondes : huit font environ soixante-dix millisecondes, soit quatre images perdues au
+ * pire. En deca, la convergence traine ; au-dela, on retrouve le gel qu'on cherche a eviter.
+ */
+const LOT_PROJECTION = 8;
 
 /** Colonne de boutons : nombre de boutons, et place occupee en haut par le bandeau de marque,
  * la barre de recherche et la rangee de categories. Sert a calculer une taille de bouton qui
@@ -891,24 +900,94 @@ export default function MapScreen() {
   /**
    * POSITION DE CHAQUE SIGNALEMENT LE LONG DU TRACE, en metres depuis le depart.
    *
-   * CALCULEE UNE FOIS PAR ITINERAIRE, et c'est tout l'enjeu — correctif du 8 novembre,
-   * point 6 : << l'icone disparait automatiquement apres que le conducteur l'a depassee >>.
+   * A QUOI CELA SERT — correctif du 8 novembre, point 6 : << l'icone disparait automatiquement
+   * apres que le conducteur l'a depassee >>. La facon evidente de le faire serait de
+   * reconstruire les donnees de la couche a chaque point GPS en y posant un drapeau
+   * << depasse >>. Ce serait reenvoyer a la carte la liste entiere des signalements une fois par
+   * seconde, c'est-a-dire refaire la faute qui produisait les saccades d'octobre et qu'on a
+   * corrigee en passant le trace en `line-gradient`.
    *
-   * La facon evidente de le faire serait de reconstruire les donnees de la couche a chaque
-   * point GPS en y posant un drapeau << depasse >>. Ce serait reenvoyer a la carte la liste
-   * entiere des signalements une fois par seconde, c'est-a-dire refaire exactement la faute
-   * qui produisait les saccades d'octobre et qu'on a corrigee en passant le trace en
-   * `line-gradient`.
+   * On pose donc sur chaque point sa POSITION FIXE sur le trace, et c'est le FILTRE de la
+   * couche — un seul nombre — qui bouge avec le vehicule.
    *
-   * On pose donc sur chaque point sa POSITION FIXE sur le trace, qui ne change que si
-   * l'itineraire change, et c'est le FILTRE de la couche — un seul nombre — qui bouge avec le
-   * vehicule. */
-  const positionsSurTrace = useMemo(
-    /* `null` PLUTOT QU'UNE TABLE VIDE, et c'est une contrainte de ce fichier : `Map` y designe
-     * le composant de carte de MapLibre, importe en haut, qui masque le `Map` de JavaScript.
-     * `new Map()` ne compile donc pas ici. */
-    () => (navigating && nav.route ? projeterSurTrace(nav.route, liveReports) : null),
-    [navigating, nav.route, liveReports],
+   * LE CACHE N'EST PAS UNE OPTIMISATION PREMATUREE, il repare un defaut mesure. Projeter un
+   * signalement balaie toute la geometrie du trajet ; sur un Alger-Oran de huit mille points,
+   * soixante signalements prennent 546 ms sur un ordinateur de bureau, donc une a trois
+   * secondes sur un telephone. Et cela recommencait a chaque notification temps reel. Les
+   * positions ne changeant jamais, seuls les signalements NOUVEAUX sont projetes — voir
+   * majProjections.
+   *
+   * LA CLE DU CACHE EST L'OBJET ITINERAIRE LUI-MEME. Des positions calculees sur un autre trace
+   * donneraient des distances fausses, donc des icones qui s'effacent avant d'avoir ete
+   * depassees. Un nouvel itineraire est un nouvel objet : la comparaison par identite suffit, et
+   * elle ne peut pas se tromper dans le sens dangereux.
+   */
+  const cacheProjections = useRef<{ cle: Route | null; table: TableProjection | null }>({
+    cle: null,
+    table: null,
+  });
+  const [positionsSurTrace, setPositionsSurTrace] = useState<TableProjection | null>(null);
+
+  /**
+   * LE CALCUL EST ETALE SUR PLUSIEURS TOURS, PAR LOTS DE HUIT.
+   *
+   * Un `useMemo` aurait tout calcule pendant le rendu, donc en bloquant l'ecran : 570 ms
+   * mesurees pour soixante signalements sur un Alger-Oran, une a trois secondes sur un
+   * telephone. Ce n'est pas tolerable la ou cela tombe — au depart de la navigation, et APRES
+   * CHAQUE RECALCUL. Depuis le 8 novembre un virage manque en declenche un : l'ecran se figerait
+   * a la seconde ou le conducteur cherche ce qu'il doit faire.
+   *
+   * Huit projections par tour, soit environ 70 ms de travail puis la main rendue a l'affichage.
+   * Les signalements pas encore projetes restent AFFICHES — c'est le bon sens de la degradation.
+   */
+  useEffect(() => {
+    const trace = navigating ? nav.route : null;
+    if (!trace) {
+      cacheProjections.current = { cle: null, table: null };
+      setPositionsSurTrace(null);
+      return;
+    }
+    /* UN NOUVEL ITINERAIRE JETTE LE CACHE. Des positions calculees sur un autre trace donneraient
+     * des distances fausses, donc des icones effacees avant d'avoir ete depassees. Un nouvel
+     * itineraire est un nouvel objet : la comparaison par identite suffit. */
+    let base = cacheProjections.current.cle === trace ? cacheProjections.current.table : null;
+    let minuteur: ReturnType<typeof setTimeout> | null = null;
+    let annule = false;
+
+    const tour = () => {
+      if (annule) return;
+      const { table, restants } = majProjections(trace, liveReports, base, LOT_PROJECTION);
+      base = table;
+      cacheProjections.current = { cle: trace, table };
+      setPositionsSurTrace(table);
+      // Il en reste : on rend la main a l'affichage et on reprend au tour suivant.
+      if (restants > 0) minuteur = setTimeout(tour, 0);
+    };
+    tour();
+
+    return () => {
+      annule = true;
+      if (minuteur) clearTimeout(minuteur);
+    };
+  }, [navigating, nav.route, liveReports]);
+
+  /**
+   * Y A-T-IL UN SIGNALEMENT RECENT A FAIRE PULSER ?
+   *
+   * L'anneau qui pulse demande un rendu dix fois par seconde (voir PulseSignalements). Le
+   * laisser tourner en permanence userait la batterie pour rien : la plupart du temps, aucun
+   * signalement des environs n'a moins de dix minutes. Le minuteur ne demarre donc que s'il y a
+   * quelque chose a animer.
+   *
+   * CETTE VALEUR PEUT RESTER VRAIE UN PEU TROP LONGTEMPS — elle n'est recalculee que quand la
+   * liste change, et l'age, lui, avance tout seul. C'est le bon sens de l'imprecision : le
+   * minuteur tourne quelques minutes de trop, tandis que le FILTRE de la couche, lui, est exact
+   * a la seconde et cesse d'afficher l'anneau pile a dix minutes. L'inverse — un anneau qui
+   * devrait pulser et ne pulse pas — serait un defaut visible.
+   */
+  const aUnSignalementRecent = useMemo(
+    () => liveReports.some((r) => Date.now() - (Date.parse(r.createdAt) || 0) < RECENT_MS),
+    [liveReports],
   );
 
   /**
@@ -2415,7 +2494,7 @@ ${t(`report.badge_${report.kind}`)}`,
               pictogramme le masquerait a chaque battement. Voir PulseSignalements pour la
               raison du composant separe — l'animation re-rend dix fois par seconde, et elle ne
               doit pas re-rendre cet ecran. */}
-          <PulseSignalements source="reports" />
+          <PulseSignalements source="reports" actif={aUnSignalementRecent} />
 
           {/* MARQUEUR DE SIGNALISATION — maquette validee du 31 octobre (correction C1).
               Anneau dore, disque a la couleur du type, pictogramme blanc, et dessous le nom du

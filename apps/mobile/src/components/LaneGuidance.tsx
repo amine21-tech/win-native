@@ -146,22 +146,30 @@ export function LaneGuidance({
         /* `active` = la voie ou l'on est deja bien place ; `valid` = elle mene quand meme la ou
          * l'on va. Les deux comptent comme « a prendre » pour l'affichage. */
         const aPrendre = lane.active !== 0 || lane.valid !== 0;
-        /* LA CASE RECOMMANDEE EST UN FOND BLANC QUI CLIGNOTE, les autres un vert fonce fixe —
-         * et c'est le fond qui porte l'etat, pas la fleche. Faire clignoter la FLECHE la
-         * ferait disparaitre la moitie du temps ; faire clignoter le fond la laisse lisible
-         * en permanence tout en attirant l'oeil. */
+        /* SEUL LE FOND CLIGNOTE, PAS LA FLECHE — et il faut deux vues pour l'obtenir.
+         *
+         * Une premiere version posait l'opacite animee sur la case ELLE-MEME. En React Native
+         * comme sur le web, l'opacite d'une vue s'applique a tous ses enfants : la fleche
+         * palissait donc avec le fond et devenait illisible vingt fois par minute, c'est-a-dire
+         * exactement ce que le clignotement est cense eviter. Le defaut est invisible a la
+         * relecture — on lit << opacity sur le fond >>, et le fond est bien ce qu'on a ecrit.
+         *
+         * Le fond est donc une vue SOUS la fleche, en position absolue, et c'est elle qui
+         * respire. La fleche, posee par-dessus, reste a pleine opacite en permanence. */
         return (
-          <Animated.View
-            key={i}
-            style={[
-              styles.case,
-              aPrendre
-                ? { backgroundColor: FOND_RECOMMANDE, opacity: clignote }
-                : { backgroundColor: FOND_AUTRE },
-            ]}
-          >
+          <View key={i} style={styles.case}>
+            {aPrendre ? (
+              <Animated.View
+                style={[
+                  styles.fond,
+                  { backgroundColor: FOND_RECOMMANDE, opacity: clignote },
+                ]}
+              />
+            ) : (
+              <View style={[styles.fond, { backgroundColor: FOND_AUTRE }]} />
+            )}
             <FlecheVoie lane={lane} size={26} couleur={aPrendre ? FOND_AUTRE : '#FFFFFF'} />
-          </Animated.View>
+          </View>
         );
       })}
     </View>
@@ -178,8 +186,10 @@ const styles = StyleSheet.create({
   case: {
     width: 32,
     height: 32,
-    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  /* Le fond, SOUS la fleche : il couvre toute la case sans repeter ses dimensions, donc sans
+   * risque qu'elles divergent un jour. */
+  fond: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: 6 },
 });
