@@ -19,7 +19,7 @@ import type { ReportKind } from '../shared';
 export const REPORT_MENU_ORDER: ReportKind[] = [
   'jam',
   'crash',
-  'police', // la case << Barrage >> : voir FORCES ci-dessous
+  'police', // la case << Barrage >>, sans distinction de force depuis le 9 novembre
   'block',
   'works',
   'bump',
@@ -54,12 +54,25 @@ export const REPORT_GENRE: Partial<Record<ReportKind, 'm' | 'f' | 'pl'>> = {
   waste: 'pl', // « Dechets sauvages »
 };
 
-/** Les trois forces, dans l'ordre de la maquette, avec leur couleur institutionnelle. */
-export const FORCES: { kind: ReportKind; court: string; couleur: string }[] = [
-  { kind: 'police', court: 'POLICE', couleur: '#2F6FE0' },
-  { kind: 'gendarmerie', court: 'GEND.', couleur: '#2E7D4F' },
-  { kind: 'armee', court: 'ARMÉE', couleur: '#6B5B3E' },
-];
+/**
+ * LA TABLE DES TROIS FORCES A ETE RETIREE le 9 novembre — << un barrage, ca reste un barrage >>.
+ *
+ * Elle donnait a POLICE, GEND. et ARMEE un ecusson et une couleur institutionnelle, affiches
+ * dans la carte << Barrage >> du menu : il fallait choisir laquelle avant de signaler.
+ *
+ * POURQUOI ON N'EN DEMANDE PLUS. Le temoin ne sait pas toujours. On aperçoit un barrage a deux
+ * cents metres ; distinguer un uniforme de gendarme d'un uniforme de policier a cette distance,
+ * en roulant, est une precision qu'on n'a pas. Exiger le choix, c'est obtenir une reponse au
+ * hasard — et un barrage annonce << gendarmerie >> alors qu'il est tenu par la police est une
+ * information FAUSSE, ce qui est pire qu'une information absente. Le conducteur suivant le
+ * decouvrira en arrivant, ce qui ne lui coute rien.
+ *
+ * LES TROIS TYPES RESTENT DANS REPORT_KINDS, et c'est deliberement. Des milliers de
+ * signalements existants portent deja << gendarmerie >> ou << armee >> en base ; les retirer du
+ * modele ferait rejeter leur lecture par la validation et les ferait disparaitre de la carte.
+ * Ils ne sont simplement plus CREABLES depuis le menu. Sur la carte, ils etaient de toute facon
+ * deja indistinguables — meme bleu, meme pictogramme (voir signalisation.ts).
+ */
 
 /**
  * Famille d'un signalement, qui decide de sa teinte dans le menu.

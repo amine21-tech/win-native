@@ -1,9 +1,8 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ReportKind } from '../shared';
-import { FORCES, menuEmoji, REPORT_FAMILLE, REPORT_MENU_ORDER } from '../reports/kinds';
+import { menuEmoji, REPORT_FAMILLE, REPORT_MENU_ORDER } from '../reports/kinds';
 import { RadarIcon } from './RadarIcon';
 import { useSession } from '../store/session';
 import { radius, spacing, typography, type Palette } from '../theme';
@@ -63,9 +62,20 @@ const MARGE_PANNEAU = 14;
 export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  /* Quelle force tient le barrage : le choix se fait DANS la carte, sans la quitter. Un seul
-   * appui suffit a qui sait deja, deux a qui hesite. */
-  const [force, setForce] = useState<ReportKind>('police');
+  /* LE CHOIX DE LA FORCE A DISPARU — demande d'arsanne, 9 novembre : << un barrage, ca reste un
+   * barrage >>.
+   *
+   * IL Y AVAIT TROIS ECUSSONS DANS LA CARTE — POLICE, GEND., ARMEE — et il fallait en choisir un
+   * avant de signaler. Cela partait d'une bonne idee, du 27 octobre : un conducteur algerien ne
+   * lit pas << barrage >> de la meme facon selon qui le tient.
+   *
+   * MAIS CELA DEMANDE AU TEMOIN DE SAVOIR, et au volant il ne sait pas toujours. On aperçoit un
+   * barrage a deux cents metres ; distinguer un uniforme de gendarme d'un uniforme de policier a
+   * cette distance, en roulant, est une precision qu'on n'a pas. Exiger le choix, c'est obtenir
+   * une reponse au hasard — et une information fausse est pire qu'une information absente.
+   *
+   * Le conducteur suivant decouvrira de qui il s'agit en arrivant, ce qui lui coute zero seconde.
+   */
   /* L'etat des alertes de proximite vit ICI parce que c'est ici qu'on le cherche : le menu des
    * signalements est le seul endroit de l'application qui parle d'eux. La colonne de droite
    * reste a dix boutons — c'est une decision prise et tenue. */
@@ -73,7 +83,7 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
   const setAlertes = useSession((s) => s.setApproachAlerts);
 
   const choisir = (kind: ReportKind) => {
-    onPick(kind === 'police' ? force : kind);
+    onPick(kind);
   };
 
   return (
@@ -113,13 +123,28 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.grid}>
               {REPORT_MENU_ORDER.map((kind) => {
-                const estBarrage = kind === 'police';
                 const estNouveau = REPORT_FAMILLE[kind] === 'nouveau';
-                /* LES DECHETS PRENNENT TOUTE LA LARGEUR, seuls sur leur ligne — demande du
-                 * 8 novembre. C'est le seul type dont la place est fixee par le document, et
-                 * cela se defend : un type qui vient d'arriver se remarque d'autant plus qu'il
-                 * ne partage sa ligne avec rien. */
-                const pleineLargeur = kind === 'waste';
+                /* LES DECHETS SONT UNE CARTE COMME LES AUTRES — correction d'arsanne, vue a
+                 * l'ecran le 9 novembre.
+                 *
+                 * ELLES ONT PRIS TOUTE LA LARGEUR PENDANT UNE VERSION. Les documents du 8 et du
+                 * 9 novembre le demandent tous deux, au mot pres : << DERNIER, seul sur sa ligne
+                 * = pleine largeur >>. Le raisonnement se defendait sur le papier — un type qui
+                 * vient d'arriver se remarque d'autant plus qu'il ne partage sa ligne avec rien.
+                 *
+                 * A L'USAGE, CELA NE MARCHE PAS. Le menu est une grille de onze cartes
+                 * identiques ; la douzieme, large et seule en bas, ne se lit plus comme un type
+                 * de signalement mais comme un bouton d'une autre nature — a cote de la ligne
+                 * << Alertes actives >>, qui est justement un bouton d'une autre nature. arsanne
+                 * l'a vu sur son telephone et demande la meme carte que les autres, en face
+                 * d'Incendie.
+                 *
+                 * Le badge << Nouveau >> reste : il ne change pas la forme de la carte, et c'est
+                 * lui, pas la largeur, qui dit que le type est recent.
+                 *
+                 * ELLE TOMBE NATURELLEMENT EN FACE D'INCENDIE : elle est derniere dans
+                 * REPORT_MENU_ORDER, qui en compte douze, donc elle occupe la seconde colonne de
+                 * la sixieme rangee. Il n'y a rien a forcer. */
                 return (
                   <Pressable
                     key={kind}
@@ -128,7 +153,6 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
                     accessibilityLabel={t(`report.${kind}`)}
                     style={({ pressed }) => [
                       styles.item,
-                      pleineLargeur ? styles.itemLarge : null,
                       { backgroundColor: pressed ? FOND_CARTE_PRESSE : FOND_CARTE, borderColor: BORDURE_CARTE },
                     ]}
                   >
@@ -138,43 +162,7 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
                       </View>
                     ) : null}
 
-                    {estBarrage ? (
-                      /* Les trois ecussons, a la place du pictogramme.
-                       *
-                       * LES TROIS GARDENT LEUR COULEUR PLEINE. Les deux non choisis etaient
-                       * ramenes a 32 % d'opacite : la teinte institutionnelle s'effaçait, et le
-                       * texte blanc avec elle. Sur la capture du client, << GEND. >> et
-                       * << ARMÉE >> etaient illisibles — deux pastilles grises dont on ne
-                       * devinait ni la couleur ni le mot.
-                       *
-                       * Le choix se marque donc par un CERCLE sombre autour de l'ecusson actif,
-                       * et non par l'effacement des autres. La bordure est posee sur les trois,
-                       * transparente quand l'ecusson n'est pas choisi : la taille ne bouge pas
-                       * d'un point quand on change de force. */
-                      <View style={styles.forces}>
-                        {FORCES.map((f) => {
-                          const actif = f.kind === force;
-                          return (
-                            <Pressable
-                              key={f.kind}
-                              onPress={() => setForce(f.kind)}
-                              accessibilityRole="button"
-                              accessibilityState={{ selected: actif }}
-                              accessibilityLabel={t(`report.${f.kind}`)}
-                              style={[
-                                styles.ecusson,
-                                {
-                                  backgroundColor: f.couleur,
-                                  borderColor: actif ? TEXTE_CARTE : 'transparent',
-                                },
-                              ]}
-                            >
-                              <Text style={styles.ecussonText}>{f.court}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    ) : kind === 'radar' ? (
+                    {kind === 'radar' ? (
                       // Un dessin plutot qu'un emoji : voir RadarIcon.
                       <RadarIcon size={26} />
                     ) : (
@@ -278,23 +266,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 3,
   },
-  itemLarge: { width: '100%' },
   emoji: { fontSize: 24 },
   itemLabel: { fontSize: 14, fontWeight: '800' as const, marginTop: 2 },
   itemSub: { fontSize: 10.5, textAlign: 'center', lineHeight: 13 },
-  forces: { flexDirection: 'row', gap: 5 },
-  ecusson: {
-    width: 34,
-    height: 26,
-    borderRadius: 7,
-    // La bordure est posee sur les TROIS, transparente quand l'ecusson n'est pas choisi : sans
-    // cela, la pastille active serait plus large que les autres et la rangee sauterait a chaque
-    // changement de force.
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ecussonText: { color: '#fff', fontSize: 7.5, fontWeight: '800' as const, letterSpacing: 0.2 },
   /* Le badge deborde du coin : pose a l'interieur, il se confondrait avec le contenu ; a cheval
    * sur le bord, il se lit comme une etiquette collee. */
   badge: {
