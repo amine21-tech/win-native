@@ -166,6 +166,10 @@ export function SearchResults({
   );
 }
 
+/** L'or des marqueurs WIN, valeur du point 12 : #D4A017. Fige, comme partout ailleurs ou il
+ *  designe le statut VIP — l'anneau des signalements, la fleche de position, le badge NOUVEAU. */
+const OR_VIP = '#D4A017';
+
 function PartnerRow({ place, onPress, colors }: { place: GeocodedResult; onPress: () => void; colors: Palette }) {
   const { t } = useTranslation();
   return (
@@ -183,8 +187,13 @@ function PartnerRow({ place, onPress, colors }: { place: GeocodedResult; onPress
           {place.displayName}
           {place.distanceM != null ? ` · ${formatDistance(place.distanceM)}` : ''}
         </Text>
-        <Text style={[styles.partnerTag, { color: colors.alert, backgroundColor: colors.alert + '1a' }]}>
-          {t('place.partner')}
+        {/* LE BADGE << WIN VIP >>, EN OR #D4A017 — point 12 du 9 novembre.
+            Il disait << Partenaire >> dans le brun dore du theme (#B8860B). Le document demande
+            l'or des marqueurs WIN et le mot VIP : c'est ce que les abonnes paient, et un mot
+            generique ne le dit pas. Le nom reste en anglais dans les cinq langues — << WIN VIP >>
+            est le nom de l'offre commerciale, pas une phrase a traduire. */}
+        <Text style={[styles.partnerTag, { color: OR_VIP, backgroundColor: OR_VIP + '1f' }]}>
+          ⭐ {t('place.vipBadge')}
         </Text>
       </View>
     </Pressable>

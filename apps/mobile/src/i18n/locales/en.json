@@ -197,7 +197,8 @@
     "photoByUser": "Photo added by a WIN user",
     "startRoute": "Start the route",
     "manageSection": "Manage this place",
-    "viber": "Viber"
+    "viber": "Viber",
+    "vipBadge": "WIN VIP"
   },
   "categories": {
     "groups": {
@@ -586,7 +587,8 @@
     "disableNo": "NO, keep them",
     "alertsOn": "Alerts on",
     "alertsOff": "Alerts off",
-    "reenable": "Turn alerts back on"
+    "reenable": "Turn alerts back on",
+    "inDistance": "in {{distance}}"
   },
   "assistant": {
     "title": "Voice assistant",

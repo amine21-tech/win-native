@@ -76,6 +76,7 @@ import { useAssistant } from '../src/assistant/useAssistant';
 import { durationInWords } from '../src/assistant/commands';
 import { formatClock24, useAutoScheme } from '../src/utils/clock';
 import { AlerteApproche } from '../src/components/AlerteApproche';
+import { BANDEAU_INFO_M, BandeauInfoSignalement } from '../src/components/BandeauInfoSignalement';
 import { PositionSheet } from '../src/components/PositionSheet';
 import { OR_MARQUEUR, pictoSignalisation, SIGNALISATION } from '../src/map/signalisation';
 import { PICTOS_SIGNALISATION } from '../src/map/pictos';
@@ -1012,6 +1013,33 @@ export default function MapScreen() {
     ],
     [avanceSurTraceM],
   );
+
+  /**
+   * LE SIGNALEMENT A VENIR LE PLUS PROCHE, DANS LES 500 METRES — point 6 du 9 novembre.
+   *
+   * << Alerte dans la barre d'info (ex : 'Bouchon dans 300m') lorsqu'on est a moins de 500m. >>
+   *
+   * ON SE SERT DES POSITIONS DEJA CALCULEES. `positionsSurTrace` donne, pour chaque
+   * signalement, sa distance depuis le depart du trajet ; la soustraction donne ce qui reste. Il
+   * n'y a donc rien de nouveau a mesurer, ce qui compte ici : ce calcul tourne a chaque point
+   * GPS, et une projection par signalement y coutait une seconde (voir majProjections).
+   *
+   * MESURE LE LONG DE LA ROUTE, et non a vol d'oiseau. C'est la seule distance qui corresponde a
+   * ce que le texte annonce : << dans 300 m >> veut dire trois cents metres de conduite.
+   */
+  const infoSignalement = useMemo(() => {
+    if (!navigating || !positionsSurTrace) return null;
+    let meilleur: { report: Report; distanceM: number } | null = null;
+    for (const r of liveReports) {
+      const place = positionsSurTrace.get(r.id);
+      if (!place) continue; // il n'est pas sur notre route
+      const reste = place.distanceDepuisDepart - avanceSurTraceM;
+      // Derriere nous, ou encore trop loin pour qu'on puisse en faire quelque chose.
+      if (reste <= 0 || reste > BANDEAU_INFO_M) continue;
+      if (meilleur === null || reste < meilleur.distanceM) meilleur = { report: r, distanceM: reste };
+    }
+    return meilleur;
+  }, [navigating, positionsSurTrace, liveReports, avanceSurTraceM]);
 
   /** Les signalements passent a la carte sous forme de GeoJSON. */
   const reportsGeoJson = useMemo<GeoJSON.FeatureCollection>(
@@ -2943,6 +2971,26 @@ ${t(`report.badge_${report.kind}`)}`,
 
           Hors navigation il n'y a pas de bandeau : on repart alors du bas de l'en-tete, pour
           que la carte ne se colle pas a la barre d'etat. */}
+      {/* LA BARRE D'INFO A 500 METRES (point 6). Elle s'efface des que la carte d'alerte prend
+          le relais a 150 m sur le MEME signalement : la meme information deux fois a l'ecran,
+          l'une sous l'autre, ne previent pas mieux — elle encombre. Elle ne parle pas : la voix
+          garde son unique annonce a 150 m, decision prise au volant le 2 novembre. */}
+      <BandeauInfoSignalement
+        report={
+          infoSignalement && approche?.report?.id !== infoSignalement.report.id
+            ? infoSignalement.report
+            : null
+        }
+        distanceM={infoSignalement?.distanceM ?? 0}
+        top={
+          (navBounds.bannerBottom > 0
+            ? navBounds.bannerBottom
+            : insets.top + HEADER_HEIGHT + (topBlockH || HIT_SIZE)) + spacing.sm
+        }
+        left={spacing.md + 72}
+        right={spacing.lg + fabPrimarySize + spacing.md}
+      />
+
       <AlerteApproche
         report={approche?.report ?? null}
         distanceM={approche?.distanceM ?? null}

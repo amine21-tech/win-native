@@ -197,7 +197,8 @@
     "photoByUser": "Tawlaft tettwarna sɣur aseqdac WIN",
     "startRoute": "Bdu abrid",
     "manageSection": "Sefrek takarḍiwt-a",
-    "viber": "Viber"
+    "viber": "Viber",
+    "vipBadge": "WIN VIP"
   },
   "categories": {
     "groups": {
@@ -586,7 +587,8 @@
     "disableNo": "ALA, eǧǧ-itent",
     "alertsOn": "Timenɣiwin urmidin",
     "alertsOff": "Timenɣiwin nsant",
-    "reenable": "Rmed timenɣiwin"
+    "reenable": "Rmed timenɣiwin",
+    "inDistance": "deg {{distance}}"
   },
   "assistant": {
     "title": "Amɛiwen s taɣect",

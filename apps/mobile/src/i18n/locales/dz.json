@@ -197,7 +197,8 @@
     "photoByUser": "تصويرة زادها مستعمل WIN",
     "startRoute": "ابدا الطريق",
     "manageSection": "سير هاد البلاصة",
-    "viber": "فايبر"
+    "viber": "فايبر",
+    "vipBadge": "WIN VIP"
   },
   "categories": {
     "groups": {
@@ -586,7 +587,8 @@
     "disableNo": "لا، خلّيها",
     "alertsOn": "التنبيهات خدامة",
     "alertsOff": "التنبيهات محبوسة",
-    "reenable": "رجّع التنبيهات"
+    "reenable": "رجّع التنبيهات",
+    "inDistance": "بعد {{distance}}"
   },
   "assistant": {
     "title": "المساعد الصوتي",

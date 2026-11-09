@@ -17,6 +17,9 @@ import {
   estLieuPublic,
   estQuartierVise,
   estWilayaVisee,
+  rayonProximiteActif,
+  rayonVipActif,
+  translittererRequete,
   wilayasVisees,
   PERIMETRE_VIP_M,
   rankSearchResults,
@@ -53,7 +56,13 @@ const DEBOUNCE_MS = 150;
 
 const CACHE_TTL_MS = 3 * 60 * 1000;
 /** Un partenaire au-dela de cette distance n'est plus mis en avant (reste trouvable par son nom). */
-/** Rayon interroge pour une rubrique. 50 km couvre une wilaya entiere. */
+/** Rayon INTERROGE pour une rubrique : 50 km, soit une wilaya entiere.
+ *
+ * IL RESTE LARGE ALORS QUE LE POINT 11 DEMANDE CINQ KILOMETRES, et ce n'est pas une
+ * contradiction : on demande large et on resserre ensuite, parce qu'un seul appel reseau tient
+ * dans les trois cents millisecondes exigees la ou une cascade de requetes a cinq, quinze puis
+ * trente kilometres n'y tiendrait pas. Le resserrage se fait sur les resultats — voir
+ * rayonProximiteActif. */
 const RUBRIQUE_RAYON_KM = 50;
 
 /**
@@ -346,12 +355,42 @@ async function runCategorySearch(
   // notre.
   const ranked = rankByDistance(dedupe(raw), here).slice(0, 40);
 
-  // Une recherche par RUBRIQUE repond a « lequel est le plus pres de moi ». On ne remonte
-  // donc aucun partenaire en tete : la liste suit strictement la distance, et les
-  // partenaires y gardent leur etoile a leur vraie place. Remonter un partenaire situe a
-  // 40 km au-dessus d'un mecanicien a 500 m rendait la rubrique inutilisable.
-  // La recherche par NOM, elle, conserve la mise en avant (voir runTextSearch).
-  return { results: ranked, complet: win.ok && dehorsOk };
+  /**
+   * LE RAYON DE PROXIMITE — point 11 du 9 novembre : << 5 km en ville pour les
+   * lieux/etablissements >>.
+   *
+   * La requete interroge toujours cinquante kilometres, et c'est voulu : un seul appel reseau,
+   * et le document exige des resultats en moins de trois cents millisecondes. C'est le TRI qui
+   * resserre ensuite — a Alger, les pharmacies de Blida et de Tipaza disparaissent de la liste
+   * des pharmacies du quartier.
+   *
+   * Et le palier s'elargit seul quand le premier est vide : voir rayonProximiteActif. Chercher
+   * une pharmacie depuis Djanet ne doit pas rendre une liste vide.
+   */
+  const rayonLieu = rayonProximiteActif(ranked.map((r) => r.distanceM));
+  const proches = rayonLieu === null ? ranked : ranked.filter((r) => r.distanceM <= rayonLieu);
+
+  /**
+   * LES PARTENAIRES REMONTENT EN TETE, ET C'EST UN RENVERSEMENT — point 12 du 9 novembre.
+   *
+   * CE BLOC DISAIT L'INVERSE, et sa raison etait bonne : << remonter un partenaire situe a
+   * 40 km au-dessus d'un mecanicien a 500 m rendait la rubrique inutilisable >>. Une recherche
+   * par rubrique repond a << lequel est le plus pres de moi >>, et un passe-droit sur la
+   * distance detruisait la reponse.
+   *
+   * CE QUI A CHANGE N'EST PAS L'AVIS, C'EST LE CADRE. Le point 12 borne la mise en avant a un
+   * RAYON — cinq kilometres, quinze, trente au plus. Le partenaire a quarante kilometres n'est
+   * plus eligible du tout : l'objection tombe d'elle-meme, et il ne reste que des partenaires
+   * reellement proches. C'est le propre document du client qui fournit la garantie qui manquait.
+   *
+   * Entre eux, la distance tranche — comme il le demande explicitement.
+   */
+  const rayonVip = rayonVipActif(proches.filter((r) => r.isPartner === true).map((r) => r.distanceM));
+  if (rayonVip === null) return { results: proches, complet: win.ok && dehorsOk };
+
+  const vip = proches.filter((r) => r.isPartner === true && r.distanceM <= rayonVip);
+  const autres = proches.filter((r) => !(r.isPartner === true && r.distanceM <= rayonVip));
+  return { results: [...vip, ...autres], complet: win.ok && dehorsOk };
 }
 
 function toGeocoded(c: { name: string; lat: number; lon: number }, source: GeocodedResult['source']): GeocodedResult {
@@ -422,7 +461,20 @@ async function runTextSearch(
    *
    * Le texte corrige part vers LES DEUX sources : notre base comme le geocodage. Corriger d'un
    * cote seulement reviendrait a les faire chercher deux choses differentes. */
-  const q = corrigerLieu(CITY_ALIASES[normalizeCity(qRaw)] ?? qRaw);
+  /* LE TRILINGUE PASSE EN PREMIER — point 11 du 9 novembre : << recherche TRILINGUE :
+   * francais, arabe, tamazight >>.
+   *
+   * L'ORDRE N'EST PAS INDIFFERENT. Une saisie arabe ou tifinagh est d'abord ramenee a son nom
+   * latin ; ce nom traverse ensuite la table d'alias puis la correction phonetique, exactement
+   * comme une saisie francaise. << ⵜⵉⵣⵉ ⵡⵣⵣⵓ >> devient << tizi wzzu >>, que corrigerLieu
+   * reconnait comme << Tizi Ouzou >> par la meme mesure de proximite qui corrige
+   * << tizi uzou >>. Mettre la translitteration apres n'aurait rien donne : aucune des deux
+   * etapes suivantes ne sait lire l'arabe.
+   *
+   * Quand rien n'est reconnu, la saisie repart telle quelle et c'est le geocodeur qui essaie —
+   * ne rien reconnaitre ne doit jamais etre pire que ne pas avoir essaye. */
+  const qLatin = translittererRequete(qRaw);
+  const q = corrigerLieu(CITY_ALIASES[normalizeCity(qLatin)] ?? qLatin);
 
   const [win, dehors, partout] = await Promise.all([
     fetchWinPlaces(q, here, lang),
@@ -448,17 +500,37 @@ async function runTextSearch(
    * parcourue par requete, pas par resultat. */
   const visees = wilayasVisees(q);
 
-  const classe = classerPoint18(hoistOwnPlaces(ranked, q), {
-    /* PREMIER PALIER : la wilaya, meme sur un nom partiel. Taper << tizi >> doit suggerer
-     * Tizi Ouzou avant tout le reste — c'est ce qu'on cherche quand on tape le debut d'un nom
-     * de wilaya, et non un commerce qui le porte. */
+  /**
+   * LE RAYON ACTIF DES VIP : 5 km, puis 15, puis 30 — point 12 du 9 novembre.
+   *
+   * Il faut le calculer AVANT de classer, parce qu'il depend de l'ensemble des VIP presents :
+   * << si aucun VIP trouve dans 5 km, elargissement AUTOMATIQUE et SILENCIEUX >>. On ne peut
+   * donc pas en decider resultat par resultat.
+   *
+   * On ne mesure QUE les VIP, et c'est le point : la distance du plus proche commerce ordinaire
+   * n'entre pas dans le choix du palier.
+   */
+  const classable = hoistOwnPlaces(ranked, q);
+  const rayonVip = rayonVipActif(
+    classable.filter((r) => r.isPartner === true || estEnregistre(r, vip)).map((r) => r.distanceM),
+  );
+
+  const classe = classerPoint18(classable, {
+    /* PREMIER PALIER DEPUIS LE 9 NOVEMBRE : les VIP du rayon actif, tries par distance
+     * croissante. Le point 12 l'ecrit noir sur blanc — `results = vips + standardResults` — et
+     * c'est le modele commercial de WIN : les partenaires paient pour cette place. */
+    rayonVip,
+    /* PUIS LA WILAYA, meme sur un nom partiel. Taper << tizi >> doit suggerer Tizi Ouzou
+     * avant le reste du classement geographique — c'est ce qu'on cherche quand on tape le debut
+     * d'un nom de wilaya, et non un commerce qui le porte. Elle etait premiere jusqu'au
+     * 9 novembre ; les VIP du rayon actif passent maintenant devant (point 12). */
     estWilaya: (r) => estWilayaVisee(r, visees),
-    /* DEUXIEME PALIER : les etablissements PUBLICS — hopital, mairie, gare, ecole, poste.
+    /* PUIS les etablissements PUBLICS — hopital, mairie, gare, ecole, poste.
      * Quand on tape le nom de l'un d'eux, on ne cherche jamais un commerce qui porte le meme
      * nom. Les commerces, eux, restent dans les paliers VIP et simple. */
     estPublic: (r) => estLieuPublic(r),
     estVilleExacte: (r) => r.exactCity === true,
-    /* QUATRIEME PALIER : le QUARTIER ou la DAIRA que designe la saisie — rang 2 du correctif
+    /* PUIS le QUARTIER ou la DAIRA que designe la saisie — rang 2 du correctif
      * du 8 novembre. Taper << bab el oued >> depuis Alger-centre ramenait une boulangerie du
      * meme nom a quatre cents metres avant le quartier a trois kilometres, parce que seule la
      * distance departageait. */

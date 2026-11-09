@@ -317,6 +317,29 @@ export const CITY_ALIASES: Record<string, string> = {
   'el taref': 'El Tarf',
   'souk ahras': 'Souk Ahras',
   'oum el bouaghi': 'Oum El Bouaghi',
+  /* LES NOMS KABYLES EN ALPHABET LATIN — point 11 du 9 novembre, << recherche TRILINGUE >>.
+   *
+   * POURQUOI DANS CETTE TABLE ET NON DANS LA MESURE DE PROXIMITE. Un nom kabyle n'est pas une
+   * faute d'orthographe du nom francais : << Lzzayr >> et << Alger >> n'ont aucune lettre en
+   * commun dans le meme ordre, et aucune distance d'edition ne les rapprochera jamais. Ce sont
+   * deux noms differents de la meme ville, exactement comme << Wahran >> et << Oran >>, et cela
+   * se declare — cela ne se calcule pas.
+   *
+   * Ce sont les noms que les locuteurs ecrivent reellement, pas des transcriptions inventees.
+   * Une saisie en tifinagh y arrive aussi : elle est d'abord translitteree en latin. */
+  lzzayr: 'Alger',
+  dzayer: 'Alger',
+  tizi: 'Tizi Ouzou',
+  'tizi wezzu': 'Tizi Ouzou',
+  'tizi wzzu': 'Tizi Ouzou',
+  vgayet: 'Béjaïa',
+  bgayet: 'Béjaïa',
+  tubirett: 'Bouira',
+  tuvirett: 'Bouira',
+  bumerdas: 'Boumerdès',
+  stif: 'Sétif',
+  tbessa: 'Tébessa',
+  wahran: 'Oran',
 };
 
 /** Codes postaux des 48 wilayas historiques (chef-lieu = XX000), pour completer Photon quand il n'en fournit pas. */
@@ -641,6 +664,21 @@ function wilayaProche(texte: string): string | null {
   const brut = normalizeCity(texte);
   if (MOTS_NON_LIEUX.has(brut)) return null;
 
+  /* UNE AUTRE ECRITURE N'EST JAMAIS << PROCHE >>, et ce refus repare un defaut reel.
+   *
+   * `phoneticKey` ne garde que [a-z0-9] : tout caractere arabe ou tifinagh est simplement
+   * EFFACE. << صيدلية Tizi Ouzou >> (pharmacie Tizi Ouzou) donnait donc la cle << tiziuzu >>,
+   * identique a celle de Tizi Ouzou — et `corrigerLieu`, croyant avoir reconnu la ville dans
+   * la phrase ENTIERE, rendait << Tizi Ouzou >> en jetant le mot cherche.
+   *
+   * Le defaut etait invisible tant que personne ne tapait en arabe. La recherche trilingue du
+   * 9 novembre l'a rendu atteignable, et il se manifestait de la pire facon : une recherche de
+   * pharmacie se transformait en recherche de ville, sans erreur, sans trace.
+   *
+   * On refuse donc avant de mesurer. Les saisies d'une autre ecriture sont ramenees en lettres
+   * latines bien avant d'arriver ici — voir `translittererRequete`. */
+  if (/[^\u0000-\u024F]/.test(texte)) return null;
+
   const cle = phoneticKey(texte);
   // En dessous de quatre caracteres, deux noms sans rapport se ressemblent trop.
   if (cle.length < 4) return null;
@@ -686,6 +724,179 @@ export function corrigerLieu(saisie: string): string {
       return avant ? `${avant} ${canonique}` : canonique;
     }
   }
+  return saisie;
+}
+
+/* ------------------------------------------------------------------ */
+/* Recherche TRILINGUE : francais, arabe, tamazight (point 11, 9 nov.) */
+/* ------------------------------------------------------------------ */
+
+/**
+ * LES NOMS ARABES DES 58 WILAYAS, pour qu'on puisse taper << تيزي وزو >>.
+ *
+ * POURQUOI UNE TABLE ET NON UNE TRANSLITTERATION. L'arabe ne note pas les voyelles courtes :
+ * << وهران >> s'ecrit w-h-r-a-n, et une translitteration mecanique en tire << whran >>, qui ne
+ * ressemble a << Oran >> par aucun calcul de proximite. Le meme probleme rend
+ * << قسنطينة >> (q-s-n-t-i-n-a) introuvable depuis << Constantine >>. Il n'y a pas de regle : il
+ * faut la liste.
+ *
+ * CE SONT LES NOMS OFFICIELS, ceux de l'etat civil et des plaques — pas des transcriptions
+ * approchees. C'est ce qu'un utilisateur algerien tape quand son clavier est en arabe, et c'est
+ * ce qu'affichent les panneaux routiers du pays.
+ *
+ * LA TABLE VA DE L'ARABE VERS LE NOM CANONIQUE de WIN, dans ce sens-la seulement : on cherche a
+ * reconnaitre une SAISIE, pas a traduire un affichage. Les libelles affiches viennent des
+ * fichiers de langue.
+ */
+export const WILAYAS_AR: Record<string, string> = {
+  'أدرار': 'Adrar',
+  'الشلف': 'Chlef',
+  'الأغواط': 'Laghouat',
+  'أم البواقي': 'Oum El Bouaghi',
+  'باتنة': 'Batna',
+  'بجاية': 'Béjaïa',
+  'بسكرة': 'Biskra',
+  'بشار': 'Béchar',
+  'بشّار': 'Béchar',
+  'البليدة': 'Blida',
+  'البويرة': 'Bouira',
+  'تمنراست': 'Tamanrasset',
+  'تبسة': 'Tébessa',
+  'تلمسان': 'Tlemcen',
+  'تيارت': 'Tiaret',
+  'تيزي وزو': 'Tizi Ouzou',
+  'الجزائر': 'Alger',
+  'الجلفة': 'Djelfa',
+  'جيجل': 'Jijel',
+  'سطيف': 'Sétif',
+  'سعيدة': 'Saïda',
+  'سكيكدة': 'Skikda',
+  'سيدي بلعباس': 'Sidi Bel Abbès',
+  'عنابة': 'Annaba',
+  'قالمة': 'Guelma',
+  'قسنطينة': 'Constantine',
+  'المدية': 'Médéa',
+  'مستغانم': 'Mostaganem',
+  'المسيلة': "M'Sila",
+  'معسكر': 'Mascara',
+  'ورقلة': 'Ouargla',
+  'وهران': 'Oran',
+  'البيض': 'El Bayadh',
+  'البيّض': 'El Bayadh',
+  'إليزي': 'Illizi',
+  'برج بوعريريج': 'Bordj Bou Arréridj',
+  'بومرداس': 'Boumerdès',
+  'الطارف': 'El Tarf',
+  'تندوف': 'Tindouf',
+  'تيسمسيلت': 'Tissemsilt',
+  'الوادي': 'El Oued',
+  'خنشلة': 'Khenchela',
+  'سوق أهراس': 'Souk Ahras',
+  'تيبازة': 'Tipaza',
+  'ميلة': 'Mila',
+  'عين الدفلة': 'Aïn Defla',
+  'النعامة': 'Naâma',
+  'عين تموشنت': 'Aïn Témouchent',
+  'غرداية': 'Ghardaïa',
+  'غليزان': 'Relizane',
+  'تيميمون': 'Timimoun',
+  'برج باجي مختار': 'Bordj Badji Mokhtar',
+  'أولاد جلال': 'Ouled Djellal',
+  'بني عباس': 'Béni Abbès',
+  'عين صالح': 'In Salah',
+  'عين قزام': 'In Guezzam',
+  'تقرت': 'Touggourt',
+  'جانت': 'Djanet',
+  'المغير': "El M'Ghair",
+  'المنيعة': 'El Meniaa',
+};
+
+/**
+ * TIFINAGH VERS LATIN, lettre par lettre.
+ *
+ * POURQUOI UNE TRANSLITTERATION ICI, ALORS QUE L'ARABE DEMANDAIT UNE TABLE. Le tifinagh NOTE LES
+ * VOYELLES : ⵜⵉⵣⵉ se lit t-i-z-i, sans ambiguite. Une conversion lettre a lettre donne donc un
+ * mot latin que la correction phonetique existante reconnait deja — << tizi wzzu >> trouve
+ * << Tizi Ouzou >> par la meme mesure de proximite qui corrige << tizi uzou >>.
+ *
+ * ET ON N'INVENTE RIEN. Une table de noms tifinagh pour les cinquante-huit wilayas supposerait
+ * d'ecrire en tifinagh des noms de villes arabophones ou il n'est pas en usage — Souk Ahras, El
+ * Oued. Ce serait fabriquer des noms que personne n'ecrit, puis les servir comme s'ils etaient
+ * officiels. La translitteration, elle, marche pour ce que les gens ecrivent reellement en
+ * tifinagh : les noms kabyles et touaregs.
+ *
+ * Les noms kabyles EN ALPHABET LATIN marchaient deja : << Bgayet >> trouve Béjaïa depuis le
+ * 2 novembre, par la meme correction phonetique.
+ */
+const TIFINAGH_VERS_LATIN: Record<string, string> = {
+  'ⴰ': 'a', 'ⴱ': 'b', 'ⴲ': 'b', 'ⴳ': 'g', 'ⴴ': 'g', 'ⴵ': 'j', 'ⴶ': 'j',
+  'ⴷ': 'd', 'ⴸ': 'd', 'ⴹ': 'd', 'ⴺ': 'd', 'ⴻ': 'e', 'ⴼ': 'f', 'ⴽ': 'k',
+  'ⴾ': 'k', 'ⴿ': 'k', 'ⵀ': 'h', 'ⵁ': 'h', 'ⵂ': 'h', 'ⵃ': 'h', 'ⵄ': 'a',
+  'ⵅ': 'kh', 'ⵆ': 'kh', 'ⵇ': 'q', 'ⵈ': 'q', 'ⵉ': 'i', 'ⵊ': 'j', 'ⵋ': 'j',
+  'ⵌ': 'j', 'ⵍ': 'l', 'ⵎ': 'm', 'ⵏ': 'n', 'ⵐ': 'n', 'ⵑ': 'n', 'ⵒ': 'p',
+  'ⵓ': 'u', 'ⵔ': 'r', 'ⵕ': 'r', 'ⵖ': 'gh', 'ⵗ': 'gh', 'ⵘ': 'gh', 'ⵙ': 's',
+  'ⵚ': 's', 'ⵛ': 'ch', 'ⵜ': 't', 'ⵝ': 't', 'ⵞ': 'ch', 'ⵟ': 't', 'ⵠ': 'v',
+  'ⵡ': 'w', 'ⵢ': 'y', 'ⵣ': 'z', 'ⵤ': 'z', 'ⵥ': 'z', 'ⵦ': 'z', 'ⵧ': 'o',
+  'ⵯ': 'w',
+};
+
+/** La chaine contient-elle du tifinagh ? */
+export function estTifinagh(s: string): boolean {
+  return /[\u2D30-\u2D7F]/.test(s);
+}
+
+/** La chaine contient-elle de l'arabe ? */
+export function estArabe(s: string): boolean {
+  return /[\u0600-\u06FF]/.test(s);
+}
+
+/** Translittere le tifinagh en lettres latines, et laisse le reste intact. */
+export function translittererTifinagh(s: string): string {
+  let sortie = '';
+  for (const c of s) sortie += TIFINAGH_VERS_LATIN[c] ?? c;
+  return sortie;
+}
+
+/**
+ * RAMENE UNE SAISIE EN ARABE OU EN TIFINAGH A SON NOM LATIN, quand on sait le faire.
+ *
+ * C'est la porte d'entree du trilingue, et elle est volontairement PRUDENTE : si elle ne
+ * reconnait rien, elle rend la saisie telle quelle. Le geocodeur recoit alors l'arabe ou le
+ * tifinagh d'origine et fait ce qu'il peut — Photon connait une partie des noms arabes
+ * d'Algerie. Ne rien reconnaitre ne doit jamais etre pire que ne pas avoir essaye.
+ *
+ * L'ORDRE COMPTE. On cherche la table arabe AVANT de translitterer : << وهران >> est dans la
+ * table et donne << Oran >>, alors qu'aucune translitteration n'y arriverait.
+ */
+export function translittererRequete(saisie: string): string {
+  const q = saisie.trim();
+  if (q.length === 0) return saisie;
+
+  if (estArabe(q)) {
+    /* La table d'abord, telle quelle puis sans l'article : on tape aussi bien << الجزائر >> que
+     * << جزائر >>. */
+    const direct = WILAYAS_AR[q];
+    if (direct) return direct;
+    const sansArticle = WILAYAS_AR['ال' + q];
+    if (sansArticle) return sansArticle;
+    /* UN MOT D'UNE PHRASE PEUT SUFFIRE : << صيدلية تيزي وزو >> (pharmacie Tizi Ouzou) doit
+     * ramener la ville. On remplace les groupes de mots connus, du plus long au plus court,
+     * comme le fait corrigerLieu pour le francais. */
+    const mots = q.split(/\s+/);
+    for (let taille = Math.min(3, mots.length); taille >= 1; taille -= 1) {
+      for (let debut = 0; debut + taille <= mots.length; debut += 1) {
+        const groupe = mots.slice(debut, debut + taille).join(' ');
+        const trouve = WILAYAS_AR[groupe];
+        if (trouve) {
+          const reste = [...mots.slice(0, debut), ...mots.slice(debut + taille)];
+          return reste.length > 0 ? `${reste.join(' ')} ${trouve}` : trouve;
+        }
+      }
+    }
+    return saisie;
+  }
+
+  if (estTifinagh(q)) return translittererTifinagh(q);
   return saisie;
 }
 
@@ -871,6 +1082,89 @@ export function estQuartierVise(r: RankableResult, requete: string): boolean {
   return normalizeCity(r.name || '').startsWith(q);
 }
 
+/**
+ * RAYON DYNAMIQUE DES VIP : 5 km, puis 15, puis 30 — point 12 du 9 novembre.
+ *
+ * CE QUE CELA REMPLACE. Un perimetre unique de cinquante kilometres. Il avait un defaut que le
+ * client decrit en creux : a Alger, cinquante kilometres ramassent toute la Mitidja, et un
+ * partenaire de Blida passait devant un resultat a trois rues. A Tamanrasset, le meme perimetre
+ * ne contient parfois AUCUN partenaire, et le palier restait vide alors que le plus proche est a
+ * soixante kilometres — l'abonne payait pour une visibilite qu'il n'avait pas.
+ *
+ * LE REPLI EST AUTOMATIQUE ET SILENCIEUX, et c'est le mot du document : << l'utilisateur voit
+ * des resultats, pas un message d'erreur >>. On ne lui annonce pas qu'on a elargi ; il voit
+ * simplement les partenaires qui existent.
+ *
+ * AU-DELA DE TRENTE KILOMETRES, AUCUN VIP. Ce n'est pas un oubli : un commerce a quarante
+ * kilometres ne repond pas au besoin de quelqu'un qui cherche une pharmacie, et le mettre en
+ * tete ferait passer la mise en avant payante avant l'utilite — ce qui finirait par couter la
+ * confiance dans les resultats, donc la valeur de l'abonnement lui-meme.
+ */
+export const PALIERS_RAYON_VIP = [5_000, 15_000, 30_000] as const;
+
+/**
+ * Le rayon a retenir, au vu des distances des VIP presents dans les resultats.
+ *
+ * Rend `null` quand aucun VIP n'est a moins de trente kilometres : il n'y a alors pas de palier
+ * VIP du tout, et les resultats sont ceux de tout le monde.
+ *
+ * UNE DISTANCE INCONNUE COMPTE COMME PROCHE. Sans position GPS on ne peut rien mesurer ; exclure
+ * ces VIP reviendrait a desactiver la mise en avant payante chaque fois que le telephone cherche
+ * encore son signal, c'est-a-dire souvent et au pire moment. Dans le doute, on garde.
+ */
+export function rayonVipActif(distancesVip: readonly (number | undefined)[]): number | null {
+  return premierPalierNonVide(distancesVip, PALIERS_RAYON_VIP);
+}
+
+/**
+ * Le premier palier qui contient au moins une des distances donnees, ou `null` si aucun.
+ *
+ * FACTORISEE PARCE QUE LA REGLE EST LA MEME DEUX FOIS : les VIP (point 12) et les lieux de
+ * proximite (point 11) elargissent tous deux leur rayon par paliers jusqu'a trouver quelque
+ * chose. Les seuils differrent, le raisonnement non — et deux copies d'un meme raisonnement
+ * finissent toujours par diverger sur le detail qui compte, ici la borne inclusive.
+ */
+function premierPalierNonVide(
+  distances: readonly (number | undefined)[],
+  paliers: readonly number[],
+): number | null {
+  if (distances.length === 0) return null;
+  /* UNE DISTANCE INCONNUE COMPTE COMME PROCHE : sans position GPS on ne peut rien mesurer, et
+   * exclure ces resultats reviendrait a vider la liste chaque fois que le telephone cherche
+   * encore son signal. Dans le doute, on garde. */
+  if (distances.some((d) => d === undefined)) return paliers[0] ?? null;
+  for (const rayon of paliers) {
+    if (distances.some((d) => d !== undefined && d <= rayon)) return rayon;
+  }
+  return null;
+}
+
+/**
+ * RAYON DE PROXIMITE DES LIEUX : 5 km, puis 15, 30, 50 — point 11 du 9 novembre.
+ *
+ * << Rayon de PROXIMITE : 5 km en ville pour les lieux/etablissements. >>
+ *
+ * CE QUE CELA CORRIGE. Une recherche de rubrique — << pharmacie >>, << restaurant >> —
+ * interrogeait cinquante kilometres autour de l'utilisateur. A Alger, cela ramene des pharmacies
+ * de Blida et de Tipaza au milieu de celles du quartier : la liste est longue, et ce qu'on
+ * cherche est noye dedans.
+ *
+ * POURQUOI DES PALIERS PLUTOT QUE LE FILTRE DU DOCUMENT. Son code ecrit
+ * `if (type == PLACE) filter: distance <= 5000m`, et applique tel quel il vide la liste partout
+ * ou il n'y a rien a cinq kilometres — un village, une route du Sud, la moitie du territoire.
+ * Chercher une pharmacie depuis Djanet ne rendrait plus rien du tout.
+ *
+ * Les paliers viennent du document LUI-MEME : c'est exactement le mecanisme qu'il decrit au
+ * point 12 pour les VIP, << elargissement AUTOMATIQUE et SILENCIEUX >>. On applique sa regle a
+ * sa consigne. En ville, le premier palier suffit toujours et le resultat est celui qu'il
+ * demande ; ailleurs, l'utilisateur voit ce qui existe au lieu d'une liste vide.
+ */
+export const PALIERS_RAYON_LIEU = [5_000, 15_000, 30_000, 50_000] as const;
+
+export function rayonProximiteActif(distances: readonly (number | undefined)[]): number | null {
+  return premierPalierNonVide(distances, PALIERS_RAYON_LIEU);
+}
+
 export type ClassementPoint18Options<T> = {
   /** Vrai si ce resultat est une WILAYA que designe la saisie, meme partielle. Premier palier. */
   estWilaya?: (r: T) => boolean;
@@ -881,8 +1175,16 @@ export type ClassementPoint18Options<T> = {
   /** Vrai si ce resultat est le QUARTIER ou la DAIRA que designe la saisie. Quatrieme palier,
    *  juste apres la ville — rang 2 du correctif du 8 novembre. */
   estQuartier?: (r: T) => boolean;
-  /** Vrai si ce resultat est une adresse enregistree par l'utilisateur. */
+  /** Vrai si ce resultat est une adresse enregistree par l'utilisateur, ou un partenaire VIP. */
   estVip: (r: T) => boolean;
+  /**
+   * Rayon retenu pour les VIP, en metres, ou `null` pour n'en mettre aucun en tete.
+   *
+   * Calcule par `rayonVipActif` a partir des distances des VIP presents : 5 km, 15 km ou 30 km
+   * selon le premier palier non vide (point 12 du 9 novembre). Omis : on retombe sur
+   * `PERIMETRE_VIP_M`, le perimetre unique d'avant.
+   */
+  rayonVip?: number | null;
   /** Distance a l'utilisateur, en metres — `undefined` si la position est inconnue. */
   distanceM: (r: T) => number | undefined;
 };
@@ -895,8 +1197,36 @@ export function classerPoint18<T>(resultats: T[], o: ClassementPoint18Options<T>
   const vip: T[] = [];
   const reste: T[] = [];
 
+  /* LE RAYON RETENU POUR LES VIP. `undefined` veut dire << l'appelant ne s'en occupe pas >> et
+   * on retombe sur le perimetre unique d'avant ; `null` veut dire << aucun VIP en tete >>, ce
+   * qui est la reponse quand le plus proche est au-dela de trente kilometres. */
+  const rayon = o.rayonVip === undefined ? PERIMETRE_VIP_M : o.rayonVip;
+
   for (const r of resultats) {
-    /* LA WILAYA D'ABORD, meme sur un nom partiel. << tizi >> doit suggerer Tizi Ouzou avant
+    /* LES VIP SONT TESTES EN PREMIER DEPUIS LE 9 NOVEMBRE, et c'est un renversement.
+     *
+     * Le point 12 du document est explicite — << les etablissements abonnes WIN VIP sont
+     * affiches EN TETE des resultats >> — et son code l'ecrit sans ambiguite :
+     * `results = vips + standardResults`.
+     *
+     * CELA DEFAIT LA REGLE DU 2 NOVEMBRE, et il faut le dire ici parce que le prochain lecteur
+     * trouvera les deux dans l'historique. Le client avait alors demande l'inverse : << les
+     * grandes villes sont avantagees par rapport aux lieux ajoutes par des clients >>. Taper
+     * << Tipaza >> ramene donc de nouveau << Tipaza Pneus >>, garage VIP d'Alger, avant la ville
+     * de Tipaza. Le defaut a ete signale a arsanne, qui a tranche le 9 novembre : on suit le
+     * document.
+     *
+     * CE QUI LIMITE LA PORTEE, et ce n'est pas rien : seuls les VIP du RAYON ACTIF montent.
+     * Au-dela de trente kilometres il n'y a plus de palier VIP du tout, et le classement
+     * geographique reprend la main. */
+    if (o.estVip(r) && rayon !== null) {
+      const dv = o.distanceM(r);
+      if (dv === undefined || dv <= rayon) {
+        vip.push(r);
+        continue;
+      }
+    }
+    /* LA WILAYA ENSUITE, meme sur un nom partiel. << tizi >> doit suggerer Tizi Ouzou avant
      * toute autre chose : c'est le chef-lieu que l'on cherche quand on tape le debut d'un nom
      * de wilaya, pas un commerce qui le porte. */
     if (o.estWilaya?.(r)) {
@@ -919,14 +1249,8 @@ export function classerPoint18<T>(resultats: T[], o: ClassementPoint18Options<T>
       quartiers.push(r);
       continue;
     }
-    const d = o.distanceM(r);
-    /* Sans position connue, on ne peut pas dire si un favori est << dans le perimetre >>. On
-     * le traite alors comme VIP : c'est une adresse que l'utilisateur a lui-meme enregistree,
-     * et dans le doute elle lui est plus utile qu'un resultat anonyme. */
-    if (o.estVip(r) && (d === undefined || d <= PERIMETRE_VIP_M)) {
-      vip.push(r);
-      continue;
-    }
+    /* UN VIP HORS DU RAYON TOMBE ICI, avec tout le monde, et se classe a la distance comme
+     * n'importe quel resultat. Il n'est pas efface — il n'est simplement plus mis en avant. */
     reste.push(r);
   }
 
@@ -934,10 +1258,21 @@ export function classerPoint18<T>(resultats: T[], o: ClassementPoint18Options<T>
    * `rankSearchResults` — qui departage deja deux villes homonymes par leur taille puis par
    * leur distance, et le reste par la distance seule.
    *
-   * SIX PALIERS DEPUIS LE 8 NOVEMBRE : la wilaya, le lieu public, la ville exacte, le QUARTIER
-   * ou la daira, le VIP, puis le reste. Le quartier est le rang 2 du correctif du 8 novembre,
-   * insere dans l'echelle existante au lieu de la remplacer — decision prise avec arsanne : sa
-   * liste de quatre rangs ne mentionne ni le lieu public ni le VIP, qui sont deux demandes
-   * anterieures du meme client et qu'il n'a pas retirees. */
-  return [...wilayas, ...publics, ...villes, ...quartiers, ...vip, ...reste];
+   * SIX PALIERS, ET LE VIP EST PASSE DU CINQUIEME AU PREMIER le 9 novembre (point 12). Derriere
+   * lui, l'ordre geographique du point 11 est intact : la wilaya, le lieu public, la ville
+   * exacte, le quartier ou la daira, puis le reste.
+   *
+   * CHAQUE PALIER GARDE L'ORDRE QU'IL AVAIT — sauf les VIP, que le document veut explicitement
+   * << tries par distance croissante >> a l'interieur du rayon actif. C'est la seule exception,
+   * et elle est voulue : entre deux partenaires, le plus proche est le plus utile, alors qu'entre
+   * deux villes homonymes c'est la plus grande, ce que `rankSearchResults` sait deja. */
+  const vipTries = [...vip].sort((a, b) => {
+    const da = o.distanceM(a);
+    const db = o.distanceM(b);
+    // Distance inconnue en dernier : on ne peut pas affirmer qu'elle est petite.
+    if (da === undefined) return db === undefined ? 0 : 1;
+    if (db === undefined) return -1;
+    return da - db;
+  });
+  return [...vipTries, ...wilayas, ...publics, ...villes, ...quartiers, ...reste];
 }

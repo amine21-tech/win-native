@@ -20,6 +20,8 @@ import {
   estLieuPublic,
   estQuartierVise,
   estWilayaVisee,
+  rayonProximiteActif,
+  rayonVipActif,
   PERIMETRE_VIP_M,
   rankSearchResults,
   wilayasVisees,
@@ -54,6 +56,11 @@ function classer(fiches: Fiche[], requete: string, moi: { lat: number; lon: numb
     estQuartier: (r) => estQuartierVise(r, requete),
     estVip: (r) => (r as unknown as Fiche).vip === true,
     distanceM: (r) => r.distanceM,
+    /* LE RAYON SE CALCULE COMME DANS L'APPLICATION, sur les distances des VIP presents : un
+     * test qui passerait un rayon fixe ne verifierait pas le repli automatique. */
+    rayonVip: rayonVipActif(
+      rangs.filter((r) => (r as unknown as Fiche).vip === true).map((r) => r.distanceM),
+    ),
   });
 }
 
@@ -89,11 +96,15 @@ verifier(
 /* Les adresses VIP                                                     */
 /* ------------------------------------------------------------------ */
 
-console.log('\nLES ADRESSES VIP PASSENT APRES LA VILLE, PAS AVANT');
+console.log('\nLES ADRESSES VIP PASSENT MAINTENANT AVANT LA VILLE');
 /* LE FAVORI EST VOLONTAIREMENT LE PLUS ELOIGNE DES DEUX. Un favori plus proche passerait en
  * tete par la seule distance, et le test reussirait sans rien prouver — c'est exactement le
  * genre de controle qui donne confiance a tort. Ici, << Tipaza Auto >> est a 2 km et
- * << Tipaza Pneus >> a 300 m : seul le palier VIP peut inverser cet ordre. */
+ * << Tipaza Pneus >> a 300 m : seul le palier VIP peut inverser cet ordre.
+ *
+ * L'ATTENDU A CHANGE LE 9 NOVEMBRE, pas la substance du test. Le titre disait << APRES la
+ * ville, pas avant >> ; le point 12 demande l'inverse. Ce que ce controle prouve reste le meme :
+ * que le statut VIP, et non la distance, decide de la place. */
 const avecVip: Fiche[] = [
   { name: 'Tipaza Pneus', lat: 36.752, lon: 3.062, source: 'win' },
   { name: 'Tipaza Auto', lat: 36.768, lon: 3.072, source: 'win', vip: true },
@@ -101,11 +112,15 @@ const avecVip: Fiche[] = [
 ];
 const r2 = classer(avecVip, 'Tipaza', ALGER);
 console.log('  ordre obtenu :', r2.map((r) => r.name).join(' · '));
-verifier('la ville reste en tete', r2[0]?.name === 'Tipaza');
 verifier(
-  "l'adresse enregistree passe devant une adresse PLUS PROCHE qui ne l'est pas",
-  r2[1]?.name === 'Tipaza Auto',
+  "l'adresse enregistree est en tete, devant une adresse PLUS PROCHE qui ne l'est pas",
+  r2[0]?.name === 'Tipaza Auto',
   '2 km contre 300 m : seul le palier VIP peut l\'expliquer',
+);
+verifier(
+  'la ville vient juste apres, devant le lieu simple',
+  r2[1]?.name === 'Tipaza' && r2[2]?.name === 'Tipaza Pneus',
+  "derriere les VIP, l'ordre geographique du point 11 est intact",
 );
 
 console.log('\nUN FAVORI HORS PERIMETRE REDESCEND DANS LE LOT COMMUN');
@@ -202,10 +217,24 @@ const tiziPartiel: Fiche[] = [
   { name: 'Tizi Ouzou', lat: 36.7118, lon: 4.0458, osmKey: 'place', osmValue: 'city', type: 'city', source: 'photon' },
 ];
 const r9 = classer(tiziPartiel, 'tizi', ALGER);
+console.log('  ' + r9.map((r) => r.name).join('  →  '));
+/* L'ATTENDU A CHANGE LE 9 NOVEMBRE : le partenaire VIP << Tizi Pneus >>, a trois cents metres,
+ * passe devant la wilaya. C'est precisement le symptome decrit ci-dessus, et le client l'a
+ * REDEMANDE au point 12 en connaissance de cause.
+ *
+ * CE QUE LE CONTROLE PROUVE ENCORE, et qui est l'essentiel du travail du 2 novembre : la wilaya
+ * est toujours RECONNUE comme telle sur un nom partiel. Elle passe devant le lieu simple
+ * << Tizi Auto >>, pourtant cent fois plus proche — sans cette reconnaissance, elle tomberait
+ * dans le lot commun et se classerait derriere lui. */
 verifier(
-  '« tizi » suggere la WILAYA en premier',
-  r9[0]?.name === 'Tizi Ouzou',
-  r9.map((r) => r.name).join(' · '),
+  '« tizi » : le partenaire VIP en tete (point 12 du 9 novembre)',
+  r9[0]?.name === 'Tizi Pneus',
+  'il est dans le rayon de 5 km',
+);
+verifier(
+  'la WILAYA est reconnue sur un nom partiel et passe devant le lieu simple',
+  r9.findIndex((r) => r.name === 'Tizi Ouzou') < r9.findIndex((r) => r.name === 'Tizi Auto'),
+  'a 100 km contre 300 m : seule la reconnaissance de la wilaya peut l expliquer',
 );
 verifier(
   'et les lieux ajoutes suivent, VIP avant simple',
@@ -315,23 +344,33 @@ for (const [nom, f] of [
 /* ------------------------------------------------------------------ */
 
 /**
- * LA REGLE DU CLIENT, RAPPELEE LE 2 NOVEMBRE : « les grandes villes sont avantagees par
- * rapport aux lieux ajoutes par des clients ; les lieux ajoutes en VIP passent avant les lieux
- * simples ». Soit trois familles, dans cet ordre : VILLE, VIP, SIMPLE.
+ * LE VIP PASSE DEVANT LA VILLE DEPUIS LE 9 NOVEMBRE, ET CE TEST A ETE RETOURNE.
  *
- * CE CONTROLE EXISTE PARCE QUE LE DEFAUT ETAIT REVENU PAR UNE AUTRE PORTE. Le classement
- * respectait deja cet ordre ; mais la liste de resultats extrayait ensuite les partenaires VIP
- * situes a moins de 60 km et les affichait EN TETE, avant tout le reste — y compris avant la
- * ville. Deux mecanismes, dont le second defaisait le premier.
+ * IL AFFIRMAIT L'INVERSE, et l'histoire compte parce qu'elle a trois etages :
  *
- * C'est le genre de defaut qu'un test de classement ne peut pas voir : `classerPoint18` rendait
- * le bon ordre, et la faute se produisait apres lui.
+ *   29/10 — point 18 : la ville exacte en tete, les favoris ensuite.
+ *   02/11 — le client rappelle « les grandes villes sont avantagees par rapport aux lieux
+ *           ajoutes par des clients ». Un bloc remontait alors les partenaires a moins de 60 km
+ *           AU-DESSUS de tout, y compris de la ville : il a ete retire.
+ *   09/11 — point 12 : « les etablissements abonnes WIN VIP sont affiches EN TETE des
+ *           resultats », avec son code, `results = vips + standardResults`. C'est exactement ce
+ *           qui avait ete retire le 2 novembre.
+ *
+ * LA CONSEQUENCE A ETE SIGNALEE A arsanne AVANT D'ETRE APPLIQUEE : taper « Tipaza » ramene de
+ * nouveau « Tipaza Pneus », garage VIP d'Alger, avant la ville de Tipaza. Il a tranche le
+ * 9 novembre — on suit le document. C'est le modele commercial de WIN : les partenaires paient
+ * pour cette place.
+ *
+ * CE QUI RESTE VERROUILLE, et qui est la vraie valeur de ce test aujourd'hui : la portee du
+ * renversement. Seuls les VIP du RAYON ACTIF montent, et au-dela de trente kilometres il n'y en
+ * a plus aucun — sans quoi un partenaire de Constantine remonterait sur une recherche faite a
+ * Oran.
  */
-console.log('\nVILLE, PUIS VIP, PUIS LE RESTE');
+console.log('\nLE VIP EN TETE, PUIS LA VILLE, PUIS LE RESTE');
 
 const troisFamilles: Fiche[] = [
   /* Un partenaire VIP tout proche, dont le nom contient celui de la ville : le cas qui fait
-   * tomber a peu pres tous les classements naifs. */
+   * tomber a peu pres tous les classements naifs — et que le point 12 tranche en sa faveur. */
   { name: 'Tipaza Pneus', lat: 36.75, lon: 3.058, source: 'win', vip: true },
   /* Un lieu simple ajoute par un utilisateur, plus proche encore. */
   { name: 'Tipaza Auto', lat: 36.752, lon: 3.059, source: 'win' },
@@ -339,15 +378,142 @@ const troisFamilles: Fiche[] = [
   { name: 'Tipaza', lat: 36.59, lon: 2.45, osmKey: 'place', osmValue: 'city', type: 'city', source: 'photon' },
 ];
 const r8 = classer(troisFamilles, 'Tipaza', ALGER);
+console.log('  ' + r8.map((r) => r.name).join('  →  '));
 verifier(
-  'la ville passe devant le partenaire VIP, pourtant 60 km plus pres',
-  r8[0]?.name === 'Tipaza',
-  r8.map((r) => r.name).join(' · '),
+  'le partenaire VIP passe devant la ville (point 12 du 9 novembre)',
+  r8[0]?.name === 'Tipaza Pneus',
+  'il est dans le rayon de 5 km ; la ville est a 60 km',
 );
 verifier(
-  'le partenaire VIP passe devant le lieu simple, pourtant plus proche',
-  r8.findIndex((r) => r.name === 'Tipaza Pneus') < r8.findIndex((r) => r.name === 'Tipaza Auto'),
-  "c'est la seule chose que le statut VIP achete : le rang, pas la premiere place",
+  'la ville reste devant le lieu simple du meme nom',
+  r8.findIndex((r) => r.name === 'Tipaza') < r8.findIndex((r) => r.name === 'Tipaza Auto'),
+  "le renversement ne concerne que les VIP : l'ordre geographique du point 11 est intact derriere",
+);
+
+/* ------------------------------------------------------------------ */
+/* LE RAYON DYNAMIQUE : 5 km, puis 15, puis 30 (point 12)              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * CE QUE LE RAYON PROTEGE. Le renversement ci-dessus donne aux partenaires la premiere place ;
+ * le rayon est ce qui empeche cette place de devenir absurde. Sans lui, un garage VIP de
+ * Tamanrasset remonterait en tete d'une recherche faite a Alger, et la liste cesserait d'etre
+ * utile — donc la mise en avant cesserait de valoir quelque chose.
+ *
+ * LES TROIS PALIERS SE TESTENT PAR LEUR FRONTIERE, parce que c'est la que les erreurs vivent :
+ * un `<` au lieu d'un `<=`, ou un palier essaye dans le mauvais ordre.
+ */
+console.log('\nLE RAYON VIP S ELARGIT SEUL, ET SILENCIEUSEMENT');
+
+verifier(
+  'un VIP a 3 km : le rayon reste a 5 km',
+  rayonVipActif([3_000]) === 5_000,
+);
+verifier(
+  'un VIP a 5 km pile : encore dans le premier palier',
+  rayonVipActif([5_000]) === 5_000,
+  'la borne est inclusive — sinon le partenaire pile a la limite disparaitrait',
+);
+verifier(
+  'le plus proche a 9 km : on elargit a 15 km',
+  rayonVipActif([9_000, 40_000]) === 15_000,
+  'elargissement automatique, sans message a l utilisateur',
+);
+verifier(
+  'le plus proche a 22 km : on elargit a 30 km',
+  rayonVipActif([22_000]) === 30_000,
+);
+verifier(
+  'le plus proche a 31 km : AUCUN palier VIP',
+  rayonVipActif([31_000, 80_000]) === null,
+  'au-dela, la mise en avant payante passerait avant l utilite',
+);
+verifier(
+  'aucun VIP du tout : aucun palier',
+  rayonVipActif([]) === null,
+);
+verifier(
+  'position inconnue : on garde le VIP plutot que de le perdre',
+  rayonVipActif([undefined]) === 5_000,
+  'sans GPS, exclure les VIP desactiverait la mise en avant au pire moment',
+);
+verifier(
+  'un VIP proche l emporte sur le choix du palier, pas le plus lointain',
+  rayonVipActif([28_000, 2_000]) === 5_000,
+  'les paliers sont essayes du plus etroit au plus large, quel que soit l ordre de la liste',
+);
+
+console.log('\nLE RAYON DE PROXIMITE DES LIEUX : 5 km, PUIS 15, 30, 50');
+
+/**
+ * POINT 11 : << rayon de PROXIMITE : 5 km en ville pour les lieux/etablissements >>.
+ *
+ * Le code du document ecrit un filtre sec a cinq kilometres. Applique tel quel, il vide la liste
+ * partout ou il n'y a rien a cinq kilometres — un village, une route du Sud, la moitie du
+ * territoire. On reprend donc le mecanisme que le client decrit LUI-MEME au point 12 pour les
+ * VIP : elargissement automatique et silencieux. Les controles ci-dessous verrouillent les deux
+ * moities de la regle — le resserrage en ville, et le repli ailleurs.
+ */
+verifier(
+  'des pharmacies a 1 et 3 km : le rayon reste a 5 km',
+  rayonProximiteActif([1_000, 3_000, 42_000]) === 5_000,
+  'celle a 42 km disparait de la liste : c est le resserrage demande',
+);
+verifier(
+  'la plus proche a 12 km : on elargit a 15 km',
+  rayonProximiteActif([12_000, 44_000]) === 15_000,
+);
+verifier(
+  'la plus proche a 28 km : on elargit a 30 km',
+  rayonProximiteActif([28_000]) === 30_000,
+);
+verifier(
+  'la plus proche a 45 km : on va jusqu a 50 km',
+  rayonProximiteActif([45_000]) === 50_000,
+  'chercher une pharmacie depuis Djanet ne doit pas rendre une liste vide',
+);
+verifier('aucun resultat : aucun palier', rayonProximiteActif([]) === null);
+verifier(
+  'le palier des lieux va plus loin que celui des VIP',
+  rayonProximiteActif([45_000]) === 50_000 && rayonVipActif([45_000]) === null,
+  'un commerce lointain peut etre utile ; un partenaire lointain n a pas a etre mis en avant',
+);
+
+console.log('\nUN VIP HORS DU RAYON NE MONTE PAS, MAIS N EST PAS EFFACE');
+
+/* Oran est a environ 350 km d'Alger : le partenaire y est bien au-dela des trente kilometres. */
+const vipLointain: Fiche[] = [
+  { name: 'Oran Pneus', lat: 35.7, lon: -0.63, source: 'win', vip: true },
+  { name: 'Oran', lat: 35.6971, lon: -0.6308, osmKey: 'place', osmValue: 'city', type: 'city', source: 'photon' },
+];
+const rVipLointain = classer(vipLointain, 'Oran', ALGER);
+console.log('  ' + rVipLointain.map((r) => r.name).join('  →  '));
+verifier(
+  'la ville passe devant le partenaire a 350 km',
+  rVipLointain[0]?.name === 'Oran',
+  'aucun palier VIP au-dela de 30 km : le classement geographique reprend la main',
+);
+verifier(
+  'le partenaire lointain figure quand meme dans la liste',
+  rVipLointain.some((r) => r.name === 'Oran Pneus'),
+  'il n est pas mis en avant, il n est pas efface',
+);
+
+console.log('\nENTRE DEUX PARTENAIRES, LE PLUS PROCHE D ABORD');
+
+/* Le document l'exige : << dans chaque niveau, les VIP sont tries par distance croissante >>.
+ * C'est la seule exception a la regle qui veut que chaque palier garde l'ordre du classement
+ * precedent — et elle se defend : entre deux partenaires, le plus proche est le plus utile. */
+const deuxVip: Fiche[] = [
+  { name: 'Pharmacie VIP loin', lat: 36.79, lon: 3.10, source: 'win', vip: true },
+  { name: 'Pharmacie VIP pres', lat: 36.752, lon: 3.0595, source: 'win', vip: true },
+];
+const rDeuxVip = classer(deuxVip, 'pharmacie', ALGER);
+console.log('  ' + rDeuxVip.map((r) => r.name).join('  →  '));
+verifier(
+  'le partenaire le plus proche est premier',
+  rDeuxVip[0]?.name === 'Pharmacie VIP pres',
+  'tri explicite par distance a l interieur du palier VIP',
 );
 
 /* LE CONTROLE SUR LE TEXTE, parce qu'un test de classement ne voit pas ce qui se passe APRES
@@ -484,15 +650,17 @@ const TOUT: Fiche[] = [
 ];
 const ordreTout = classer(TOUT, 'bologhine', ALGER_CENTRE).map((r) => r.name);
 console.log('  ' + ordreTout.join('  →  '));
+/* L'ATTENDU A CHANGE LE 9 NOVEMBRE. Le partenaire VIP est en tete ; les deux paliers acquis en
+ * novembre — le lieu public du 3, le quartier du 8 — gardent leur ordre RELATIF derriere lui.
+ * C'est cela qu'il faut verrouiller : le point 12 met les VIP devant, il ne rebat pas le reste. */
 verifier(
-  'le lieu public reste devant le quartier',
-  ordreTout[0] === 'Hopital Bologhine',
-  'deuxieme palier, acquis le 3 novembre',
+  'le partenaire VIP est en tete (point 12 du 9 novembre)',
+  ordreTout[0] === 'Bologhine Auto',
 );
 verifier(
-  'le quartier passe devant le partenaire VIP',
-  ordreTout.indexOf('Bologhine') < ordreTout.indexOf('Bologhine Auto'),
-  'rang 2 du document, avant les lieux ajoutes par des clients',
+  'le lieu public reste devant le quartier',
+  ordreTout.indexOf('Hopital Bologhine') < ordreTout.indexOf('Bologhine'),
+  'deuxieme palier, acquis le 3 novembre, intact derriere les VIP',
 );
 
 /**
@@ -538,7 +706,7 @@ verifier(
 
 console.log(
   fautes === 0
-    ? '\nLa ville passe toujours en premier.\n'
+    ? '\nLe partenaire VIP du rayon actif passe en tete, la ville juste derriere.\n'
     : `\nA CORRIGER : ${fautes} verification(s) en echec.\n`,
 );
 process.exit(fautes === 0 ? 0 : 1);

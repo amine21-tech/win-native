@@ -197,7 +197,8 @@
     "photoByUser": "صورة أضافها مستخدم WIN",
     "startRoute": "ابدأ المسار",
     "manageSection": "إدارة هذا المكان",
-    "viber": "فايبر"
+    "viber": "فايبر",
+    "vipBadge": "WIN VIP"
   },
   "categories": {
     "groups": {
@@ -586,7 +587,8 @@
     "disableNo": "لا، احتفظ بها",
     "alertsOn": "التنبيهات مفعّلة",
     "alertsOff": "التنبيهات موقفة",
-    "reenable": "إعادة تفعيل التنبيهات"
+    "reenable": "إعادة تفعيل التنبيهات",
+    "inDistance": "بعد {{distance}}"
   },
   "assistant": {
     "title": "المساعد الصوتي",
