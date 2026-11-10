@@ -735,7 +735,20 @@
     "locationActive": "الموقع مفعّل",
     "navigateTo": "الاتجاه إلى {{lieu}} — WIN DZ",
     "navigate": "الاتجاه — WIN DZ",
-    "exactDistance": "المسافة الدقيقة: {{distance}}"
+    "exactDistance": "المسافة الدقيقة: {{distance}}",
+    "addressSection": "عنوان مكان العمل",
+    "houseNumber": "رقم",
+    "houseNumberHint": "12",
+    "street": "الشارع",
+    "city": "المدينة",
+    "postcode": "الرمز البريدي",
+    "addressHint": "هذا العنوان هو الذي يحدد المسافة التي يراها الباحثون، وليس مكان النشر.",
+    "needCity": "أدخل على الأقل مدينة مكان العمل.",
+    "photosSection": "صور (اختياري)",
+    "photoAdd": "إضافة",
+    "photoRemove": "حذف الصورة",
+    "photosHint": "حتى {{max}} صور: المحل، الفريق، الورشة.",
+    "photoPermission": "اسمح بالوصول إلى الصور لإضافة واحدة."
   },
   "share": {
     "title": "موقع WIN DZ",

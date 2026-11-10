@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -13,8 +15,11 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ApiError, api } from '../api/client';
+import { ApiError, api, uploadPhoto } from '../api/client';
 import { radius, spacing } from '../theme';
+import { requeteGeocodage } from '../jobs/adresse';
+import { fetchPhoton } from '../search/geocode';
+import type { Language } from '../shared';
 import { SECTEURS_EMPLOI } from './JobsSheet';
 import {
   DUREES,
@@ -72,8 +77,13 @@ type Props = {
 
 /* Pas de `onPublished` : une annonce qui vient d'etre envoyee est EN ATTENTE de paiement et
  * n'apparait donc dans aucune liste. Prevenir le parent ne lui donnerait rien a rafraichir. */
+/** Nombre maximal de photos : << une photo, deux photos en option >> (10 novembre). */
+const PHOTOS_MAX = 2;
+
 export function PublishJobSheet({ visible, onClose, position }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  /* Le geocodeur rend ses libelles dans la langue de l'interface. */
+  const lang = (i18n.language as Language) ?? 'fr';
   /* La barre systeme Android ne doit JAMAIS etre couverte : le client l'ecrit deux fois. */
   const insets = useSafeAreaInsets();
 
@@ -92,21 +102,91 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
   const [whatsapp, setWhatsapp] = useState('');
   const [viber, setViber] = useState('');
   const [email, setEmail] = useState('');
+  /* L'ADRESSE DU LIEU DE TRAVAIL (demande du 10 novembre). La VILLE est le seul champ exige :
+   * c'est elle qui permet de geocoder, les trois autres la precisent. */
+  const [numero, setNumero] = useState('');
+  const [rue, setRue] = useState('');
+  const [ville, setVille] = useState('');
+  const [codePostal, setCodePostal] = useState('');
+  /* Jusqu'a DEUX photos, facultatives. Les URI locales restent locales jusqu'a l'envoi : on ne
+   * televerse rien tant que l'employeur n'a pas valide, sinon un formulaire abandonne laisserait
+   * des images orphelines sur le serveur. */
+  const [photos, setPhotos] = useState<string[]>([]);
   const [paiement, setPaiement] = useState<(typeof PAIEMENTS)[number]>('baridimob');
 
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoye, setEnvoye] = useState(false);
 
+  /**
+   * Choisit une photo dans la galerie ou la prend a l'instant.
+   *
+   * LA GALERIE D'ABORD, et c'est reflechi : une annonce d'emploi se redige rarement sur le
+   * chantier. L'employeur a en general deja la photo de son local ou de son equipe dans son
+   * telephone. L'appareil photo reste a portee pour qui est sur place.
+   */
+  const choisirPhoto = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return setErreur(t('jobs.photoPermission'));
+    const r = await ImagePicker.launchImageLibraryAsync({ quality: 0.7, exif: false });
+    const uri = r.canceled ? null : r.assets[0]?.uri;
+    if (uri) setPhotos((p) => [...p, uri].slice(0, PHOTOS_MAX));
+  };
+
   const publier = async () => {
     if (!secteur) return setErreur(t('jobs.needSector'));
     if (titre.trim().length < 3) return setErreur(t('jobs.needTitle'));
     if (telephone.trim().length < 6) return setErreur(t('jobs.needPhone'));
+    if (ville.trim().length < 2) return setErreur(t('jobs.needCity'));
     if (!position) return setErreur(t('jobs.needPosition'));
 
     setErreur(null);
     setEnvoi(true);
     try {
+      /**
+       * LA POSITION VIENT DE L'ADRESSE, PLUS DU TELEPHONE — et c'est tout l'objet de la demande
+       * du 10 novembre : << une adresse, numero, ville, code postal POUR VOIR LA DISTANCE DE
+       * NAVIGATION >>.
+       *
+       * LE DEFAUT QUE CELA CORRIGE. L'annonce etait geolocalisee la ou se trouvait l'employeur
+       * au moment ou il la redigeait. Un patron qui ecrit son annonce le soir chez lui plaçait
+       * donc son offre a son domicile ; le chercheur lisait << a 2 km >> et roulait vers un
+       * appartement. La distance etait exacte, mais elle ne menait pas au travail.
+       *
+       * LE REPLI SUR LE GPS EST VOLONTAIRE. Si le geocodeur ne trouve rien — nom de rue absent
+       * d'OpenStreetMap, village mal orthographie, reseau coupe — on garde la position du
+       * telephone plutot que de refuser l'annonce. Une annonce payee ne doit jamais etre perdue
+       * parce qu'un service tiers n'a pas repondu, et une position approchee vaut mieux que pas
+       * d'annonce du tout. L'adresse ecrite, elle, s'affiche dans les deux cas.
+       */
+      let lieu = { lat: position.lat, lon: position.lon };
+      const adresse = requeteGeocodage({
+        houseNumber: numero,
+        street: rue,
+        postcode: codePostal,
+        city: ville,
+      });
+      try {
+        const trouves = await fetchPhoton(adresse, { here: position, lang, limit: 1 });
+        if (trouves[0]) lieu = { lat: trouves[0].lat, lon: trouves[0].lon };
+      } catch {
+        // Geocodeur muet : on garde la position du telephone. Voir la note ci-dessus.
+      }
+
+      /* LES PHOTOS PARTENT AVANT L'ANNONCE, parce que l'annonce a besoin de leurs identifiants.
+       * Un envoi rate ne l'empeche pas : l'annonce vaut sans photo, la photo ne vaut rien sans
+       * l'annonce. Sequentiel et non en parallele — deux envois simultanes sur une connexion
+       * mobile algerienne se genent plus qu'ils ne s'aident. */
+      const photoIds: string[] = [];
+      for (const uri of photos) {
+        try {
+          const envoyee = await uploadPhoto(uri);
+          photoIds.push(envoyee.id);
+        } catch {
+          // On continue : voir ci-dessus.
+        }
+      }
+
       await api('/jobs', {
         method: 'POST',
         body: {
@@ -122,8 +202,13 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
           whatsapp: whatsapp.trim() || undefined,
           viber: viber.trim() || undefined,
           email: email.trim() || undefined,
-          lat: position.lat,
-          lon: position.lon,
+          lat: lieu.lat,
+          lon: lieu.lon,
+          houseNumber: numero.trim() || undefined,
+          street: rue.trim() || undefined,
+          city: ville.trim(),
+          postcode: codePostal.trim() || undefined,
+          photoIds: photoIds.length > 0 ? photoIds : undefined,
           paymentMethod: paiement,
         },
       });
@@ -371,6 +456,72 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
               <Champ label={t('jobs.salary')} valeur={salaire} onChange={setSalaire} indice={t('jobs.salaryHint')} />
               <Champ label={t('jobs.description')} valeur={description} onChange={setDescription} lignes={4} />
 
+              {/* L'ADRESSE DU LIEU DE TRAVAIL. Elle est placee APRES les details du poste et
+                  AVANT les contacts : c'est l'ordre dans lequel on redige une annonce — ce
+                  qu'on propose, ou, puis comment joindre. */}
+              <Text style={styles.intituleSection}>{t('jobs.addressSection')}</Text>
+              <View style={styles.ligneAdresse}>
+                <View style={styles.champNumero}>
+                  <Champ
+                    label={t('jobs.houseNumber')}
+                    valeur={numero}
+                    onChange={setNumero}
+                    indice={t('jobs.houseNumberHint')}
+                  />
+                </View>
+                <View style={styles.champRue}>
+                  <Champ label={t('jobs.street')} valeur={rue} onChange={setRue} />
+                </View>
+              </View>
+              <View style={styles.ligneAdresse}>
+                <View style={styles.champNumero}>
+                  <Champ
+                    label={t('jobs.postcode')}
+                    valeur={codePostal}
+                    onChange={setCodePostal}
+                    clavier="phone-pad"
+                  />
+                </View>
+                <View style={styles.champRue}>
+                  <Champ label={t('jobs.city')} valeur={ville} onChange={setVille} />
+                </View>
+              </View>
+              <Text style={styles.noteAdresse}>{t('jobs.addressHint')}</Text>
+
+              {/* LES PHOTOS, jusqu'a deux et facultatives. Le module est PAYANT : refuser une
+                  annonce parce que l'employeur n'a pas de photo sous la main, ce serait refuser
+                  son argent et son offre. */}
+              <Text style={styles.intituleSection}>{t('jobs.photosSection')}</Text>
+              <View style={styles.ligneAdresse}>
+                {photos.map((uri) => (
+                  <Pressable
+                    key={uri}
+                    onPress={() => setPhotos((p) => p.filter((u) => u !== uri))}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('jobs.photoRemove')}
+                    style={styles.vignette}
+                  >
+                    <Image source={{ uri }} style={styles.vignetteImage} />
+                    <View style={styles.vignetteCroix}>
+                      <Text style={styles.vignetteCroixTexte}>✕</Text>
+                    </View>
+                  </Pressable>
+                ))}
+                {photos.length < PHOTOS_MAX ? (
+                  <Pressable
+                    onPress={() => void choisirPhoto()}
+                    accessibilityRole="button"
+                    style={styles.ajoutPhoto}
+                  >
+                    <Text style={styles.ajoutPhotoPlus}>＋</Text>
+                    <Text style={styles.ajoutPhotoTexte}>{t('jobs.photoAdd')}</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              <Text style={styles.noteAdresse}>
+                {t('jobs.photosHint', { max: PHOTOS_MAX })}
+              </Text>
+
               <Text style={styles.intituleSection}>{t('jobs.contactSection')}</Text>
               <Champ
                 label={t('jobs.phone')}
@@ -602,6 +753,39 @@ const styles = StyleSheet.create({
 
   rangee: { flexDirection: 'row', gap: spacing.sm },
   colonne: { gap: spacing.sm, marginTop: spacing.sm },
+  ligneAdresse: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-end' },
+  /* Le numero et le code postal sont courts ; la rue et la ville ont besoin de place. Un tiers
+   * contre deux tiers evite que << Boulevard Colonel Amirouche >> se coupe en trois lignes. */
+  champNumero: { flex: 1 },
+  champRue: { flex: 2 },
+  noteAdresse: { color: TEXTE_DOUX, fontSize: 11.5, marginTop: 4, lineHeight: 15 },
+  vignette: { width: 76, height: 76, borderRadius: radius.md, overflow: 'hidden' },
+  vignetteImage: { width: '100%', height: '100%' },
+  vignetteCroix: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(21,32,28,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vignetteCroixTexte: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' as const },
+  ajoutPhoto: {
+    width: 76,
+    height: 76,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: OR,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  ajoutPhotoPlus: { color: OR, fontSize: 20, fontWeight: '800' as const },
+  ajoutPhotoTexte: { color: TEXTE_DOUX, fontSize: 10.5, fontWeight: '700' as const },
   option: { flex: 1, borderWidth: 1.5, borderColor: PUCE, backgroundColor: PUCE, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },
   optionActive: { borderColor: VERT, backgroundColor: '#EAF3EE' },
   optionTexte: { color: TEXTE_DOUX, fontSize: 13, fontWeight: '800' as const },

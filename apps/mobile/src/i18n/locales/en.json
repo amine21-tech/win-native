@@ -735,7 +735,20 @@
     "locationActive": "Location active",
     "navigateTo": "Navigate to {{lieu}} — WIN DZ",
     "navigate": "Navigate — WIN DZ",
-    "exactDistance": "Exact distance: {{distance}}"
+    "exactDistance": "Exact distance: {{distance}}",
+    "addressSection": "Workplace address",
+    "houseNumber": "No.",
+    "houseNumberHint": "12",
+    "street": "Street",
+    "city": "City",
+    "postcode": "Postcode",
+    "addressHint": "This address sets the distance job seekers see — not where you publish from.",
+    "needCity": "Enter at least the city of the workplace.",
+    "photosSection": "Photos (optional)",
+    "photoAdd": "Add",
+    "photoRemove": "Remove photo",
+    "photosHint": "Up to {{max}} photos: the premises, the team, the site.",
+    "photoPermission": "Allow access to photos to add one."
   },
   "share": {
     "title": "WIN DZ position",

@@ -2,7 +2,16 @@ import { sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { db } from '../db/client.js';
-import { DUREES, DUREES_EMPLOI, FORMULES, FORMULES_EMPLOI, type DureeEmploi, type FormuleEmploi } from '@win/shared';
+import { env } from '../env.js';
+import {
+  DUREES,
+  DUREES_EMPLOI,
+  FORMULES,
+  FORMULES_EMPLOI,
+  uuid,
+  type DureeEmploi,
+  type FormuleEmploi,
+} from '@win/shared';
 import { HttpError, notFound, parse } from '../lib/http.js';
 
 /**
@@ -67,6 +76,26 @@ const creationInput = z.object({
   lat: z.number().min(-90).max(90),
   lon: z.number().min(-180).max(180),
   wilaya: z.string().trim().max(60).optional(),
+  /* L'ADRESSE DU LIEU DE TRAVAIL (demande du 10 novembre). Les quatre champs sont facultatifs
+   * ICI, et c'est volontaire : des annonces existent deja sans adresse, et les exiger ferait
+   * echouer leur relecture. C'est le formulaire qui reclame la ville a la saisie.
+   *
+   * `lat`/`lon` restent obligatoires : l'application geocode l'adresse AVANT d'appeler cette
+   * route, et retombe sur la position du telephone si le geocodeur ne trouve rien. Le serveur
+   * recoit donc toujours une position utilisable, et n'a pas a dependre d'un service externe
+   * pour enregistrer une annonce payee. */
+  houseNumber: z.string().trim().max(20).optional(),
+  street: z.string().trim().max(160).optional(),
+  city: z.string().trim().max(80).optional(),
+  postcode: z.string().trim().max(10).optional(),
+  /* JUSQU'A DEUX PHOTOS, facultatives — << plus une photo, deux photos en option >>.
+   *
+   * FACULTATIVES, parce que le module est PAYANT : refuser une annonce parce que l'employeur
+   * n'a pas de photo sous la main, c'est refuser son argent et son offre. Beaucoup d'annonces
+   * algeriennes sont redigees depuis un bureau, loin du chantier.
+   *
+   * Les identifiants viennent de POST /photos, qui a deja recu et traite les images. */
+  photoIds: z.array(uuid).max(2).optional(),
   /* FORMULE ET DUREE : ce que l'employeur achete (doc 196, 5.1). Le RAYON n'est pas ici —
    * c'est une consequence de la formule, calculee par la base (colonne generee, migration
    * 0009), jamais une donnee qu'on transmet et qui pourrait diverger. */
@@ -105,6 +134,23 @@ const routes: FastifyPluginAsync = async (app) => {
     const rows = await db.execute(sql`
       SELECT id, sector, title, company, contract, salary, description,
              phone, whatsapp, viber, email, wilaya,
+             house_number AS "houseNumber", street, city, postcode,
+             /* LES PHOTOS EN UN SEUL ALLER, dans l'ordre choisi par l'employeur.
+              *
+              * Une sous-requete plutot qu'une jointure : une jointure multiplierait chaque
+              * annonce par son nombre de photos, et il faudrait ensuite les recoller en
+              * JavaScript : pour un gain nul, puisqu'il y en a deux au plus.
+              *
+              * COALESCE rend un tableau VIDE et non NULL quand il n'y en a aucune :
+              * l'application peut alors boucler dessus sans se demander s'il existe. */
+             COALESCE((
+               SELECT json_agg(json_build_object(
+                        'url', ${env.PUBLIC_BASE_URL + '/uploads/'} || ph.storage_key,
+                        'thumbUrl', ${env.PUBLIC_BASE_URL + '/uploads/'} || ph.thumb_key
+                      ) ORDER BY ph.position)
+               FROM place_photos ph
+               WHERE ph.job_offer_id = job_offers.id
+             ), '[]'::json) AS photos,
              ST_Y(geom::geometry) AS lat,
              ST_X(geom::geometry) AS lon,
              ROUND(ST_Distance(geom, ${moi}))::int AS "distanceM",
@@ -148,6 +194,7 @@ const routes: FastifyPluginAsync = async (app) => {
       INSERT INTO job_offers (
         sector, title, company, contract, salary, description,
         phone, whatsapp, viber, email, wilaya, geom,
+        house_number, street, city, postcode,
         formule, duree, payment_method, payment_ref, created_by
       ) VALUES (
         ${input.sector}, ${input.title}, ${input.company ?? null}, ${input.contract},
@@ -155,11 +202,45 @@ const routes: FastifyPluginAsync = async (app) => {
         ${input.phone}, ${input.whatsapp ?? null}, ${input.viber ?? null}, ${input.email ?? null},
         ${input.wilaya ?? null},
         ST_SetSRID(ST_MakePoint(${input.lon}, ${input.lat}), 4326)::geography,
+        ${input.houseNumber ?? null}, ${input.street ?? null},
+        ${input.city ?? null}, ${input.postcode ?? null},
         ${input.formule}, ${input.duree},
         ${input.paymentMethod ?? null}, ${input.paymentRef ?? null}, ${req.deviceId!}
       )
       RETURNING id
     `)) as unknown as { id: string }[];
+
+    /**
+     * LES PHOTOS SONT RATTACHEES APRES, et leur echec n'annule pas l'annonce.
+     *
+     * L'employeur vient de remplir douze champs et de s'engager a payer. Perdre tout cela parce
+     * qu'une photo n'a pas pu etre reliee serait hors de proportion : l'annonce vaut sans
+     * photo, la photo ne vaut rien sans l'annonce. Meme raisonnement que pour les fiches de
+     * lieux (routes/places.ts).
+     *
+     * `position` suit l'ORDRE D'ENVOI, pour que la premiere photo choisie reste la premiere
+     * affichee — c'est celle que l'employeur a jugee la plus parlante.
+     *
+     * ON NE RATTACHE QUE DES PHOTOS ORPHELINES ET LES SIENNES : sans ces deux conditions, un
+     * identifiant devine permettrait de s'approprier la photo d'un autre, ou de la deplacer
+     * d'une fiche de lieu vers une annonce.
+     */
+    if (input.photoIds?.length) {
+      const offre = rows[0]!.id;
+      await db.execute(sql`
+        UPDATE place_photos AS p
+        SET job_offer_id = ${offre},
+            position = v.rang
+        FROM (VALUES ${sql.join(
+          input.photoIds.map((id, i) => sql`(${id}::uuid, ${i}::int)`),
+          sql`, `,
+        )}) AS v(id, rang)
+        WHERE p.id = v.id
+          AND p.place_id IS NULL
+          AND p.job_offer_id IS NULL
+          AND p.uploaded_by = ${req.deviceId!}
+      `);
+    }
 
     /* LE PRIX ANNONCE EST CELUI DE LA FORMULE CHOISIE, pas un tarif unique. L'employeur vient
      * de remplir douze champs : lui dire << 1 500 DA >> quand il a choisi Premium a 5 000 est

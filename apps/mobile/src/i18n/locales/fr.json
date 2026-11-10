@@ -735,7 +735,20 @@
     "locationActive": "Localisation active",
     "navigateTo": "Naviguer vers {{lieu}} — WIN DZ",
     "navigate": "Naviguer — WIN DZ",
-    "exactDistance": "Distance exacte : {{distance}}"
+    "exactDistance": "Distance exacte : {{distance}}",
+    "addressSection": "Adresse du lieu de travail",
+    "houseNumber": "N°",
+    "houseNumberHint": "12",
+    "street": "Rue",
+    "city": "Ville",
+    "postcode": "Code postal",
+    "addressHint": "C'est cette adresse qui fixe la distance affichée aux chercheurs — pas l'endroit d'où vous publiez.",
+    "needCity": "Indiquez au moins la ville du lieu de travail.",
+    "photosSection": "Photos (facultatif)",
+    "photoAdd": "Ajouter",
+    "photoRemove": "Retirer la photo",
+    "photosHint": "Jusqu’à {{max}} photos : le local, l’équipe, le chantier.",
+    "photoPermission": "Autorisez l'accès aux photos pour en ajouter une."
   },
   "share": {
     "title": "Position WIN DZ",

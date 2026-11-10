@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIndicator,
+  Image,
   Linking,
   Modal,
   Pressable,
@@ -14,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api/client';
 import { dateDepuisServeur, formatDistance, type DureeEmploi, type FormuleEmploi } from '../shared';
+import { adresseLisible } from '../jobs/adresse';
 import { radius, spacing } from '../theme';
 
 /**
@@ -98,6 +100,23 @@ export type JobOffer = {
   viber: string | null;
   email: string | null;
   wilaya: string | null;
+  /* L'ADRESSE DU LIEU DE TRAVAIL (10 novembre). C'est elle qui a ete geocodee pour fixer la
+   * position de l'annonce : la distance affichee mene donc au travail, et non au domicile de
+   * l'employeur comme c'etait le cas jusqu'ici. */
+  houseNumber?: string | null;
+  street?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+  /**
+   * Jusqu'a deux photos, dans l'ordre choisi par l'employeur.
+   *
+   * FACULTATIF DANS LE TYPE, ET CE N'EST PAS UN OUBLI. Le serveur a jour rend toujours un
+   * tableau, vide au besoin. Mais l'application s'installe souvent AVANT que le serveur soit
+   * deploye — c'est l'ordre habituel ici, l'APK arrive par le telephone et le serveur se met a
+   * jour ensuite. Une ancienne API ne connait pas ce champ, et `offre.photos.length` ferait
+   * alors planter la liste entiere des annonces.
+   */
+  photos?: { url: string; thumbUrl: string }[] | null;
   lat: number;
   lon: number;
   distanceM: number;
@@ -367,6 +386,29 @@ function CarteOffre({ offre, onNavigate }: { offre: JobOffer; onNavigate: (o: Jo
         {offre.salary ? <Text style={styles.salaire}>{offre.salary}</Text> : null}
       </View>
 
+      {/* LES PHOTOS, EN PREMIER DANS LA CARTE. Une annonce d'emploi se lit en diagonale ; une
+          image du local ou de l'equipe dit en un regard ce que trois lignes de description ne
+          disent pas. Les vignettes suffisent : la carte ne fait pas toute la largeur de
+          l'ecran, et telecharger deux images pleine taille par annonce couterait cher sur une
+          connexion algerienne. */}
+      {offre.photos && offre.photos.length > 0 ? (
+        <View style={styles.photos}>
+          {offre.photos.map((ph) => (
+            <Image key={ph.url} source={{ uri: ph.thumbUrl }} style={styles.photo} />
+          ))}
+        </View>
+      ) : null}
+
+      {/* L'ADRESSE, sous le titre. Elle repond a la question que pose la distance : << a 3 km,
+          mais ou ? >>. Les quatre morceaux sont facultatifs — les annonces d'avant le
+          10 novembre n'en ont aucun — et la ligne disparait entierement si tout manque, plutot
+          que de laisser des virgules orphelines. */}
+      {adresseLisible(offre) ? (
+        <Text style={styles.adresse} numberOfLines={2}>
+          📍 {adresseLisible(offre)}
+        </Text>
+      ) : null}
+
       {offre.description ? (
         <Text style={styles.carteDescription} numberOfLines={2}>
           {offre.description}
@@ -565,6 +607,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   carteTete: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  photos: { flexDirection: 'row', gap: spacing.sm },
+  /* Deux photos cote a cote : `flex: 1` les partage a egalite, et une seule prend toute la
+   * largeur — ce qui est juste, elle est alors la seule chose a montrer. */
+  photo: { flex: 1, height: 96, borderRadius: radius.md, backgroundColor: PUCE },
+  adresse: { color: TEXTE_DOUX, fontSize: 12.5, lineHeight: 17 },
   /* LA PASTILLE A L'INITIALE : 34 points, comme la maquette. */
   pastille: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   pastilleLettre: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' as const },

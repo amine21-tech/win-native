@@ -735,7 +735,20 @@
     "locationActive": "Asmagel yermed",
     "navigateTo": "Inig ɣer {{lieu}} — WIN DZ",
     "navigate": "Inig — WIN DZ",
-    "exactDistance": "Lebɛed uṣbiḥ : {{distance}}"
+    "exactDistance": "Lebɛed uṣbiḥ : {{distance}}",
+    "addressSection": "Tansa n wadeg n umahil",
+    "houseNumber": "Uṭṭun",
+    "houseNumberHint": "12",
+    "street": "Abrid",
+    "city": "Tamdint",
+    "postcode": "Tangalt n lboṣṭa",
+    "addressHint": "D tansa-a i yettarran tasawent i walan yimnadiyen, mačči d adeg seg wanda tessufeɣeḍ.",
+    "needCity": "Sekcem ma drus tamdint n wadeg n umahil.",
+    "photosSection": "Tiwlafin (afran)",
+    "photoAdd": "Rnu",
+    "photoRemove": "Kkes tawlaft",
+    "photosHint": "Arma d {{max}} n tewlafin : axxam, tarbaɛt, acaḍi.",
+    "photoPermission": "Serreḥ i unekcum ɣer tewlafin akken a ternuḍ yiwet."
   },
   "share": {
     "title": "Adeg WIN DZ",

@@ -735,7 +735,20 @@
     "locationActive": "الموقع خدّام",
     "navigateTo": "روح ل {{lieu}} — WIN DZ",
     "navigate": "روح — WIN DZ",
-    "exactDistance": "المسافة بالضبط: {{distance}}"
+    "exactDistance": "المسافة بالضبط: {{distance}}",
+    "addressSection": "عنوان بلاصة الخدمة",
+    "houseNumber": "رقم",
+    "houseNumberHint": "12",
+    "street": "الشارع",
+    "city": "المدينة",
+    "postcode": "الرمز البريدي",
+    "addressHint": "هذا العنوان هو اللي يحسب المسافة اللي يشوفوها، ماشي البلاصة اللي نشرت منها.",
+    "needCity": "حط على الأقل مدينة بلاصة الخدمة.",
+    "photosSection": "تصاور (اختياري)",
+    "photoAdd": "زيد",
+    "photoRemove": "نحي التصويرة",
+    "photosHint": "حتى {{max}} تصاور: المحل، الفريق، الورشة.",
+    "photoPermission": "اسمح بالوصول للتصاور باش تزيد وحدة."
   },
   "share": {
     "title": "موقع WIN DZ",
