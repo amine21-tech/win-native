@@ -78,7 +78,7 @@ import { formatClock24, useAutoScheme } from '../src/utils/clock';
 import { AlerteApproche } from '../src/components/AlerteApproche';
 import { BANDEAU_INFO_M, BandeauInfoSignalement } from '../src/components/BandeauInfoSignalement';
 import { PositionSheet } from '../src/components/PositionSheet';
-import { OR_MARQUEUR, pictoSignalisation, SIGNALISATION } from '../src/map/signalisation';
+import { bordureSignalisation, pictoSignalisation, SIGNALISATION } from '../src/map/signalisation';
 import { PICTOS_SIGNALISATION } from '../src/map/pictos';
 import { majProjections, projeterSurTrace, type TableProjection } from '../src/navigation/alerteApproche';
 import { PulseSignalements, RECENT_MS } from '../src/map/PulseSignalements';
@@ -1064,6 +1064,10 @@ export default function MapScreen() {
           /* La couleur suit le THEME de la carte : variante sombre sur fond clair, claire sur
            * fond sombre. Voir la note en tete de src/map/signalisation.ts. */
           color: (SIGNALISATION[report.kind] ?? SIGNALISATION.crash)[nuit ? 'nuit' : 'jour'],
+          /* LA BORDURE DIT LA CATEGORIE (C6 du 11 novembre) : rouge si la route est barree,
+           * orange s'il faut ralentir, bleu pour une information, vert pour une gene. Le
+           * disque, lui, garde la couleur du TYPE — voir la note de signalisation.ts. */
+          bordure: bordureSignalisation(report.kind),
           picto: pictoSignalisation(report.kind),
           /* DEUX LIGNES SOUS LE MARQUEUR, comme la maquette : le nom du type, puis le badge.
            * Le client les veut « lisibles d'un coup d'oeil » en conduisant — c'est ce qui
@@ -2544,11 +2548,16 @@ ${t(`report.badge_${report.kind}`)}`,
             type="circle"
             source="reports"
             paint={{
-              /* L'OR ENTOURE TOUS LES MARQUEURS, quelle que soit leur couleur : c'est lui qui
-                 les fait reconnaitre comme venant de WIN, et c'est aussi ce qui les detache
-                 d'une route jaune ou d'un parc vert, ou un disque seul se fondrait. */
-              'circle-radius': 14,
-              'circle-color': OR_MARQUEUR,
+              /* L'ANNEAU PORTE LA CATEGORIE depuis le 11 novembre (C6) : il etait dore pour
+                 tous. L'or faisait reconnaitre un marqueur comme venant de WIN ; la couleur de
+                 categorie dit quelque chose de plus utile au volant — si la route passe ou non.
+                 Il garde son autre role, detacher le marqueur d'une route jaune ou d'un parc
+                 vert, ou un disque seul se fondrait.
+
+                 RAYON 17 : trente-quatre points de diametre, valeur du document. Il etait de
+                 vingt-huit. */
+              'circle-radius': 17,
+              'circle-color': ['get', 'bordure'],
             }}
           />
           <Layer
@@ -2557,7 +2566,9 @@ ${t(`report.badge_${report.kind}`)}`,
             type="circle"
             source="reports"
             paint={{
-              'circle-radius': 11.5,
+              /* Le disque grandit avec l'anneau, dans la meme proportion : 14 contre 17, comme
+               * 11,5 contre 14 auparavant. Sans cela l'anneau mangerait le pictogramme. */
+              'circle-radius': 14,
               'circle-color': ['get', 'color'],
             }}
           />
@@ -2568,7 +2579,9 @@ ${t(`report.badge_${report.kind}`)}`,
             source="reports"
             layout={{
               'icon-image': ['get', 'picto'],
-              'icon-size': 0.78,
+              /* Le pictogramme suit l'agrandissement du marqueur : il occupait 61 % du disque,
+               * il l'occupe toujours. */
+              'icon-size': 0.95,
               /* `allow-overlap` : deux signalements voisins doivent tous deux rester visibles.
                  Les laisser se masquer ferait disparaitre un danger parce qu'un autre est a
                  cote — exactement l'endroit ou il y en a le plus. */

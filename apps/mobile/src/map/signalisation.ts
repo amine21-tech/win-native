@@ -69,6 +69,71 @@ export const SIGNALISATION: Record<ReportKind, TeinteSignalisation> = {
  */
 export const OR_MARQUEUR = '#D4A017';
 
+/* ------------------------------------------------------------------ */
+/* La CATEGORIE d'un signalement, et sa couleur de bordure (C6/C7)     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * QUATRE CATEGORIES, QUATRE COULEURS DE BORDURE — document du 11 novembre.
+ *
+ * CE QUE LA CATEGORIE AJOUTE A LA COULEUR DU TYPE. Les quatorze teintes de SIGNALISATION
+ * disent QUOI : un trou, une inondation, un radar. Elles ne disent pas ce qu'il faut en FAIRE.
+ * Au volant, la premiere question n'est pas << qu'est-ce que c'est >> mais << est-ce que ca me
+ * barre la route >>. La categorie repond a celle-la, et elle y repond avec quatre couleurs
+ * seulement — assez peu pour se lire sans etre apprises.
+ *
+ * LES DEUX COEXISTENT PLUTOT QUE DE SE REMPLACER, et c'est une decision prise avec arsanne.
+ * Le document donne ces couleurs pour la << bordure >> ; on les met donc sur l'ANNEAU, et le
+ * disque garde la teinte de son type. Donner la couleur de categorie au disque aurait rendu
+ * l'accident, le barrage, la route barree et l'incendie strictement identiques sur la carte —
+ * quatre rouges, un seul dessin les separant.
+ *
+ * CE QUE CELA COUTE : l'anneau n'est plus dore. L'or etait ce qui faisait reconnaitre un
+ * marqueur comme venant de WIN, et il reste partout ailleurs — la fleche de position, le badge
+ * VIP, le badge Nouveau, la bordure des annonces d'emploi.
+ */
+export type CategorieSignalisation = 'blocage' | 'danger' | 'info' | 'standard';
+
+export const COULEUR_CATEGORIE: Record<CategorieSignalisation, string> = {
+  /* Rouge : la route ne passe pas, ou elle est dangereuse au point de s'arreter. */
+  blocage: '#D32F2F',
+  /* Orange : il faut ralentir, la route passe. */
+  danger: '#E65C00',
+  /* Bleu : une information, rien a faire d'autre que de le savoir. */
+  info: '#1565C0',
+  /* Vert : la circulation est genee sans etre empechee. */
+  standard: '#0D6E4F',
+};
+
+/**
+ * La categorie de chaque type, telle que la donne le tableau du 11 novembre.
+ *
+ * LES TROIS FORCES SUIVENT LE BARRAGE : le document ne les distingue plus, et l'application non
+ * plus depuis le 9 novembre. Elles restent dans le modele pour que les signalements deja en
+ * base se relisent.
+ */
+export const CATEGORIE: Record<ReportKind, CategorieSignalisation> = {
+  jam: 'standard',
+  crash: 'blocage',
+  police: 'blocage',
+  gendarmerie: 'blocage',
+  armee: 'blocage',
+  block: 'blocage',
+  fire: 'blocage',
+  works: 'danger',
+  bump: 'danger',
+  object: 'danger',
+  pothole: 'danger',
+  radar: 'info',
+  flood: 'info',
+  waste: 'standard',
+};
+
+/** Couleur de bordure d'un signalement : celle de sa categorie. */
+export function bordureSignalisation(kind: ReportKind): string {
+  return COULEUR_CATEGORIE[CATEGORIE[kind] ?? 'standard'];
+}
+
 /** Nom de l'image du pictogramme, generee par scripts/make-report-glyphs.py. */
 export function pictoSignalisation(kind: ReportKind): string {
   return `sig-${kind}`;

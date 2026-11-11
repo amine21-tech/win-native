@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { OR_MARQUEUR, SIGNALISATION } from '../map/signalisation';
+import { bordureSignalisation, SIGNALISATION } from '../map/signalisation';
 import { PICTOS_SIGNALISATION } from '../map/pictos';
 import { formatDistance, type Report } from '../shared';
 import { radius, spacing } from '../theme';
@@ -130,7 +130,14 @@ export function AlerteApproche({
                 d'or, pictogramme blanc au centre. Exactement ce que le conducteur vient de
                 voir sur la carte. L'ancien triangle avec un emoji dedans ne lui ressemblait
                 en rien — et l'emoji ne s'affichait pas partout. */}
-            <View style={[styles.pastille, { backgroundColor: couleur, borderColor: OR_MARQUEUR }]}>
+            {/* LE MEME MARQUEUR QUE SUR LA CARTE, bordure de categorie comprise (C6) : c'est
+                tout l'interet de cette pastille, le conducteur vient de le voir. */}
+            <View
+              style={[
+                styles.pastille,
+                { backgroundColor: couleur, borderColor: bordureSignalisation(report.kind) },
+              ]}
+            >
               {picto ? <Image source={picto} style={styles.picto} resizeMode="contain" /> : null}
             </View>
 

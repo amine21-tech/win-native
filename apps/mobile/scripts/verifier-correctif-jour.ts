@@ -15,6 +15,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { REPORT_KINDS } from '../src/shared';
+import { CATEGORIE, COULEUR_CATEGORIE, SIGNALISATION } from '../src/map/signalisation';
+
 let fautes = 0;
 function verifier(nom: string, ok: boolean, detail = '') {
   console.log(`  ${ok ? 'ok  ' : 'FAUX'}  ${nom}${detail ? `  — ${detail}` : ''}`);
@@ -31,6 +34,7 @@ const session = lire('apps/mobile/src/navigation/useNavigationSession.ts');
 const pastille = lire('apps/mobile/src/components/RecalcToast.tsx');
 const ecran = lire('apps/mobile/app/index.tsx');
 const voies = lire('apps/mobile/src/components/LaneGuidance.tsx');
+const menu = lire('apps/mobile/src/components/ReportMenu.tsx');
 
 /* ------------------------------------------------------------------ */
 console.log("\nC1 — LE HALO PERD 30 % D INTENSITE, ET RIEN D AUTRE");
@@ -188,6 +192,106 @@ verifier(
 );
 
 /* ------------------------------------------------------------------ */
+console.log('\nC6/C7 — LA BORDURE DIT LA CATEGORIE');
+
+/**
+ * LES QUATRE COULEURS DU DOCUMENT, au chiffre pres. Ce sont des valeurs qu'un correctif
+ * ulterieur ecrase sans y penser : rien ne casse quand un rouge devient un autre rouge, et
+ * personne ne s'en apercoit avant de comparer deux captures d'ecran.
+ */
+for (const [categorie, couleur] of [
+  ['blocage', '#D32F2F'],
+  ['danger', '#E65C00'],
+  ['info', '#1565C0'],
+  ['standard', '#0D6E4F'],
+] as [string, string][]) {
+  verifier(
+    `${categorie} → ${couleur}`,
+    COULEUR_CATEGORIE[categorie as keyof typeof COULEUR_CATEGORIE] === couleur,
+    COULEUR_CATEGORIE[categorie as keyof typeof COULEUR_CATEGORIE],
+  );
+}
+
+/**
+ * CHAQUE TYPE A SA CATEGORIE, et c'est le controle qui compte le plus ici. Un type oublie
+ * prendrait la bordure << standard >> par defaut : un ACCIDENT s'afficherait alors cerne de
+ * vert, c'est-a-dire annonce comme une simple gene. La table doit donc etre complete, et on le
+ * verifie contre la liste des types, pas contre une copie.
+ */
+const sansCategorie = REPORT_KINDS.filter((k) => CATEGORIE[k] === undefined);
+verifier(
+  `les ${REPORT_KINDS.length} types ont une categorie`,
+  sansCategorie.length === 0,
+  sansCategorie.join(', ') || 'aucun oubli',
+);
+
+/* Les classements que le document donne explicitement, et ceux qui comptent le plus au volant. */
+for (const [kind, attendu] of [
+  ['crash', 'blocage'],
+  ['block', 'blocage'],
+  ['police', 'blocage'],
+  ['fire', 'blocage'],
+  ['works', 'danger'],
+  ['bump', 'danger'],
+  ['object', 'danger'],
+  ['pothole', 'danger'],
+  ['radar', 'info'],
+  ['flood', 'info'],
+  ['jam', 'standard'],
+  ['waste', 'standard'],
+] as [string, string][]) {
+  verifier(
+    `${kind} → ${attendu}`,
+    CATEGORIE[kind as (typeof REPORT_KINDS)[number]] === attendu,
+    CATEGORIE[kind as (typeof REPORT_KINDS)[number]],
+  );
+}
+
+/**
+ * LE DISQUE GARDE SA COULEUR DE TYPE, et c'est la decision prise avec arsanne. Si le disque
+ * prenait lui aussi la couleur de categorie, l'accident, le barrage, la route barree et
+ * l'incendie deviendraient quatre marqueurs strictement identiques — seul le dessin les
+ * separerait. Le controle porte sur le fait que les deux sources sont DIFFERENTES.
+ */
+verifier(
+  'le disque suit le TYPE, l anneau suit la CATEGORIE',
+  /'circle-color': \['get', 'bordure'\]/.test(ecran) && /'circle-color': \['get', 'color'\]/.test(ecran),
+  'deux proprietes distinctes sur le meme point',
+);
+verifier(
+  'les quatorze couleurs de type sont intactes',
+  Object.keys(SIGNALISATION).length === REPORT_KINDS.length,
+  `${Object.keys(SIGNALISATION).length} teintes`,
+);
+
+console.log('\nC6 — LE MARQUEUR FAIT 34 POINTS');
+verifier(
+  "l'anneau a un rayon de 17",
+  /'circle-radius': 17/.test(ecran),
+  'trente-quatre points de diametre : valeur du document',
+);
+verifier(
+  'le disque a grandi dans la meme proportion',
+  /'circle-radius': 14/.test(ecran),
+  '14 contre 17, comme 11,5 contre 14 auparavant',
+);
+verifier(
+  'le pictogramme suit',
+  /'icon-size': 0\.95/.test(ecran),
+  'il occupait 61 % du disque, il l occupe toujours',
+);
+
+verifier(
+  'la carte d alerte montre la meme bordure',
+  /borderColor: bordureSignalisation\(report\.kind\)/.test(alerte),
+  'le conducteur vient de voir ce marqueur sur la carte',
+);
+verifier(
+  'le panel de signalement aussi',
+  /borderColor: bordureSignalisation\(kind\)/.test(menu),
+  '« seule la bordure est rouge car c est un type blocage »',
+);
+
 console.log('\nC8 — LE CLIGNOTEMENT DE LA VOIE RECOMMANDEE');
 
 /* Deja livre en v121, aux memes valeurs. Ce controle existe pour qu'il le reste. */

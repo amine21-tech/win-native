@@ -1,6 +1,6 @@
 import { Layer } from '@maplibre/maplibre-react-native';
 import { useEffect, useState } from 'react';
-import { OR_MARQUEUR } from './signalisation';
+
 
 /**
  * L'ANNEAU QUI PULSE AUTOUR D'UN SIGNALEMENT RECENT — correctif du 8 novembre, point 6.
@@ -32,9 +32,10 @@ const PAS_MS = 100;
 /** Age au-dela duquel un signalement ne pulse plus. Valeur du document : dix minutes. */
 export const RECENT_MS = 10 * 60 * 1000;
 
-/** Rayons extremes de l'anneau, en points. Il part du bord du marqueur (14) et s'en ecarte. */
-const RAYON_MIN = 15;
-const RAYON_MAX = 30;
+/** Rayons extremes de l'onde, en points. Elle part du bord du marqueur — passe a 17 points le
+ *  11 novembre, marqueur de 34 dp — et s'en ecarte. */
+const RAYON_MIN = 18;
+const RAYON_MAX = 34;
 
 export function PulseSignalements({
   source,
@@ -87,7 +88,10 @@ export function PulseSignalements({
         'circle-radius': rayon,
         'circle-color': 'transparent',
         'circle-stroke-width': 2.5,
-        'circle-stroke-color': OR_MARQUEUR,
+        /* L'ONDE PREND LA COULEUR DE LA CATEGORIE, comme l'anneau du marqueur qu'elle
+         * entoure (C6). Une onde doree autour d'un marqueur rouge se lirait comme un second
+         * marqueur. */
+        'circle-stroke-color': ['get', 'bordure'],
         'circle-stroke-opacity': opacite,
       }}
     />
