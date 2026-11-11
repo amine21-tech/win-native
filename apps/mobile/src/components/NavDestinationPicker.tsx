@@ -38,6 +38,17 @@ type Props = {
   onClose: () => void;
   query: string;
   onChangeQuery: (text: string) => void;
+  /**
+   * LA DICTEE VOCALE, LES MEMES RAPPELS QUE LE MICRO DE LA CARTE (C2 du 11 novembre).
+   *
+   * Le document insiste : << micro vocal identique FAB >>, << reutiliser exactement le meme
+   * code >>. On ne duplique donc rien — ce sont les rappels de l'ecran qui descendent ici.
+   * Dupliquer aurait donne deux dictees a maintenir, qui finiraient par diverger sur la langue
+   * ou sur le moment ou la recherche part.
+   */
+  listening: boolean;
+  onMicPressIn: () => void;
+  onMicPressOut: () => void;
   onCategory: (dataQ: string, label: string) => void;
   loading: boolean;
   results: GeocodedResult[];
@@ -50,6 +61,9 @@ export function NavDestinationPicker({
   onClose,
   query,
   onChangeQuery,
+  listening,
+  onMicPressIn,
+  onMicPressOut,
   onCategory,
   loading,
   results,
@@ -81,6 +95,28 @@ export function NavDestinationPicker({
             </Pressable>
           </View>
 
+          {/* LA BARRE DE RECHERCHE EST EN HAUT — correction C2 du 11 novembre.
+              Elle etait SOUS la grille des categories : a l'ouverture du panneau, le champ
+              etait hors de l'ecran sur un telephone court, et il fallait faire defiler pour
+              taper une adresse. Juste sous le titre, elle est la ou le pouce la cherche et ou
+              l'oeil la trouve.
+
+              LE MICRO N'ETAIT PAS BRANCHE : ses deux rappels etaient vides. C'etait un bouton
+              qui ne faisait rien — pire qu'un bouton absent, parce qu'on l'essaie. Il recoit
+              maintenant exactement les memes rappels que celui de la carte. */}
+          <View style={styles.searchWrap}>
+            <SearchBar
+              value={query}
+              onChangeText={onChangeQuery}
+              onClear={() => onChangeQuery('')}
+              placeholder={t('map.searchPlaceholder')}
+              colors={colors}
+              listening={listening}
+              onMicPressIn={onMicPressIn}
+              onMicPressOut={onMicPressOut}
+            />
+          </View>
+
           {/* La grille laisse la place aux resultats des qu'une recherche est tapee. */}
           {!searching ? (
             <View style={styles.grid}>
@@ -104,19 +140,6 @@ export function NavDestinationPicker({
               })}
             </View>
           ) : null}
-
-          <View style={styles.searchWrap}>
-            <SearchBar
-              value={query}
-              onChangeText={onChangeQuery}
-              onClear={() => onChangeQuery('')}
-              placeholder={t('map.searchPlaceholder')}
-              colors={colors}
-              listening={false}
-              onMicPressIn={() => {}}
-              onMicPressOut={() => {}}
-            />
-          </View>
 
           {searching || results.length > 0 ? (
             <View style={styles.results}>

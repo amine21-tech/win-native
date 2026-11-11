@@ -3,7 +3,6 @@ import { clipDistance, clipManoeuvre, type CleVoix } from '../speech/voixKab';
 import { EST_SORTIE, manoeuvreRatee } from './manoeuvreRatee';
 import {
   phraseItineraireRecalcule,
-  phraseRouteBloquee,
   phraseSortieRatee,
   phraseVirageManque,
 } from './instructions';
@@ -319,15 +318,34 @@ export function useNavigationSession(params: {
   /** `premier` : le calcul de depart. Les recalculs en roulant, eux, sont presses — voir
    * l'option `quick`, qui raccourcit l'attente et reessaie une fois. */
   const loadRoute = useCallback(
-    async (from: Coords, premier = false) => {
+    /**
+     * `silencieux` : calculer sans RIEN montrer — correction C3 du 11 novembre.
+     *
+     * Le recalcul proactif, celui que declenche une route barree confirmee par deux temoins,
+     * doit se faire << en arriere-plan, aucune notification UI >>. Il ne touche donc pas a
+     * `recalculating`, qui est l'etat dont vit la pastille a l'ecran.
+     *
+     * L'ETAT N'EST PAS SEULEMENT UN AFFICHAGE : `recalculating` masque aussi le guidage de voie
+     * et fait place a la pastille dans le bandeau. Le laisser monter pour un calcul silencieux
+     * ferait donc clignoter le bandeau sans explication — ce qui est precisement le contraire
+     * de << discretement >>.
+     */
+    async (from: Coords, premier = false, silencieux = false) => {
       if (!destination) return;
       const evitement = getAvoidRef.current?.() ?? { points: [], blocage: false };
-      setRecalculating(true);
-      setRecalculLent(false);
+      if (!silencieux) {
+        setRecalculating(true);
+        setRecalculLent(false);
+      }
       /* Le minuteur arme l'avertissement, il n'interrompt RIEN. Couper le calcul a trois
        * secondes ferait echouer un recalcul qui allait aboutir a la quatrieme — et le
        * conducteur, lui, roule toujours. On previent, on n'abandonne pas. */
-      const lenteur = setTimeout(() => setRecalculLent(true), RECALCUL_LENT_MS);
+      /* L'AVERTISSEMENT DE LENTEUR N'EST PAS ARME EN MODE SILENCIEUX : il n'a de sens que si
+       * quelque chose est affiche. Prevenir que << la connexion est lente >> au sujet d'un
+       * calcul dont le conducteur ignore l'existence ne lui apprendrait rien et l'inquieterait. */
+      const lenteur = silencieux
+        ? null
+        : setTimeout(() => setRecalculLent(true), RECALCUL_LENT_MS);
       try {
         const { primary } = await fetchRoute({
           from,
@@ -361,9 +379,9 @@ export function useNavigationSession(params: {
       } catch {
         setError(true);
       } finally {
-        clearTimeout(lenteur);
+        if (lenteur) clearTimeout(lenteur);
         setRecalculLent(false);
-        setRecalculating(false);
+        if (!silencieux) setRecalculating(false);
       }
     },
     [destination, mode, lang, applyRoute],
@@ -776,13 +794,27 @@ export function useNavigationSession(params: {
    */
   const recalculerPourBlocage = useCallback(
     (from: Coords) => {
-      /* << Route bloquee. Recalcul en cours. >> En kabyle on n'a que la seconde moitie :
-       * `recalculEnCours`. La premiere — le constat — n'a pas ete enregistree, et c'est elle
-       * qui explique POURQUOI le trajet change. On laisse donc tout passer en francais. */
-      if (voiceGuidanceEnabled) speakGuidance(phraseRouteBloquee(spokenLang), spokenLang);
-      void loadRoute(from);
+      /**
+       * IL NE DIT PLUS RIEN — correction C3 du 11 novembre, et c'est un renversement.
+       *
+       * CE QU'IL FAISAIT, ET POURQUOI. Depuis le 28 octobre il annoncait << Route bloquee.
+       * Recalcul en cours. >> Le raisonnement etait bon : un recalcul silencieux qui rallonge
+       * le trajet de vingt kilometres est incomprehensible — le conducteur voit l'heure
+       * d'arrivee sauter sans savoir pourquoi et soupconne l'application.
+       *
+       * CE QUE LE DOCUMENT DEMANDE : << recalcul PROACTIF, silencieux, sans banniere >>, et il
+       * le repete — << pas de banniere, pas de popup, pas de son. Le trace se met a jour
+       * discretement en arriere-plan. >>
+       *
+       * CE QUI FAIT PENCHER EN SA FAVEUR, maintenant que les deux ont ete essayes au volant :
+       * ce recalcul-ci arrive alors que le conducteur suit parfaitement sa route, souvent
+       * plusieurs kilometres avant l'obstacle. L'annonce le fait chercher des yeux un barrage
+       * qui n'est pas encore visible. Le recalcul CLASSIQUE, lui, garde sa banniere (C4) :
+       * celui-la suit une erreur du conducteur, et il attend une explication.
+       */
+      void loadRoute(from, false, true);
     },
-    [loadRoute, spokenLang, voiceGuidanceEnabled],
+    [loadRoute],
   );
 
   return {

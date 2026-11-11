@@ -277,6 +277,18 @@ const ROUTE_BLOQUEE: Record<Language, string> = {
   kab: 'Abrid yemdel. Nettḥaseb abrid tikkelt-nniḍen.',
 };
 
+/**
+ * PLUS PERSONNE NE L'APPELLE DEPUIS LE 11 NOVEMBRE, et elle reste pourtant ici.
+ *
+ * La correction C3 a rendu le recalcul de blocage SILENCIEUX : << pas de banniere, pas de
+ * popup, pas de son >>. Cette phrase n'est donc plus prononcee.
+ *
+ * On la garde pour deux raisons. La premiere est que la consigne a deja change deux fois dans
+ * les deux sens — muette avant le 28 octobre, parlante jusqu'au 11 novembre, muette depuis — et
+ * la rendre a nouveau parlante doit rester le travail d'une ligne, pas d'une traduction dans
+ * cinq langues. La seconde est qu'elle documente ce que l'application DISAIT, ce qu'aucun
+ * commentaire ne remplace aussi bien que le texte lui-meme.
+ */
 export function phraseRouteBloquee(lang: Language): string {
   return ROUTE_BLOQUEE[lang] ?? ROUTE_BLOQUEE.fr;
 }

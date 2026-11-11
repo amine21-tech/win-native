@@ -470,6 +470,13 @@ const NAV_PUCK_SIZE = 40;
  */
 const LOT_PROJECTION = 8;
 
+/**
+ * Distance, en metres, parcourue APRES un signalement avant que son icone ne s'efface.
+ *
+ * Vingt metres : valeur du document du 11 novembre (C6). Voir `filtreNonDepasse`.
+ */
+const DEPASSEMENT_EFFACEMENT_M = 20;
+
 /** Colonne de boutons : nombre de boutons, et place occupee en haut par le bandeau de marque,
  * la barre de recherche et la rangee de categories. Sert a calculer une taille de bouton qui
  * tient TOUJOURS dans la hauteur restante — sans ce calcul, la colonne debordait et les
@@ -994,11 +1001,14 @@ export default function MapScreen() {
   /**
    * FILTRE DES COUCHES DE SIGNALEMENT : on garde ce qui est encore devant nous.
    *
-   * MARGE DE QUARANTE METRES derriere le vehicule, et elle n'est pas decorative. Le calage sur
-   * la route a une precision de cet ordre, et un signalement qui disparaitrait a l'instant ou
-   * on arrive dessus s'effacerait sous les yeux du conducteur au moment ou il le cherche. On
-   * l'efface donc quarante metres APRES l'avoir passe, c'est-a-dire une fois qu'il est
-   * derriere le pare-brise.
+   * MARGE DE VINGT METRES derriere le vehicule — valeur du document du 11 novembre (C6) :
+   * << l'icone disparait 20 m APRES le passage du conducteur >>. Elle etait de quarante.
+   *
+   * ELLE N'EST PAS DECORATIVE, et c'est pourquoi elle ne descend pas a zero. Le calage sur la
+   * route a une precision de l'ordre de la dizaine de metres ; un signalement efface a
+   * l'instant exact ou l'on arrive dessus disparaitrait sous les yeux du conducteur au moment
+   * ou il le cherche. Vingt metres, c'est le temps qu'il soit reellement derriere le
+   * pare-brise.
    *
    * HORS NAVIGATION, RIEN N'EST EFFACE. Tous les points portent alors -1, et c'est la
    * premiere branche du filtre — l'egalite explicite a -1 — qui les garde. Se fier a la
@@ -1009,7 +1019,7 @@ export default function MapScreen() {
     () => [
       'any',
       ['==', ['get', 'surTraceM'], -1],
-      ['>', ['get', 'surTraceM'], avanceSurTraceM - 40],
+      ['>', ['get', 'surTraceM'], avanceSurTraceM - DEPASSEMENT_EFFACEMENT_M],
     ],
     [avanceSurTraceM],
   );
@@ -2821,6 +2831,11 @@ ${t(`report.badge_${report.kind}`)}`,
           loading={search.loading}
           results={search.results}
           onSelectResult={takeDetour}
+          /* LES MEMES RAPPELS QUE LE MICRO DE LA CARTE (C2 du 11 novembre). Le micro du
+             panneau etait un bouton inerte ; il partage desormais la dictee de l'ecran. */
+          listening={voice.listening}
+          onMicPressIn={() => void voice.start()}
+          onMicPressOut={voice.stop}
           colors={colors}
         />
 

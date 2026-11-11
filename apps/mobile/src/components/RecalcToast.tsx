@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { radius, spacing } from '../theme';
@@ -54,6 +54,12 @@ function Point({ retard }: { retard: number }) {
   return <Animated.View style={[styles.point, { opacity: valeur, transform: [{ scale: valeur }] }]} />;
 }
 
+/**
+ * Duree MINIMALE d'affichage, en millisecondes. Valeur confirmee par le document du
+ * 11 novembre (C4) : << 2 secondes (2000 ms) · Ne pas modifier cette duree sans validation >>.
+ */
+export const DUREE_MINIMALE_MS = 2_000;
+
 export function RecalcToast({
   visible,
   lent,
@@ -67,7 +73,31 @@ export function RecalcToast({
   bottom: number;
 }) {
   const { t } = useTranslation();
-  if (!visible) return null;
+
+  /**
+   * DEUX SECONDES AU MOINS — correction C4 du 11 novembre.
+   *
+   * CE QUI MANQUAIT. La pastille vivait exactement le temps du calcul. Un recalcul Valhalla
+   * aboutit souvent en quatre cents millisecondes : elle apparaissait et disparaissait avant
+   * que l'oeil ne l'ait trouvee, et le conducteur voyait son itineraire changer sans jamais
+   * savoir qu'un recalcul avait eu lieu. Le document fixe la duree a deux secondes.
+   *
+   * << AU MOINS >> ET NON << EXACTEMENT >>, et c'est la seule liberte prise avec le texte. Un
+   * recalcul qui dure trois secondes — une 3G algerienne, un trajet long — verrait sinon la
+   * pastille s'effacer alors que le calcul tourne encore : le conducteur resterait devant une
+   * consigne perimee sans rien pour le lui dire, ce qui est exactement ce que la pastille
+   * existe pour eviter. Dans le cas courant, ou le calcul est plus rapide que deux secondes,
+   * le comportement est celui du document au millieme pres.
+   */
+  const [prolonge, setProlonge] = useState(false);
+  useEffect(() => {
+    if (!visible) return;
+    setProlonge(true);
+    const minuteur = setTimeout(() => setProlonge(false), DUREE_MINIMALE_MS);
+    return () => clearTimeout(minuteur);
+  }, [visible]);
+
+  if (!visible && !prolonge) return null;
 
   /* ELLE EST PASSEE EN BAS DE L'ECRAN — correctif du 8 novembre, << bandeau vert translucide
    * EN BAS de l'ecran, carte visible a 100 % >>.

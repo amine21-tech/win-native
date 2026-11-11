@@ -183,6 +183,11 @@ export function AlerteApproche({
   );
 }
 
+/** Marge autour de la croix de fermeture, sur tous les cotes. Valeur du document (C5). */
+const CROIX_MARGE = 10;
+/** Taille de la croix. Le document precise de ne pas y toucher. */
+const CROIX_TAILLE = 24;
+
 const styles = StyleSheet.create({
   ancrage: { position: 'absolute' },
   carte: {
@@ -202,12 +207,23 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
   },
   barre: { height: BARRE },
+  /* LA CROIX NE TOUCHE PLUS RIEN — correction C5 du 11 novembre.
+   *
+   * Elle etait collee au coin : deux points du bord, deux points sous la barre de couleur. A
+   * cette distance elle chevauchait le badge et la fin du titre des que le libelle etait un peu
+   * long — << Route bloquee >>, << Trafic dense >>. Le document demande dix points de marge sur
+   * tous les cotes et une croix ISOLEE.
+   *
+   * LA MARGE NE SUFFIT PAS A ELLE SEULE : ecarter la croix du bord la rapproche du texte. Il
+   * faut AUSSI reserver sa place dans le contenu, ce que fait `paddingRight` sur l'entete —
+   * dix de marge, vingt-quatre de croix, six de respiration. Sans cela on aurait deplace le
+   * chevauchement au lieu de le supprimer. */
   fermer: {
     position: 'absolute',
-    top: BARRE + 2,
-    right: 2,
-    width: 26,
-    height: 26,
+    top: BARRE + CROIX_MARGE,
+    right: CROIX_MARGE,
+    width: CROIX_TAILLE,
+    height: CROIX_TAILLE,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
@@ -215,7 +231,13 @@ const styles = StyleSheet.create({
   fermerGlyphe: { color: TEXTE_DOUX, fontSize: 13, fontWeight: '800' as const },
   corps: { paddingHorizontal: spacing.sm, paddingTop: spacing.sm, paddingBottom: 6, gap: 5 },
 
-  entete: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  entete: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    /* La place de la croix, reservee : voir la note sur `fermer`. */
+    paddingRight: CROIX_MARGE + CROIX_TAILLE + 6,
+  },
   /* Le marqueur de la carte, reduit a 22 points — la mesure de la maquette. L'anneau d'or
    * fait 1,5 point : en dessous il disparait a cette taille, au-dessus il mange le disque. */
   pastille: {

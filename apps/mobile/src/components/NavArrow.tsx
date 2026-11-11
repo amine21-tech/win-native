@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 /**
  * Fleche de position pendant le guidage.
@@ -32,8 +32,48 @@ const CX = BOX / 2;
 
 /** L'or des marqueurs WIN, repris de signalisation.ts. Valeur du document : #D4A017. */
 export const OR_FLECHE = '#D4A017';
-/** Le vert de nuit demande par le document pour la fleche. */
+/** Le vert de nuit demande par le document du 8 novembre pour la fleche. Conserve pour le
+ *  liseré : la fleche elle-meme est passee au degrade le 11 novembre (C9). */
 export const VERT_FLECHE_NUIT = '#0D6E4F';
+
+/**
+ * LA FLECHE OPTION D — correction C9 du 11 novembre.
+ *
+ * << Degrade SVG Blanc -> Jaune -> Or, contour blanc, remplace la fleche actuelle. >>
+ *
+ * CE QUE LE DEGRADE APPORTE, ET POURQUOI IL EST ORIENTE AINSI. La pointe est BLANCHE et la base
+ * DOREE. Une fleche d'une seule couleur ne dit pas de quel cote elle pointe tant qu'on ne
+ * distingue pas sa forme ; sur une carte chargee, a la taille d'un ongle, c'est la partie la
+ * plus claire que l'oeil trouve en premier. Mettre le blanc a la pointe, c'est faire designer
+ * la direction par la luminosite plutot que par la geometrie.
+ *
+ * LE CONTOUR BLANC remplace le liseré vert fonce du 8 novembre. Celui-ci servait a detacher la
+ * fleche de son propre halo dore ; le degrade s'en charge desormais tout seul, puisque sa
+ * pointe est deja blanche. Et un contour blanc se lit sur TOUTE carte — le vert fonce
+ * disparaissait sur un parc ou une foret.
+ */
+const DEGRADE_FLECHE = [
+  { decalage: '0%', couleur: '#FFFFFF' },
+  { decalage: '45%', couleur: '#FFE566' },
+  { decalage: '100%', couleur: '#D4A017' },
+] as const;
+
+/** Contour de la fleche : blanc, 2,5 points. Valeurs du document. */
+const CONTOUR_FLECHE = '#FFFFFF';
+
+/**
+ * LE POINT GPS ROUGE, sous la pointe de la fleche.
+ *
+ * A QUOI IL SERT, puisque la fleche est deja la. La fleche dit le CAP ; elle est large, et son
+ * centre geometrique n'est pas la position. Le point rouge dit la POSITION EXACTE, au metre
+ * pres. La distinction compte a l'arret devant un carrefour, ou cinq metres decident de la rue
+ * dans laquelle on est.
+ *
+ * ROUGE, et c'est la seule touche de rouge de tout le marqueur : aucune confusion possible
+ * avec l'or de la fleche ou de son halo.
+ */
+const POINT_GPS = '#E53935';
+const POINT_GPS_RAYON = 4.5;
 
 /**
  * LE CONTOUR PREND LA COULEUR OPPOSEE, et ce n'est pas dans le document.
@@ -73,13 +113,21 @@ const PATH = [
  *
  * Trois disques empiles plutot qu'un degrade : c'est ce qu'ecrit le document, et cela donne un
  * halo qui s'eclaircit par paliers nets au lieu de se fondre. Les opacites se composent au
- * centre (0,45 puis 0,28 puis 0,15 donnent environ 0,66), ce qui produit un coeur dense et un
- * bord leger sans qu'on ait a le calculer.
+ * centre, ce qui produit un coeur dense et un bord leger sans qu'on ait a le calculer.
+ *
+ * LES OPACITES ONT BAISSE DE 30 % le 11 novembre (correction C1) : 0,45 / 0,28 / 0,15 sont
+ * devenues 0,32 / 0,20 / 0,11 — chacune multipliee par 0,70.
+ *
+ * SEULE L'INTENSITE CHANGE. Les RAYONS ne bougent pas, l'animation non plus : le document
+ * l'ecrit trois fois et c'est important, parce que la facon evidente de << reduire le halo >>
+ * serait de le retrecir. Ce n'est pas ce qui est demande — le halo doit garder sa place et son
+ * mouvement, il doit seulement moins briller. Au centre, les trois disques composaient environ
+ * 0,66 d'opacite ; ils en composent maintenant 0,51.
  */
 const ANNEAUX = [
-  { rayon: 56, couleur: 'rgb(255, 220, 100)', opacite: 0.15 },
-  { rayon: 40, couleur: 'rgb(212, 160, 23)', opacite: 0.28 },
-  { rayon: 26, couleur: 'rgb(212, 160, 23)', opacite: 0.45 },
+  { rayon: 56, couleur: 'rgb(255, 220, 100)', opacite: 0.11 },
+  { rayon: 40, couleur: 'rgb(212, 160, 23)', opacite: 0.20 },
+  { rayon: 26, couleur: 'rgb(212, 160, 23)', opacite: 0.32 },
 ] as const;
 
 /** Cote de la boite du halo : le plus grand anneau, de bout en bout. */
@@ -134,8 +182,13 @@ export function NavArrow({
     return () => loop.stop();
   }, [pulse]);
 
-  const remplissage = night ? VERT_FLECHE_NUIT : OR_FLECHE;
-  const lisere = night ? OR_FLECHE : VERT_FLECHE_NUIT;
+  /* LE DEGRADE EST LE MEME DE JOUR ET DE NUIT. Le document ne demande pour la nuit qu'une
+   * << lueur doree supplementaire >> — pas une autre fleche. On l'obtient en epaississant
+   * legerement le contour et en le teintant d'or : sur un fond sombre, cette bordure claire
+   * fait exactement l'effet de halo rapproche que decrit la maquette, sans filtre de rendu
+   * coûteux a animer. */
+  const contour = night ? '#FFF4CC' : CONTOUR_FLECHE;
+  const epaisseurContour = night ? EPAISSEUR_LISERE + 1 : EPAISSEUR_LISERE;
 
   return (
     <View
@@ -164,14 +217,35 @@ export function NavArrow({
           ))}
         </Svg>
       </Animated.View>
-      {/* La fleche, cernee de la couleur opposee : voir la note en tete de fichier. */}
+      {/* LA FLECHE OPTION D : degrade blanc -> jaune -> or, contour blanc, et le point GPS
+          rouge sous la pointe. Voir la note en tete de fichier. */}
       <Svg width={size} height={size} viewBox={`0 0 ${BOX} ${BOX}`}>
+        <Defs>
+          {/* Degrade VERTICAL dans le repere de la fleche : elle pointe toujours vers le haut,
+              donc y=0 est la pointe et y=1 la base. La rotation du marqueur, quand il y en a
+              une, emporte le degrade avec lui. */}
+          <LinearGradient id="degradeFleche" x1="0" y1="0" x2="0" y2="1">
+            {DEGRADE_FLECHE.map((e) => (
+              <Stop key={e.decalage} offset={e.decalage} stopColor={e.couleur} />
+            ))}
+          </LinearGradient>
+        </Defs>
         <Path
           d={PATH}
-          fill={remplissage}
-          stroke={lisere}
-          strokeWidth={EPAISSEUR_LISERE}
+          fill="url(#degradeFleche)"
+          stroke={contour}
+          strokeWidth={epaisseurContour}
           strokeLinejoin="round"
+        />
+        {/* LE POINT GPS, pose SOUS la pointe et non au centre de la fleche : c'est la que se
+            trouve reellement le vehicule. Sa bordure blanche le detache du degrade. */}
+        <Circle
+          cx={CX}
+          cy={TIP_Y + POINT_GPS_RAYON * 2.4}
+          r={POINT_GPS_RAYON}
+          fill={POINT_GPS}
+          stroke="#FFFFFF"
+          strokeWidth={1.6}
         />
       </Svg>
     </View>
