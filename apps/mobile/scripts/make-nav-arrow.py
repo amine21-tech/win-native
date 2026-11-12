@@ -51,19 +51,26 @@ DEGRADE = [
 ]
 
 # Contour blanc : il se lit sur TOUTE carte. Le lisere vert fonce d'avant disparaissait sur un
-# parc ou une foret.
+# parc ou une foret. Le meme de jour et de nuit.
 CONTOUR = (255, 255, 255)
-# De nuit, le contour s'epaissit et se teinte d'or : c'est la << lueur doree supplementaire >>
-# du document, obtenue sans filtre de rendu.
-CONTOUR_NUIT = (255, 244, 204)
+
+# LA LUEUR DOREE DE NUIT : un trait large et translucide pose SOUS la fleche, de la meme forme.
+# Il deborde de tous les cotes et se lit comme un rayonnement.
+#
+# SEPT POINTS DE DEBORDEMENT, pas deux. Le premier essai se contentait de teinter le contour
+# en #FFF4CC ; la mesure l'a condamne — deux points d'ecart de bleu en moyenne sur l'image
+# entiere, c'est-a-dire rien de visible. Memes valeurs que LUEUR_NUIT dans NavArrow.tsx.
+LUEUR = (255, 215, 0)
+LUEUR_DEBORDEMENT = 7
+LUEUR_OPACITE = 0.55
 
 # LE POINT GPS ROUGE, sous la pointe. La fleche dit le CAP ; le point dit la POSITION EXACTE.
 # La distinction compte a l'arret devant un carrefour, ou cinq metres decident de la rue.
 POINT_GPS = (229, 57, 53)
 
 FLECHES = {
-    'day': {'contour': CONTOUR, 'epaisseur': 1.0},
-    'night': {'contour': CONTOUR_NUIT, 'epaisseur': 1.4},
+    'day': {'lueur': False},
+    'night': {'lueur': True},
 }
 
 # Cote de l'image en points : le plus grand anneau de bout en bout, soit 2 x 56. La MEME que
@@ -149,6 +156,33 @@ def make_arrow(nom, couleurs, scale):
         pt(BOX / 2 - HALF_WIDTH, BASE_Y),
     ]
 
+    # LA LUEUR DE NUIT, D'ABORD : elle doit se trouver SOUS la fleche. On la compose a part
+    # pour que son opacite s'applique au trait entier et non a chaque segment deux fois a
+    # l'endroit des angles, ou ils se recouvrent.
+    if couleurs['lueur']:
+        # UN TRIANGLE AGRANDI, ET NON UN CONTOUR EPAIS.
+        #
+        # PIL dessine le contour d'un polygone VERS L'INTERIEUR : un trait de neuf points
+        # reste entierement dans la forme, et le degrade peint ensuite par-dessus l'efface
+        # completement. Le premier essai ne produisait donc aucun pixel de difference entre le
+        # jour et la nuit — zero, mesure par verifier-fleche-rendue.py.
+        #
+        # En SVG le meme trait est centre sur le contour et deborde de moitie ; c'est pourquoi
+        # NavArrow.tsx peut, lui, se contenter d'un `stroke`. Ici il faut agrandir la forme.
+        #
+        # L'agrandissement se fait depuis le CENTRE DE GRAVITE du triangle : chaque sommet
+        # s'en ecarte de dix-huit pour cent, ce qui donne environ sept points de debordement
+        # sur une fleche de quarante.
+        gx = sum(x for x, _ in triangle) / len(triangle)
+        gy = sum(y for _, y in triangle) / len(triangle)
+        facteur = 1.0 + LUEUR_DEBORDEMENT / float(FLECHE_DP)
+        grand = [(gx + (x - gx) * facteur, gy + (y - gy) * facteur) for x, y in triangle]
+        halo_fleche = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+        ImageDraw.Draw(halo_fleche).polygon(
+            grand, fill=LUEUR + (int(round(255 * LUEUR_OPACITE)),)
+        )
+        img.alpha_composite(halo_fleche)
+
     # LE DEGRADE SE FABRIQUE PAR UN MASQUE, parce que PIL ne sait pas remplir une forme avec un
     # degrade. On peint une bande verticale de couleurs sur toute la hauteur de la fleche, puis
     # on la decoupe a la forme du triangle. C'est exact au pixel pres et cela tient en dix
@@ -165,16 +199,18 @@ def make_arrow(nom, couleurs, scale):
     ImageDraw.Draw(masque).polygon(triangle, fill=255)
     img.paste(bande, (0, 0), masque)
 
-    # Le contour, par-dessus le degrade.
+    # Le contour blanc, par-dessus le degrade.
     ImageDraw.Draw(img).polygon(
         triangle,
-        outline=couleurs['contour'] + (255,),
-        width=max(1, int(EPAISSEUR_LISERE * couleurs['epaisseur'] * k)),
+        outline=CONTOUR + (255,),
+        width=max(1, int(EPAISSEUR_LISERE * k)),
     )
 
     # 3) LE POINT GPS ROUGE, sous la pointe.
+    # MEME HAUTEUR QUE DANS NavArrow.tsx (POINT_GPS_Y). A 27, le point debordait du triangle
+    # et se lisait comme un objet pose a cote de la fleche : voir la note la-bas.
     rayon = 4.5 * k
-    cy = oy + (TIP_Y + 4.5 * 2.4) * k
+    cy = oy + 40.0 * k
     cx = ox + (BOX / 2.0) * k
     point = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     dp = ImageDraw.Draw(point)

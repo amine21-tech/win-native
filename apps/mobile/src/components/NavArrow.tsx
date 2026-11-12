@@ -58,8 +58,24 @@ const DEGRADE_FLECHE = [
   { decalage: '100%', couleur: '#D4A017' },
 ] as const;
 
-/** Contour de la fleche : blanc, 2,5 points. Valeurs du document. */
+/** Contour de la fleche : blanc, 2,5 points. Valeurs du document. Le meme de jour et de nuit. */
 const CONTOUR_FLECHE = '#FFFFFF';
+
+/**
+ * LA LUEUR DOREE DE NUIT — << Mode NUIT : lueur doree supplementaire >> (C9).
+ *
+ * C'est un trait large et translucide pose SOUS la fleche, de la meme forme : il deborde de
+ * tous les cotes et se lit comme un rayonnement. L'or est celui de Google pour cet usage,
+ * #FFD700, plus clair que l'or WIN — une lueur doit etre plus lumineuse que ce qu'elle entoure,
+ * sinon elle se lit comme une ombre.
+ *
+ * SEPT POINTS DE DEBORDEMENT, pas deux. Le premier essai teintait le contour en #FFF4CC sur
+ * un demi-point de plus, et la mesure l'a condamne : deux points d'ecart de bleu en moyenne,
+ * invisible. Un effet qu'on ne peut pas mesurer est un effet que personne ne verra.
+ */
+const LUEUR_NUIT = '#FFD700';
+const LUEUR_DEBORDEMENT = 7;
+const LUEUR_OPACITE = 0.55;
 
 /**
  * LE POINT GPS ROUGE, sous la pointe de la fleche.
@@ -74,6 +90,19 @@ const CONTOUR_FLECHE = '#FFFFFF';
  */
 const POINT_GPS = '#E53935';
 const POINT_GPS_RAYON = 4.5;
+/**
+ * OU SE POSE LE POINT, dans le repere 0-128 de la fleche.
+ *
+ * LE PREMIER ESSAI LE METTAIT A 27, ET IL FLOTTAIT. A cette hauteur le triangle ne fait que
+ * quatre points de demi-largeur : le point rouge, bordure blanche comprise, debordait des deux
+ * cotes et se lisait comme un objet pose A COTE de la fleche, pas comme sa position. Le defaut
+ * ne se voit pas dans le code — il a fallu fabriquer l'image et la regarder.
+ *
+ * A 40, le triangle fait une dizaine de points de demi-largeur : le point y tient entierement.
+ * Il reste << juste sous la pointe >>, comme le demande le document, et il se lit comme une
+ * partie du marqueur.
+ */
+const POINT_GPS_Y = 40;
 
 /**
  * LE CONTOUR PREND LA COULEUR OPPOSEE, et ce n'est pas dans le document.
@@ -183,12 +212,9 @@ export function NavArrow({
   }, [pulse]);
 
   /* LE DEGRADE EST LE MEME DE JOUR ET DE NUIT. Le document ne demande pour la nuit qu'une
-   * << lueur doree supplementaire >> — pas une autre fleche. On l'obtient en epaississant
-   * legerement le contour et en le teintant d'or : sur un fond sombre, cette bordure claire
-   * fait exactement l'effet de halo rapproche que decrit la maquette, sans filtre de rendu
-   * coûteux a animer. */
-  const contour = night ? '#FFF4CC' : CONTOUR_FLECHE;
-  const epaisseurContour = night ? EPAISSEUR_LISERE + 1 : EPAISSEUR_LISERE;
+   * << lueur doree supplementaire >> — pas une autre fleche. Le contour reste donc blanc, et
+   * c'est une COUCHE EN PLUS qui fait la lueur : voir LUEUR_NUIT ci-dessous. */
+  const contour = CONTOUR_FLECHE;
 
   return (
     <View
@@ -230,18 +256,38 @@ export function NavArrow({
             ))}
           </LinearGradient>
         </Defs>
+        {/* LA LUEUR DE NUIT, DESSINEE AVANT LA FLECHE DONC DESSOUS.
+            C'est un second trace de la MEME forme, avec un trait dore large et translucide : il
+            deborde tout autour et se lit comme un rayonnement. Il n'y a pas de flou ici — un
+            filtre de flou SVG se recalcule a chaque image sur Android, et cette fleche est
+            redessinee a chaque point GPS.
+
+            UNE PREMIERE VERSION TEINTAIT SIMPLEMENT LE CONTOUR en #FFF4CC. La mesure l'a
+            condamnee : deux points d'ecart de bleu en moyenne sur l'image entiere, c'est-a-dire
+            rien de visible. Un effet qu'on ne peut pas mesurer est un effet que le conducteur
+            ne verra pas. */}
+        {night ? (
+          <Path
+            d={PATH}
+            fill="none"
+            stroke={LUEUR_NUIT}
+            strokeWidth={EPAISSEUR_LISERE + LUEUR_DEBORDEMENT}
+            strokeOpacity={LUEUR_OPACITE}
+            strokeLinejoin="round"
+          />
+        ) : null}
         <Path
           d={PATH}
           fill="url(#degradeFleche)"
           stroke={contour}
-          strokeWidth={epaisseurContour}
+          strokeWidth={EPAISSEUR_LISERE}
           strokeLinejoin="round"
         />
         {/* LE POINT GPS, pose SOUS la pointe et non au centre de la fleche : c'est la que se
             trouve reellement le vehicule. Sa bordure blanche le detache du degrade. */}
         <Circle
           cx={CX}
-          cy={TIP_Y + POINT_GPS_RAYON * 2.4}
+          cy={POINT_GPS_Y}
           r={POINT_GPS_RAYON}
           fill={POINT_GPS}
           stroke="#FFFFFF"
