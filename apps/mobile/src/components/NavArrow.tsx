@@ -89,20 +89,31 @@ const LUEUR_OPACITE = 0.55;
  * avec l'or de la fleche ou de son halo.
  */
 const POINT_GPS = '#E53935';
-const POINT_GPS_RAYON = 4.5;
 /**
- * OU SE POSE LE POINT, dans le repere 0-128 de la fleche.
- *
- * LE PREMIER ESSAI LE METTAIT A 27, ET IL FLOTTAIT. A cette hauteur le triangle ne fait que
- * quatre points de demi-largeur : le point rouge, bordure blanche comprise, debordait des deux
- * cotes et se lisait comme un objet pose A COTE de la fleche, pas comme sa position. Le defaut
- * ne se voit pas dans le code — il a fallu fabriquer l'image et la regarder.
- *
- * A 40, le triangle fait une dizaine de points de demi-largeur : le point y tient entierement.
- * Il reste << juste sous la pointe >>, comme le demande le document, et il se lit comme une
- * partie du marqueur.
+ * SEPT, ET NON QUATRE ET DEMI. A 4,5 le point faisait neuf points de diametre sur une fleche de
+ * quarante : arsanne l'a vu sur sa capture et l'a pris pour une poussiere sur l'ecran. Un repere
+ * qu'on prend pour une salissure ne repere rien.
  */
-const POINT_GPS_Y = 40;
+const POINT_GPS_RAYON = 7;
+/**
+ * OU SE POSE LE POINT, dans le repere 0-128 de la fleche. Et il a bouge deux fois.
+ *
+ * A 27, IL FLOTTAIT A COTE. Le triangle n'y fait que quatre points de demi-largeur : le point,
+ * bordure blanche comprise, debordait des deux cotes et se lisait comme un objet pose a cote du
+ * marqueur.
+ *
+ * A 40, IL ETAIT POSE SUR LA FLECHE. C'est ce qu'arsanne a vu le 13 novembre et ce qu'il refuse :
+ * << je trouvais qu'il est sur l'icone elle-meme, tu le mets avant l'icone >>. Il avait raison de
+ * revenir au document, dont le tableau de composition donne l'ordre
+ * [Halo] -> [Point rouge GPS] -> [Fleche] : le point est dessine AVANT la fleche, donc DESSOUS.
+ * Le mien etait peint par-dessus.
+ *
+ * A 8, IL EST DEVANT LA POINTE. Son bord inferieur touche la pointe du triangle, qui commence a
+ * 16 ; il se lit comme un repere pose en avant du marqueur, dans le sens de la marche. Il ne
+ * peut pas descendre plus haut : a rayon sept, le bord superieur arriverait a 1, et le dessin
+ * est coupe au-dela de zero.
+ */
+const POINT_GPS_Y = 8;
 
 /**
  * LE CONTOUR PREND LA COULEUR OPPOSEE, et ce n'est pas dans le document.
@@ -266,6 +277,17 @@ export function NavArrow({
             condamnee : deux points d'ecart de bleu en moyenne sur l'image entiere, c'est-a-dire
             rien de visible. Un effet qu'on ne peut pas mesurer est un effet que le conducteur
             ne verra pas. */}
+        {/* LE POINT GPS, DESSINE AVANT LA FLECHE DONC DESSOUS — c'est l'ordre du tableau de
+            composition du document : [Halo] -> [Point rouge] -> [Fleche]. Il etait peint
+            par-dessus, ce qui le posait SUR l'icone au lieu de l'accompagner. */}
+        <Circle
+          cx={CX}
+          cy={POINT_GPS_Y}
+          r={POINT_GPS_RAYON}
+          fill={POINT_GPS}
+          stroke="#FFFFFF"
+          strokeWidth={1.6}
+        />
         {night ? (
           <Path
             d={PATH}

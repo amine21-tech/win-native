@@ -224,17 +224,33 @@ verifier(
     % ', '.join(str(px[3]) for _, px in lus),
 )
 
-print('\nC9 - LE POINT GPS ROUGE EST SOUS LA POINTE')
+print('\nC9 - LE POINT GPS ROUGE EST DEVANT LA POINTE')
 
-# Il est dessine a TIP_Y + 4,5 x 2,4 dans le repere 0-128 de la fleche, soit environ 0,40 de la
-# hauteur de l'image. On cherche du rouge franc dans cette bande.
+# IL EST A 8 DANS LE REPERE 0-128 DE LA FLECHE, rayon 7 : il couvre les unites 1 a 15, soit la
+# bande 0,324 - 0,363 de l'image, JUSTE AU-DESSUS de la pointe du triangle, qui commence a 16
+# (0,366).
+#
+# CETTE BANDE A CHANGE DEUX FOIS, et le controle l'a signale les deux fois en repondant
+# << aucun pixel rouge >>. C'est exactement ce qu'on lui demande : si le point disparait ou se
+# deplace sans qu'on le veuille, il le dit, au lieu de laisser une fleche sans repere.
 w, h = jour.size
-bande = [jour.getpixel((w // 2, y)) for y in range(int(h * 0.41), int(h * 0.46))]
+bande = [jour.getpixel((w // 2, y)) for y in range(int(h * 0.322), int(h * 0.366))]
 rouges = [p for p in bande if p[0] > 180 and p[1] < 110 and p[2] < 110]
 verifier(
-    'un rouge franc apparait sous la pointe',
+    'un rouge franc apparait DEVANT la pointe',
     len(rouges) > 0,
     'rgb%s' % (rouges[0][:3],) if rouges else 'aucun pixel rouge dans la bande',
+)
+
+# ET IL N EST PLUS SUR LE CORPS DE LA FLECHE. C'est la demande du 13 novembre : << je trouvais
+# qu'il est sur l'icone elle-meme, tu le mets avant l'icone >>. On balaie donc l'interieur du
+# triangle et on exige qu'aucun rouge n'y traine.
+corps = [jour.getpixel((w // 2, y)) for y in range(int(h * 0.40), int(h * 0.55))]
+rouges_corps = [q for q in corps if q[0] > 180 and q[1] < 110 and q[2] < 110]
+verifier(
+    'et AUCUN rouge ne subsiste sur le corps de la fleche',
+    len(rouges_corps) == 0,
+    '%d pixel(s) rouge(s) sur la fleche' % len(rouges_corps),
 )
 
 print('\nC9 - LA NUIT SE DISTINGUE DU JOUR, ET SEULEMENT PAR LE CONTOUR')

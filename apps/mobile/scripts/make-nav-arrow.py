@@ -183,6 +183,21 @@ def make_arrow(nom, couleurs, scale):
         )
         img.alpha_composite(halo_fleche)
 
+    # LE POINT GPS ROUGE, DEVANT LA POINTE ET SOUS LA FLECHE.
+    #
+    # Ordre du tableau de composition du document : [Halo] -> [Point rouge] -> [Fleche]. Il est
+    # donc dessine ICI, avant le degrade, et non apres. Memes valeurs que POINT_GPS_Y et
+    # POINT_GPS_RAYON dans NavArrow.tsx — voir la-bas pourquoi il a bouge deux fois.
+    rayon = 7.0 * k
+    cx = ox + (BOX / 2.0) * k
+    cy = oy + 8.0 * k
+    point = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    ImageDraw.Draw(point).ellipse(
+        [cx - rayon, cy - rayon, cx + rayon, cy + rayon],
+        fill=POINT_GPS + (255,), outline=(255, 255, 255, 255), width=max(1, int(1.6 * k)),
+    )
+    img.alpha_composite(point)
+
     # LE DEGRADE SE FABRIQUE PAR UN MASQUE, parce que PIL ne sait pas remplir une forme avec un
     # degrade. On peint une bande verticale de couleurs sur toute la hauteur de la fleche, puis
     # on la decoupe a la forme du triangle. C'est exact au pixel pres et cela tient en dix
@@ -205,19 +220,6 @@ def make_arrow(nom, couleurs, scale):
         outline=CONTOUR + (255,),
         width=max(1, int(EPAISSEUR_LISERE * k)),
     )
-
-    # 3) LE POINT GPS ROUGE, sous la pointe.
-    # MEME HAUTEUR QUE DANS NavArrow.tsx (POINT_GPS_Y). A 27, le point debordait du triangle
-    # et se lisait comme un objet pose a cote de la fleche : voir la note la-bas.
-    rayon = 4.5 * k
-    cy = oy + 40.0 * k
-    cx = ox + (BOX / 2.0) * k
-    point = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    dp = ImageDraw.Draw(point)
-    dp.ellipse([cx - rayon, cy - rayon, cx + rayon, cy + rayon],
-               fill=POINT_GPS + (255,), outline=(255, 255, 255, 255),
-               width=max(1, int(1.6 * k)))
-    img.alpha_composite(point)
 
     suffix = '' if scale == 1 else '@%dx' % scale
     petit = img.resize((S // SS, S // SS), Image.LANCZOS)
