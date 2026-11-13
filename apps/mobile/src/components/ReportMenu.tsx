@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ReportKind } from '../shared';
-import { menuEmoji, REPORT_FAMILLE, REPORT_MENU_ORDER } from '../reports/kinds';
+import { menuEmoji, REPORT_FAMILLE, SECTIONS_MENU } from '../reports/kinds';
 import { bordureSignalisation } from '../map/signalisation';
 import { RadarIcon } from './RadarIcon';
 import { useSession } from '../store/session';
@@ -122,73 +122,89 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
           </Text>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={styles.grid}>
-              {REPORT_MENU_ORDER.map((kind) => {
-                const estNouveau = REPORT_FAMILLE[kind] === 'nouveau';
-                /* LES DECHETS SONT UNE CARTE COMME LES AUTRES — correction d'arsanne, vue a
-                 * l'ecran le 9 novembre.
-                 *
-                 * ELLES ONT PRIS TOUTE LA LARGEUR PENDANT UNE VERSION. Les documents du 8 et du
-                 * 9 novembre le demandent tous deux, au mot pres : << DERNIER, seul sur sa ligne
-                 * = pleine largeur >>. Le raisonnement se defendait sur le papier — un type qui
-                 * vient d'arriver se remarque d'autant plus qu'il ne partage sa ligne avec rien.
-                 *
-                 * A L'USAGE, CELA NE MARCHE PAS. Le menu est une grille de onze cartes
-                 * identiques ; la douzieme, large et seule en bas, ne se lit plus comme un type
-                 * de signalement mais comme un bouton d'une autre nature — a cote de la ligne
-                 * << Alertes actives >>, qui est justement un bouton d'une autre nature. arsanne
-                 * l'a vu sur son telephone et demande la meme carte que les autres, en face
-                 * d'Incendie.
-                 *
-                 * Le badge << Nouveau >> reste : il ne change pas la forme de la carte, et c'est
-                 * lui, pas la largeur, qui dit que le type est recent.
-                 *
-                 * ELLE TOMBE NATURELLEMENT EN FACE D'INCENDIE : elle est derniere dans
-                 * REPORT_MENU_ORDER, qui en compte douze, donc elle occupe la seconde colonne de
-                 * la sixieme rangee. Il n'y a rien a forcer. */
-                return (
-                  <Pressable
-                    key={kind}
-                    onPress={() => choisir(kind)}
-                    accessibilityRole="button"
-                    accessibilityLabel={t(`report.${kind}`)}
-                    style={({ pressed }) => [
-                      styles.item,
-                      {
-                        backgroundColor: pressed ? FOND_CARTE_PRESSE : FOND_CARTE,
-                        /* LA BORDURE DIT LA CATEGORIE (C7 du 11 novembre) : << seule la
-                         * bordure est rouge car c'est un type blocage >>. Les cartes etaient
-                         * toutes vertes depuis le 8 novembre. Le fond, lui, ne bouge pas :
-                         * quatorze fonds de couleur feraient le damier que le client avait
-                         * refuse le 31 octobre. */
-                        borderColor: bordureSignalisation(kind),
-                      },
-                    ]}
-                  >
-                    {estNouveau ? (
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{t('report.nouveau')}</Text>
-                      </View>
-                    ) : null}
+            {/* TROIS SECTIONS TITREES — maquette du 13 novembre.
+                Douze cartes d'affilee se lisent en les parcourant toutes ; au volant, on cherche
+                << accident >> en passant devant le radar, le trou et l'inondation. Les titres
+                coupent la lecture en trois listes courtes, et la question qu'on se pose en
+                signalant — circulation, route, ou autour ? — trouve sa reponse avant qu'on ait
+                lu une seule case.
 
-                    {kind === 'radar' ? (
-                      // Un dessin plutot qu'un emoji : voir RadarIcon.
-                      <RadarIcon size={26} />
-                    ) : (
-                      <Text style={styles.emoji}>{menuEmoji(kind)}</Text>
-                    )}
+                LES DOUZE TYPES SONT TOUS LA : la maquette n'en montre que sept, et c'est sa
+                SELECTION qu'on ecarte, pas son rangement. Voir SECTIONS_MENU. */}
+            {SECTIONS_MENU.map((section) => (
+              <View key={section.cle}>
+                <Text style={[styles.sectionTitre, { color: colors.textMuted }]}>
+                  {t(`report.section.${section.cle}`)}
+                </Text>
+                <View style={styles.grid}>
+                  {section.types.map((kind) => {
+                  const estNouveau = REPORT_FAMILLE[kind] === 'nouveau';
+                  /* LES DECHETS SONT UNE CARTE COMME LES AUTRES — correction d'arsanne, vue a
+                   * l'ecran le 9 novembre.
+                   *
+                   * ELLES ONT PRIS TOUTE LA LARGEUR PENDANT UNE VERSION. Les documents du 8 et du
+                   * 9 novembre le demandent tous deux, au mot pres : << DERNIER, seul sur sa ligne
+                   * = pleine largeur >>. Le raisonnement se defendait sur le papier — un type qui
+                   * vient d'arriver se remarque d'autant plus qu'il ne partage sa ligne avec rien.
+                   *
+                   * A L'USAGE, CELA NE MARCHE PAS. Le menu est une grille de onze cartes
+                   * identiques ; la douzieme, large et seule en bas, ne se lit plus comme un type
+                   * de signalement mais comme un bouton d'une autre nature — a cote de la ligne
+                   * << Alertes actives >>, qui est justement un bouton d'une autre nature. arsanne
+                   * l'a vu sur son telephone et demande la meme carte que les autres, en face
+                   * d'Incendie.
+                   *
+                   * Le badge << Nouveau >> reste : il ne change pas la forme de la carte, et c'est
+                   * lui, pas la largeur, qui dit que le type est recent.
+                   *
+                   * ELLE TOMBE NATURELLEMENT EN FACE D'INCENDIE : elle est derniere dans
+                   * REPORT_MENU_ORDER, qui en compte douze, donc elle occupe la seconde colonne de
+                   * la sixieme rangee. Il n'y a rien a forcer. */
+                  return (
+                    <Pressable
+                      key={kind}
+                      onPress={() => choisir(kind)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t(`report.${kind}`)}
+                      style={({ pressed }) => [
+                        styles.item,
+                        {
+                          backgroundColor: pressed ? FOND_CARTE_PRESSE : FOND_CARTE,
+                          /* LA BORDURE DIT LA CATEGORIE (C7 du 11 novembre) : << seule la
+                           * bordure est rouge car c'est un type blocage >>. Les cartes etaient
+                           * toutes vertes depuis le 8 novembre. Le fond, lui, ne bouge pas :
+                           * quatorze fonds de couleur feraient le damier que le client avait
+                           * refuse le 31 octobre. */
+                          borderColor: bordureSignalisation(kind),
+                        },
+                      ]}
+                    >
+                      {estNouveau ? (
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeText}>{t('report.nouveau')}</Text>
+                        </View>
+                      ) : null}
 
-                    {/* Couleurs figees, comme le fond de la carte : voir TEXTE_CARTE. */}
-                    <Text style={[styles.itemLabel, { color: TEXTE_CARTE }]} numberOfLines={1}>
-                      {t(`report.${kind}`)}
-                    </Text>
-                    <Text style={[styles.itemSub, { color: TEXTE_CARTE_DOUX }]} numberOfLines={2}>
-                      {t(`report.sub_${kind}`)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+                      {kind === 'radar' ? (
+                        // Un dessin plutot qu'un emoji : voir RadarIcon.
+                        <RadarIcon size={26} />
+                      ) : (
+                        <Text style={styles.emoji}>{menuEmoji(kind)}</Text>
+                      )}
+
+                      {/* Couleurs figees, comme le fond de la carte : voir TEXTE_CARTE. */}
+                      <Text style={[styles.itemLabel, { color: TEXTE_CARTE }]} numberOfLines={1}>
+                        {t(`report.${kind}`)}
+                      </Text>
+                      <Text style={[styles.itemSub, { color: TEXTE_CARTE_DOUX }]} numberOfLines={2}>
+                        {t(`report.sub_${kind}`)}
+                      </Text>
+                    </Pressable>
+                  );
+                  })}
+                </View>
+              </View>
+            ))}
 
             {/* ETAT DES ALERTES DE PROXIMITE, et le chemin du retour (point 17).
                 La carte d'alerte permet de les couper d'un appui, en roulant. Sans cette
@@ -263,6 +279,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'space-between' },
+  /* LE TITRE DE SECTION : petit, espace, dans le gris du theme — il range, il ne se lit pas.
+   * En majuscules comme la maquette : a cette taille, c'est ce qui le distingue d'un libelle de
+   * carte sans avoir a le grossir. */
+  sectionTitre: {
+    ...typography.caption,
+    fontSize: 10.5,
+    fontWeight: '800' as const,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
   item: {
     width: '48%',
     borderWidth: EPAISSEUR_CARTE,

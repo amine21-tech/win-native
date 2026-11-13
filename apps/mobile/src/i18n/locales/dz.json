@@ -88,7 +88,12 @@
     "badge_fire": "حريق قريب",
     "waste": "زبل مرمي",
     "sub_waste": "زبلة على طرف الطريق",
-    "badge_waste": "رمي عشوائي"
+    "badge_waste": "رمي عشوائي",
+    "section": {
+      "circulation": "حركة المرور",
+      "route": "الطريق",
+      "environnement": "المحيط"
+    }
   },
   "nav": {
     "start": "يالله نروحو",

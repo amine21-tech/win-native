@@ -88,7 +88,12 @@
     "badge_fire": "Fire nearby",
     "waste": "Illegal dumping",
     "sub_waste": "Rubbish dumped by the road",
-    "badge_waste": "Fly-tipping"
+    "badge_waste": "Fly-tipping",
+    "section": {
+      "circulation": "Traffic",
+      "route": "Road",
+      "environnement": "Environment"
+    }
   },
   "nav": {
     "start": "Start",

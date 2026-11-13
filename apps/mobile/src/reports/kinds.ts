@@ -16,24 +16,43 @@ import type { ReportKind } from '../shared';
  * Une case, trois ecussons a l'interieur, et le choix de la force se fait DANS la case. Le
  * modele de donnees, lui, ne change pas : trois types distincts en base, chacun avec sa
  * couleur sur la carte. */
-export const REPORT_MENU_ORDER: ReportKind[] = [
-  'jam',
-  'crash',
-  'police', // la case << Barrage >>, sans distinction de force depuis le 9 novembre
-  'block',
-  'works',
-  'bump',
-  'radar',
-  'object',
-  'pothole',
-  'flood',
-  'fire',
-  /* LES DECHETS EN DERNIER, et seuls sur leur ligne — c'est ce que demande le document du
-   * 8 novembre, au mot pres : << position 7, seul sur sa ligne = pleine largeur, badge NOUVEAU
-   * dore >>. Le menu en compte douze cases et non sept (voir REPORT_KINDS), mais la place
-   * demandee est la meme : la DERNIERE. */
-  'waste',
+/**
+ * LE MENU SE RANGE EN TROIS SECTIONS — maquette du 13 novembre.
+ *
+ * CE QUE LES SECTIONS APPORTENT A UNE GRILLE DE DOUZE CASES. Douze cartes d'affilee se lisent
+ * en les parcourant toutes : au volant, on cherche << accident >> en passant devant le radar,
+ * le trou et l'inondation. Trois titres coupent cette lecture en trois listes de deux a sept,
+ * et la question qu'on se pose en signalant — est-ce la circulation, la route, ou autour ? —
+ * trouve sa reponse avant qu'on ait lu une seule case.
+ *
+ * LES DOUZE TYPES SONT TOUS GARDES. La maquette n'en montre que sept ; decision prise avec
+ * arsanne le 13 novembre : on prend ses sections, pas sa selection. Retirer le radar, le dos
+ * d'ane, le trou, l'inondation et l'incendie reviendrait a rendre insignalables des choses que
+ * des conducteurs signalent deja, et dont la base est pleine.
+ *
+ * L'ORDRE DE SA MAQUETTE EST RESPECTE LA OU ELLE SE PRONONCE — Bouchon puis Accident, Barrage
+ * puis Travaux puis Route barree puis Objet. Nos cinq types supplementaires viennent apres,
+ * dans la section ou ils ont leur place.
+ */
+export type SectionMenu = { cle: string; types: ReportKind[] };
+
+export const SECTIONS_MENU: SectionMenu[] = [
+  /* CE QUI RALENTIT OU ARRETE LA CIRCULATION, sans que la route elle-meme soit en cause. */
+  { cle: 'circulation', types: ['jam', 'crash'] },
+  /* LA ROUTE ELLE-MEME : ce qui la barre, l'abime ou s'y trouve. Le barrage ouvre la section,
+   * comme sur la maquette. */
+  { cle: 'route', types: ['police', 'works', 'block', 'object', 'bump', 'pothole', 'radar'] },
+  /* CE QUI VIENT D'AUTOUR DE LA ROUTE et ne depend pas de la circulation. */
+  { cle: 'environnement', types: ['waste', 'flood', 'fire'] },
 ];
+
+/**
+ * La meme liste, a plat, dans l'ordre d'affichage.
+ *
+ * ELLE EST DERIVEE ET NON RECOPIEE : deux listes a tenir a jour finissent toujours par
+ * diverger, et le jour ou elles divergent un type disparait du menu sans que rien ne le dise.
+ */
+export const REPORT_MENU_ORDER: ReportKind[] = SECTIONS_MENU.flatMap((s) => s.types);
 
 /**
  * GENRE ET NOMBRE DE CHAQUE TYPE, pour que la voix parle francais.

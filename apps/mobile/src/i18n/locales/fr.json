@@ -88,7 +88,12 @@
     "badge_fire": "Feu proche",
     "waste": "Déchets sauvages",
     "sub_waste": "Décharge en bord de route",
-    "badge_waste": "Dépôt sauvage"
+    "badge_waste": "Dépôt sauvage",
+    "section": {
+      "circulation": "Circulation",
+      "route": "Route",
+      "environnement": "Environnement"
+    }
   },
   "nav": {
     "start": "C'est parti",

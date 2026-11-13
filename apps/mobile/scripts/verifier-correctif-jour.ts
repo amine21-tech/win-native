@@ -297,6 +297,29 @@ console.log('\nC8 — LE CLIGNOTEMENT DE LA VOIE RECOMMANDEE');
 /* Deja livre en v121, aux memes valeurs. Ce controle existe pour qu'il le reste. */
 verifier('de 1,0 a 0,2', /CLIGNOTEMENT_MIN = 0\.2/.test(voies));
 verifier('en 500 ms', /CLIGNOTEMENT_MS = 500/.test(voies));
+/* LES COULEURS RELEVEES SUR LA MAQUETTE DU 13 NOVEMBRE, au pixel. Elles ne sont pas choisies,
+ * elles sont MESUREES : la maquette des neuf scenarios a ete sondee et ces valeurs en sortent
+ * telles quelles. Les figer ici evite de rediscuter d'une nuance de vert a chaque version. */
+for (const [quoi, valeur] of [
+  ['fond des autres voies', '#0B553C'],
+  ['leur fleche, en vert pale', '#85B0A6'],
+  ['fond de la voie recommandee', '#FFFFFF'],
+  ['sa fleche, en vert du bandeau', '#0D6E4F'],
+  ['la pastille doree', '#D4A017'],
+] as [string, string][]) {
+  verifier(`${quoi} : ${valeur}`, voies.includes(`'${valeur}'`), valeur);
+}
+verifier(
+  'la voie recommandee porte une pastille qui NE clignote pas',
+  /\{aPrendre \? <View style=\{styles\.pastille\} \/> : null\}/.test(voies),
+  'un clignotement ne se voit que si on regarde au bon moment ; la pastille, elle, ne bouge pas',
+);
+verifier(
+  'la case ne rogne pas la pastille qui deborde',
+  !/case: \{[^}]*overflow: 'hidden'/s.test(voies),
+  'le moindre rognage la couperait en quart de rond',
+);
+
 verifier(
   'seul le fond clignote, pas la fleche',
   /styles\.fond,\s*\{ backgroundColor: FOND_RECOMMANDE, opacity: clignote \}/.test(voies),

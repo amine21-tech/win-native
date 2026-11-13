@@ -88,7 +88,12 @@
     "badge_fire": "حريق قريب",
     "waste": "نفايات متروكة",
     "sub_waste": "مزبلة على حافة الطريق",
-    "badge_waste": "رمي عشوائي"
+    "badge_waste": "رمي عشوائي",
+    "section": {
+      "circulation": "حركة المرور",
+      "route": "الطريق",
+      "environnement": "المحيط"
+    }
   },
   "nav": {
     "start": "انطلق",

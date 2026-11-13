@@ -88,7 +88,12 @@
     "badge_fire": "Times",
     "waste": "Iɣbaren ibelɛanen",
     "sub_waste": "Tanegrist ɣef rrif n ubrid",
-    "badge_waste": "Aḍeggeṛ n iɣbaren"
+    "badge_waste": "Aḍeggeṛ n iɣbaren",
+    "section": {
+      "circulation": "Anekcum",
+      "route": "Abrid",
+      "environnement": "Twennaḍt"
+    }
   },
   "nav": {
     "start": "Ad nruḥ",

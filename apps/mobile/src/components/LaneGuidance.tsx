@@ -64,10 +64,47 @@ export const LANE_GUIDANCE_MIN = 2;
 const CLIGNOTEMENT_MS = 500;
 const CLIGNOTEMENT_MIN = 0.2;
 
-/** Fond des voies a eviter : le vert fonce du document. Elles restent VISIBLES — les effacer
- *  empecherait de compter les files et de savoir laquelle est la bonne. */
-const FOND_AUTRE = '#0D6E4F';
+/**
+ * LES COULEURS SONT RELEVEES SUR LA MAQUETTE, au pixel — 13 novembre.
+ *
+ * Elles ne sont pas choisies : elles sont MESUREES. La maquette des neuf scenarios a ete
+ * sondee, et ces quatre valeurs en sortent telles quelles. C'est la demande d'arsanne —
+ * << le meme design, les memes couleurs, le meme emplacement >> — et c'est aussi la seule
+ * facon de ne pas discuter d'une nuance de vert pendant trois versions.
+ *
+ * CE QUI A CHANGE PAR RAPPORT AU 11 NOVEMBRE :
+ *
+ *   le fond des autres voies  #0D6E4F -> #0B553C  (un vert plus sombre que le bandeau)
+ *   leur fleche               #FFFFFF -> #85B0A6  (un vert pale, pas du blanc)
+ *
+ * LA SECONDE EST LA PLUS IMPORTANTE. Des fleches BLANCHES sur les voies a eviter les mettaient
+ * au meme niveau de contraste que la voie recommandee, qui est blanche elle aussi : trois
+ * taches claires, et l'oeil devait chercher laquelle clignotait. En vert pale elles reculent, et
+ * la voie a prendre est la seule chose claire de la rangee.
+ */
+const FOND_AUTRE = '#0B553C';
+const FLECHE_AUTRE = '#85B0A6';
 const FOND_RECOMMANDE = '#FFFFFF';
+/** La fleche de la voie recommandee : le vert du bandeau, sur fond blanc. */
+const FLECHE_RECOMMANDEE = '#0D6E4F';
+
+/**
+ * LA PASTILLE DOREE DE LA VOIE RECOMMANDEE.
+ *
+ * Le sous-titre de la maquette la decrit en trois mots : << voie recommandee (clignote + dore) >>.
+ * Elle manquait entierement — il n'y avait que le clignotement.
+ *
+ * A QUOI ELLE SERT, ET POURQUOI LE CLIGNOTEMENT NE SUFFIT PAS. Un clignotement ne se voit que
+ * si on regarde au bon moment : vingt fois par minute, la voie recommandee est a vingt pour cent
+ * d'opacite, c'est-a-dire presque effacee. Un conducteur qui jette un oeil a cet instant-la ne
+ * voit aucune voie designee. La pastille, elle, ne bouge pas.
+ *
+ * Posee A CHEVAL SUR LE COIN, comme sur la maquette : a l'interieur elle se confondrait avec le
+ * dessin, debordante elle se lit comme une etiquette collee — le meme principe que le badge
+ * << Nouveau >> du menu de signalement.
+ */
+const OR_RECOMMANDEE = '#D4A017';
+const PASTILLE = 9;
 
 /**
  * LES VOIES SONT DESSINEES DANS LE BANDEAU VERT, pas sous lui (point 5 du client, 27 octobre :
@@ -168,7 +205,14 @@ export function LaneGuidance({
             ) : (
               <View style={[styles.fond, { backgroundColor: FOND_AUTRE }]} />
             )}
-            <FlecheVoie lane={lane} size={26} couleur={aPrendre ? FOND_AUTRE : '#FFFFFF'} />
+            <FlecheVoie
+              lane={lane}
+              size={26}
+              couleur={aPrendre ? FLECHE_RECOMMANDEE : FLECHE_AUTRE}
+            />
+            {/* LA PASTILLE DOREE, a cheval sur le coin haut-droit. Elle ne clignote PAS : c'est
+                tout son interet, elle designe la voie meme quand le fond est efface. */}
+            {aPrendre ? <View style={styles.pastille} /> : null}
           </View>
         );
       })}
@@ -188,8 +232,19 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    /* PAS DE `overflow: hidden` ICI : la pastille doree deborde du coin, et le moindre
+     * rognage la couperait en quart de rond. */
   },
   /* Le fond, SOUS la fleche : il couvre toute la case sans repeter ses dimensions, donc sans
    * risque qu'elles divergent un jour. */
   fond: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: 6 },
+  pastille: {
+    position: 'absolute',
+    top: -PASTILLE / 3,
+    right: -PASTILLE / 3,
+    width: PASTILLE,
+    height: PASTILLE,
+    borderRadius: PASTILLE / 2,
+    backgroundColor: OR_RECOMMANDEE,
+  },
 });
