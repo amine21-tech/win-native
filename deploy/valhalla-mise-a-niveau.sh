@@ -106,7 +106,29 @@ case "${1:-}" in
     # Seuls les fichiers OSM sont repris. Ni les tuiles, ni les fichiers d'empreintes : une
     # tuile heritee de la 3.5 ferait sauter la construction (« use_tiles_ignore_pbf ») et le
     # conteneur servirait l'ancien format en silence.
-    cp -n "$OLD_DIR"/*.osm.pbf "$NEW_DIR"/
+    # LES FICHIERS OSM SONT COMPARES, PAS COPIES EN AVEUGLE.
+    #
+    # Le script faisait `cp -n`, qui ne remplace jamais un fichier existant — et sans rien dire.
+    # Une tentative abandonnee laissait donc ses fichiers en place, et la construction suivante
+    # repartait d'eux en silence. On l'a vu le 15 novembre : les fichiers du dossier neuf
+    # dataient du 12 octobre alors que la source datait de juillet et d'aout.
+    #
+    # POURQUOI CELA COMPTE ICI PLUS QU'AILLEURS. Toute la methode repose sur une comparaison
+    # ou SEULE la version du moteur change : si les deux moteurs ne connaissent pas les memes
+    # routes, un ecart de duree ne veut plus rien dire, et on ne peut plus decider de basculer.
+    for source in "$OLD_DIR"/*.osm.pbf; do
+      nom=$(basename "$source")
+      cible="$NEW_DIR/$nom"
+      if [ ! -f "$cible" ]; then
+        cp "$source" "$cible"
+        echo "  copie    $nom"
+      elif cmp -s "$source" "$cible"; then
+        echo "  identique $nom  (deja present, meme contenu)"
+      else
+        echo "  REMPLACE $nom  (le dossier neuf en avait un DIFFERENT, d'un essai precedent)"
+        cp -f "$source" "$cible"
+      fi
+    done
     sudo rm -rf "$NEW_DIR/valhalla_tiles" "$NEW_DIR/valhalla_tiles.tar" "$NEW_DIR/file_hashes.txt"
     ls -lh "$NEW_DIR"/*.osm.pbf
 
