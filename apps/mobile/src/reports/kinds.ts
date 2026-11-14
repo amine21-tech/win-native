@@ -36,14 +36,31 @@ import type { ReportKind } from '../shared';
  */
 export type SectionMenu = { cle: string; types: ReportKind[] };
 
+/**
+ * AUCUNE SECTION NE LAISSE DE CASE VIDE — correction d'arsanne, le 14 novembre, sur capture.
+ *
+ * La grille a deux colonnes : une section d'un nombre IMPAIR de cartes finit donc par une
+ * carte seule, avec un trou a cote. Avec 2 / 7 / 3, il y en avait DEUX — un a cote du Radar, un
+ * a cote de l'Incendie. arsanne a entoure le premier en rouge et demande d'y mettre l'Incendie.
+ *
+ * Cela resout les deux trous d'un seul deplacement : la section Route passe a huit cartes et
+ * Environnement a deux. Quatre rangees pleines, puis une. Plus aucun blanc.
+ *
+ * L'INCENDIE PASSE DONC SOUS << ROUTE >>, et ce n'est pas qu'un arrangement de cases. Son
+ * libelle est << Feu visible depuis la route >> : ce qu'on signale n'est pas l'incendie, c'est
+ * la fumee en travers de la chaussee et les vehicules de secours qui vont arriver. A ce titre
+ * il est aussi << la route >> que les travaux. Dechets et inondation, eux, restent ce qui vient
+ * d'autour : une decharge en bord de route et une chaussee submergee.
+ */
 export const SECTIONS_MENU: SectionMenu[] = [
   /* CE QUI RALENTIT OU ARRETE LA CIRCULATION, sans que la route elle-meme soit en cause. */
   { cle: 'circulation', types: ['jam', 'crash'] },
-  /* LA ROUTE ELLE-MEME : ce qui la barre, l'abime ou s'y trouve. Le barrage ouvre la section,
-   * comme sur la maquette. */
-  { cle: 'route', types: ['police', 'works', 'block', 'object', 'bump', 'pothole', 'radar'] },
+  /* LA ROUTE ELLE-MEME : ce qui la barre, l'abime, s'y trouve ou la rend impraticable. Le
+   * barrage ouvre la section, comme sur la maquette ; l'incendie la ferme, dans la case que la
+   * capture du 14 novembre designe. */
+  { cle: 'route', types: ['police', 'works', 'block', 'object', 'bump', 'pothole', 'radar', 'fire'] },
   /* CE QUI VIENT D'AUTOUR DE LA ROUTE et ne depend pas de la circulation. */
-  { cle: 'environnement', types: ['waste', 'flood', 'fire'] },
+  { cle: 'environnement', types: ['waste', 'flood'] },
 ];
 
 /**

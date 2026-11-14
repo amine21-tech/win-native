@@ -161,6 +161,25 @@ verifier(
   [...new Set(REPORT_MENU_ORDER.map((k) => bordureSignalisation(k)))].join(' '),
 );
 
+console.log("\nAUCUNE SECTION NE LAISSE DE CASE VIDE");
+
+/* LA GRILLE A DEUX COLONNES. Une section d'un nombre IMPAIR de cartes finit donc par une carte
+ * seule, avec un blanc a cote — et comme chaque section recommence une rangee, le blanc ne se
+ * comble jamais. Avec 2 / 7 / 3 il y en avait deux, dont celui qu'arsanne a entoure en rouge
+ * sur sa capture du 14 novembre.
+ *
+ * POURQUOI UN CONTROLE. Le defaut ne vient d'aucune ligne fausse : chaque section est juste
+ * prise seule, et le trou n'apparait qu'a l'ecran, apres un build et une installation. Il
+ * reviendra le jour ou un treizieme type sera ajoute, ou un type deplace d'une section a
+ * l'autre — c'est-a-dire exactement ce qu'on vient de faire deux fois en deux jours. */
+const impaires = SECTIONS_MENU.filter((s) => s.types.length % 2 !== 0);
+verifier(
+  'chaque section remplit ses rangees de deux',
+  impaires.length === 0,
+  impaires.map((s) => `${s.cle} (${s.types.length})`).join(' · ') ||
+    SECTIONS_MENU.map((s) => `${s.cle} ${s.types.length}`).join(' · '),
+);
+
 console.log('\nLES TROIS SECTIONS SONT CELLES DE LA MAQUETTE, DANS SON ORDRE');
 verifier(
   'circulation, route, environnement',
