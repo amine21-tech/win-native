@@ -32,6 +32,8 @@ const alerte = lire('apps/mobile/src/components/AlerteApproche.tsx');
 const panneau = lire('apps/mobile/src/components/NavDestinationPicker.tsx');
 const session = lire('apps/mobile/src/navigation/useNavigationSession.ts');
 const pastille = lire('apps/mobile/src/components/RecalcToast.tsx');
+/* La regle de duree a quitte le composant : elle est eprouvee a part. */
+const regle = lire('apps/mobile/src/components/pastilleRecalcul.ts');
 const ecran = lire('apps/mobile/app/index.tsx');
 const voies = lire('apps/mobile/src/components/LaneGuidance.tsx');
 const menu = lire('apps/mobile/src/components/ReportMenu.tsx');
@@ -150,15 +152,31 @@ verifier(
 );
 
 console.log('\nC4 — LA PASTILLE DE RECALCUL RESTE 2 SECONDES');
+
+/* CE CONTROLE A ETE REECRIT LE 14 NOVEMBRE, ET LA RAISON MERITE D'ETRE LUE.
+ *
+ * Il verifiait la presence d'une ligne precise : `if (!visible && !prolonge) return null;`.
+ * Cette ligne etait bien la, et le controle est reste VERT pendant trois versions — pendant
+ * lesquelles la pastille restait affichee pour toujours des que le calcul durait moins de deux
+ * secondes, c'est-a-dire dans le cas le plus courant. Il constatait qu'une ligne existait ; il
+ * ne pouvait rien dire de ce qu'elle PRODUIT au fil du temps.
+ *
+ * La regle vit maintenant dans un module isole de React Native (src/components/pastilleRecalcul
+ * .ts), et scripts/verifier-pastille-recalcul.ts REJOUE de vraies chronologies dessus — dont
+ * celle qui a casse, et l'ancienne logique remise expres pour verifier que le controle mord.
+ *
+ * Il ne reste donc ici que les deux choses qu'on peut honnetement constater d'ici : la valeur
+ * du document, et le fait que le composant s'appuie bien sur ce module eprouve plutot que de
+ * refaire son minutage dans son coin. */
 verifier(
   'la duree minimale est de 2000 ms',
-  /DUREE_MINIMALE_MS = 2_000/.test(pastille),
+  /DUREE_MINIMALE_MS = 2_000/.test(regle),
   '« 2 secondes · ne pas modifier sans validation »',
 );
 verifier(
-  "elle survit a la fin du calcul",
-  /if \(!visible && !prolonge\) return null;/.test(pastille),
-  'un recalcul de 400 ms la faisait disparaitre avant qu on la voie',
+  'la pastille suit la regle eprouvee, et ne reinvente pas son minutage',
+  /from '\.\/pastilleRecalcul'/.test(pastille) && !/setProlonge/.test(pastille),
+  'voir scripts/verifier-pastille-recalcul.ts, qui rejoue le temps au lieu de relire le code',
 );
 
 /* ------------------------------------------------------------------ */

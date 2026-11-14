@@ -1,4 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import {
+  DUREE_MINIMALE_MS,
+  PASTILLE_ETEINTE,
+  prochainReveil,
+  suivante,
+  visible as estVisible,
+} from './pastilleRecalcul';
 import { useTranslation } from 'react-i18next';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { radius, spacing } from '../theme';
@@ -54,11 +61,6 @@ function Point({ retard }: { retard: number }) {
   return <Animated.View style={[styles.point, { opacity: valeur, transform: [{ scale: valeur }] }]} />;
 }
 
-/**
- * Duree MINIMALE d'affichage, en millisecondes. Valeur confirmee par le document du
- * 11 novembre (C4) : << 2 secondes (2000 ms) · Ne pas modifier cette duree sans validation >>.
- */
-export const DUREE_MINIMALE_MS = 2_000;
 
 export function RecalcToast({
   visible,
@@ -89,15 +91,30 @@ export function RecalcToast({
    * existe pour eviter. Dans le cas courant, ou le calcul est plus rapide que deux secondes,
    * le comportement est celui du document au millieme pres.
    */
-  const [prolonge, setProlonge] = useState(false);
+  const [etat, setEtat] = useState(PASTILLE_ETEINTE);
+
   useEffect(() => {
-    if (!visible) return;
-    setProlonge(true);
-    const minuteur = setTimeout(() => setProlonge(false), DUREE_MINIMALE_MS);
-    return () => clearTimeout(minuteur);
+    setEtat((precedent) => suivante(precedent, visible, Date.now()));
   }, [visible]);
 
-  if (!visible && !prolonge) return null;
+  /* LE REVEIL QUI EFFACE LA PASTILLE quand le calcul est fini mais que son temps court encore.
+   *
+   * Il est arme sur le temps RESTANT, et non sur deux secondes pleines : sinon un calcul de
+   * quatre cents millisecondes afficherait la pastille deux secondes quatre cents, et surtout
+   * un calcul qui s'acheve puis repart la rallongerait sans fin.
+   *
+   * C'EST ICI QUE L'ANCIENNE VERSION MOURAIT. Elle gardait son minuteur dans l'effet de
+   * `visible` : quand `visible` retombait, React nettoyait l'effet, donc annulait le minuteur,
+   * et le corps ressortait aussitot sans jamais rabaisser le drapeau. Ici, le nettoyage ne peut
+   * rien oublier — il n'y a plus de drapeau a baisser, seulement une heure a atteindre. */
+  const reveil = prochainReveil(etat, visible, Date.now());
+  useEffect(() => {
+    if (reveil === null) return;
+    const minuteur = setTimeout(() => setEtat((precedent) => suivante(precedent, false, Date.now())), reveil);
+    return () => clearTimeout(minuteur);
+  }, [reveil]);
+
+  if (!estVisible(etat, visible, Date.now())) return null;
 
   /* ELLE EST PASSEE EN BAS DE L'ECRAN — correctif du 8 novembre, << bandeau vert translucide
    * EN BAS de l'ecran, carte visible a 100 % >>.
@@ -156,3 +173,8 @@ const styles = StyleSheet.create({
   points: { flexDirection: 'row', gap: 5, alignItems: 'center' },
   point: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#FFFFFF' },
 });
+
+/* Re-exportee telle quelle : la regle vit maintenant dans pastilleRecalcul.ts, mais plusieurs
+ * ecrans importent cette duree d'ici depuis le 11 novembre, et rien ne gagnerait a les changer
+ * tous pour deplacer un nom. */
+export { DUREE_MINIMALE_MS };
