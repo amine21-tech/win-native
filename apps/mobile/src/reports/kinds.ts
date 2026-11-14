@@ -127,16 +127,20 @@ export const REPORT_EMOJI: Record<ReportKind, string> = {
   jam: '🚗',
   crash: '💥',
   block: '🚧',
-  police: '👮',
+  police: '🚓',
   flood: '🌊',
   fire: '🔥',
   bump: '〰️',
   object: '⚠️',
-  radar: '📷',
+  radar: '📸',
   pothole: '🕳️',
-  // Les trois forces se distinguent au premier regard : casquette, beret, tenue de combat.
-  gendarmerie: '🪖',
-  armee: '🎖️',
+  /* LES TROIS FORCES PARTAGENT LA VOITURE DE POLICE depuis le 13 novembre. Elles se
+   * distinguaient par une casquette, un beret et une tenue de combat ; le menu ne demande plus
+   * quelle force tient le barrage depuis le 9 novembre, et la maquette des douze symboles ne
+   * montre qu'une voiture. Les trois types restent dans le modele pour que les signalements
+   * deja en base continuent de s'afficher. */
+  gendarmerie: '🚓',
+  armee: '🚓',
   /* La grue, pas la barriere : << Route bloquee >> porte deja le chevalet de chantier, et deux
    * cases du meme menu affichaient le meme pictogramme. Sur la maquette du client, les deux se
    * distinguent au premier regard — c'est tout l'interet d'une image. */
@@ -145,15 +149,66 @@ export const REPORT_EMOJI: Record<ReportKind, string> = {
 };
 
 /**
+ * BADGE POSE SUR UNE CARTE DU MENU.
+ *
+ * La maquette du panneau en montre deux, dans la meme pastille doree : << Nouveau >> sur les
+ * dechets sauvages, et << MIS A JOUR >> sur Route barree. Le second ne dit pas qu'une carte
+ * vient d'arriver, mais que son COMPORTEMENT a change — la note de bas de maquette l'explique :
+ * << Route barree et Chemin sans issue : meme logique que Barrage. 2 votes utilisateurs
+ * differents, s'ajoutent au calcul, recalcul proactif immediat. >>
+ *
+ * Cette regle-la est en place depuis le 2 novembre (blocageConfirme dans shared/constants.ts :
+ * deux temoins, pas un) et le recalcul proactif vit dans index.tsx. Le badge ne cree donc rien ;
+ * il DIT au conducteur que le signalement qu'il s'apprete a poser pese desormais sur le calcul
+ * d'itineraire des autres. C'est une information qu'on ne pouvait pas deviner de la carte.
+ *
+ * UNE TABLE PLUTOT QU'UN BOOLEEN. Le badge etait deduit de REPORT_FAMILLE === 'nouveau' : une
+ * famille servait a la fois a teinter et a badger, et ajouter un second libelle aurait demande
+ * une famille << misAJour >> qui n'est pas une famille. Les deux notions se separent ici.
+ */
+export type ReportBadge = 'nouveau' | 'misAJour';
+
+export const REPORT_BADGE: Partial<Record<ReportKind, ReportBadge>> = {
+  waste: 'nouveau',
+  block: 'misAJour',
+};
+
+/**
  * Pictogramme du MENU, quand il doit differer de celui de la carte.
  *
- * Sur la carte, chaque signalement tient dans une pastille de quinze points : un seul glyphe y
- * entre, et trois voitures cote a cote n'y formeraient qu'une tache. Dans le menu, la pastille
- * fait toute la largeur d'une demi-colonne — c'est la que la file de voitures demandee par le
- * client dit ce qu'un vehicule seul ne disait pas : un bouchon, et non une voiture a l'arret.
+ * POURQUOI LES DEUX SURFACES DIVERGENT, ET CE N'EST PAS UNE NEGLIGENCE. La synthese du
+ * 13 novembre tient en deux pages, et elles ne donnent pas les memes symboles aux memes types :
+ *
+ *                      page << 12 symboles sur la carte >>   page << panneau de signalement >>
+ *   Bouchon                    voiture + souffle                   voiture + souffle
+ *   Accident                      explosion                             gyrophare
+ *   Barrage                    voiture de police                        chevalet
+ *   Travaux                          grue                                marteau
+ *   Route barree                   chevalet                         sens interdit
+ *   Objet sur route               triangle                               carton
+ *
+ * J'ai d'abord cru a une contradiction, et la tentation etait de choisir une page. C'est en
+ * regardant le BARRAGE que la logique apparait : sur la page carte il est une voiture de
+ * police, parce que le chevalet y est deja pris par Route barree — deux pastilles identiques
+ * sur une carte sont deux dangers qu'on ne distingue plus. Sur le panneau, les cartes portent
+ * leur NOM ecrit dessous : le chevalet peut y dire << barrage >> sans ambiguite, et le sens
+ * interdit dit mieux << route barree >> que ne le ferait un chevalet.
+ *
+ * Chaque page est donc juste POUR SA SURFACE, et on applique les deux. REPORT_EMOJI porte la
+ * page carte (elle sert aussi a la carte d'alerte, qui doit montrer le meme symbole que le
+ * marqueur qu'on vient de depasser) ; cette table porte la page panneau.
+ *
+ * LE BOUCHON gardait trois voitures en file, demandees le 28 octobre. Les deux pages de la
+ * synthese montrent desormais une voiture et un souffle : la file disait << embouteillage >>,
+ * le souffle dit << ca n'avance pas >>, et c'est le meme mot. On suit la derniere synthese.
  */
 const MENU_SPECIFIQUE: Partial<Record<ReportKind, string>> = {
-  jam: '🚗🚙🚕',
+  jam: '🚗💨',
+  crash: '🚨',
+  police: '🚧',
+  works: '🔨',
+  block: '⛔',
+  object: '📦',
 };
 
 export function menuEmoji(kind: ReportKind): string {

@@ -93,7 +93,9 @@
       "circulation": "Circulation",
       "route": "Route",
       "environnement": "Environnement"
-    }
+    },
+    "badge_nouveau": "Nouveau",
+    "badge_misAJour": "Mis à jour"
   },
   "nav": {
     "start": "C'est parti",

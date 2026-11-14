@@ -134,9 +134,20 @@ export function bordureSignalisation(kind: ReportKind): string {
   return COULEUR_CATEGORIE[CATEGORIE[kind] ?? 'standard'];
 }
 
-/** Nom de l'image du pictogramme, generee par scripts/make-report-glyphs.py. */
+/** Nom de l'image du pictogramme blanc, generee par scripts/make-report-glyphs.py.
+ *  Toujours utilisee par la carte d'alerte, qui le pose sur un disque colore. */
 export function pictoSignalisation(kind: ReportKind): string {
   return `sig-${kind}`;
+}
+
+/**
+ * Nom de l'image du MARQUEUR COMPLET de la carte, generee par scripts/make-report-markers.py.
+ *
+ * Elle contient tout : la pastille pale, l'anneau de categorie et l'emoji en couleur. La carte
+ * ne compose plus rien — voir la note de MARQUEURS_SIGNALISATION dans pictos.ts.
+ */
+export function marqueurSignalisation(kind: ReportKind): string {
+  return `marker-${kind}`;
 }
 
 /**

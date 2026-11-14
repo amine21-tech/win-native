@@ -36,3 +36,38 @@ export const PICTOS_SIGNALISATION: Record<ReportKind, number> = {
   fire: require('../../assets/map/sig-fire.png'),
   waste: require('../../assets/map/sig-waste.png'),
 };
+
+/**
+ * LES MARQUEURS COMPLETS DE LA CARTE — maquette du 13 novembre.
+ *
+ * CE QU'ILS REMPLACENT. Le marqueur etait compose PAR LA CARTE : un cercle de la couleur du
+ * type, un anneau par-dessus, et un pictogramme blanc en troisieme couche. Trois couches, trois
+ * expressions de style, et une couleur qui venait de la donnee.
+ *
+ * La maquette en demande un autre : pastille pale, anneau de la couleur de la CATEGORIE, et
+ * l'EMOJI en couleur au milieu — le meme que celui du menu de signalement. Un emoji ne peut pas
+ * etre compose par la carte : il est dessine a l'avance, et le marqueur devient UNE image.
+ *
+ * TROIS COUCHES DEVIENNENT UNE, et ce n'est pas qu'une economie de lignes : la couleur, la
+ * taille de l'anneau et la place du dessin etaient reparties entre trois endroits qui devaient
+ * s'accorder. Elles sont maintenant dans un seul fichier, scripts/make-report-markers.py.
+ *
+ * Les `require` sont ecrits UN PAR UN : Metro les resout a la compilation et ne sait pas suivre
+ * un chemin calcule. Une boucle produirait une table vide a l'execution, sans erreur.
+ */
+export const MARQUEURS_SIGNALISATION: Record<ReportKind, number> = {
+  jam: require('../../assets/map/marker-jam.png'),
+  crash: require('../../assets/map/marker-crash.png'),
+  police: require('../../assets/map/marker-police.png'),
+  gendarmerie: require('../../assets/map/marker-gendarmerie.png'),
+  armee: require('../../assets/map/marker-armee.png'),
+  block: require('../../assets/map/marker-block.png'),
+  works: require('../../assets/map/marker-works.png'),
+  bump: require('../../assets/map/marker-bump.png'),
+  radar: require('../../assets/map/marker-radar.png'),
+  object: require('../../assets/map/marker-object.png'),
+  pothole: require('../../assets/map/marker-pothole.png'),
+  flood: require('../../assets/map/marker-flood.png'),
+  fire: require('../../assets/map/marker-fire.png'),
+  waste: require('../../assets/map/marker-waste.png'),
+};

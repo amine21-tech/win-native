@@ -78,8 +78,8 @@ import { formatClock24, useAutoScheme } from '../src/utils/clock';
 import { AlerteApproche } from '../src/components/AlerteApproche';
 import { BANDEAU_INFO_M, BandeauInfoSignalement } from '../src/components/BandeauInfoSignalement';
 import { PositionSheet } from '../src/components/PositionSheet';
-import { bordureSignalisation, pictoSignalisation, SIGNALISATION } from '../src/map/signalisation';
-import { PICTOS_SIGNALISATION } from '../src/map/pictos';
+import { bordureSignalisation, marqueurSignalisation, SIGNALISATION } from '../src/map/signalisation';
+import { MARQUEURS_SIGNALISATION, PICTOS_SIGNALISATION } from '../src/map/pictos';
 import { majProjections, projeterSurTrace, type TableProjection } from '../src/navigation/alerteApproche';
 import { PulseSignalements, RECENT_MS } from '../src/map/PulseSignalements';
 import { useApproachAlerts } from '../src/navigation/useApproachAlerts';
@@ -402,6 +402,13 @@ const MAP_IMAGES = {
    * gardent leur prefixe `sig-`, que la carte attend. */
   ...Object.fromEntries(
     Object.entries(PICTOS_SIGNALISATION).map(([kind, image]) => [`sig-${kind}`, image]),
+  ),
+  /* LES MARQUEURS COMPLETS (maquette du 13 novembre) : pastille pale, anneau de categorie et
+   * emoji en couleur, cuits en une seule image. La carte ne compose plus le marqueur — voir
+   * scripts/make-report-markers.py. Les pictogrammes blancs `sig-` restent au-dessus : la carte
+   * d'alerte d'approche les pose, elle, sur un disque colore. */
+  ...Object.fromEntries(
+    Object.entries(MARQUEURS_SIGNALISATION).map(([kind, image]) => [`marker-${kind}`, image]),
   ),
 };
 
@@ -1068,7 +1075,9 @@ export default function MapScreen() {
            * orange s'il faut ralentir, bleu pour une information, vert pour une gene. Le
            * disque, lui, garde la couleur du TYPE — voir la note de signalisation.ts. */
           bordure: bordureSignalisation(report.kind),
-          picto: pictoSignalisation(report.kind),
+          /* LE NOM DE L'IMAGE DU MARQUEUR. Elle porte deja sa pastille, son anneau de
+           * categorie et son emoji : la carte n'a plus rien a composer. */
+          marqueur: marqueurSignalisation(report.kind),
           /* DEUX LIGNES SOUS LE MARQUEUR, comme la maquette : le nom du type, puis le badge.
            * Le client les veut « lisibles d'un coup d'oeil » en conduisant — c'est ce qui
            * permet de reconnaitre un signalement sans s'arreter dessus. */
@@ -2538,50 +2547,24 @@ ${t(`report.badge_${report.kind}`)}`,
               doit pas re-rendre cet ecran. */}
           <PulseSignalements source="reports" actif={aUnSignalementRecent} />
 
-          {/* MARQUEUR DE SIGNALISATION — maquette validee du 31 octobre (correction C1).
-              Anneau dore, disque a la couleur du type, pictogramme blanc, et dessous le nom du
-              type avec son badge. L'ancienne version dessinait un point de sept pixels surmonte
-              d'un emoji que la police des tuiles ne contient pas : il n'apparaissait jamais. */}
-          <Layer
-            id="reports-ring"
-            filter={filtreNonDepasse}
-            type="circle"
-            source="reports"
-            paint={{
-              /* L'ANNEAU PORTE LA CATEGORIE depuis le 11 novembre (C6) : il etait dore pour
-                 tous. L'or faisait reconnaitre un marqueur comme venant de WIN ; la couleur de
-                 categorie dit quelque chose de plus utile au volant — si la route passe ou non.
-                 Il garde son autre role, detacher le marqueur d'une route jaune ou d'un parc
-                 vert, ou un disque seul se fondrait.
+          {/* LE MARQUEUR EST UNE SEULE IMAGE depuis la maquette du 13 novembre : pastille
+              pale, anneau de la couleur de la CATEGORIE, emoji en couleur au milieu — le meme
+              que dans le menu de signalement.
 
-                 RAYON 17 : trente-quatre points de diametre, valeur du document. Il etait de
-                 vingt-huit. */
-              'circle-radius': 17,
-              'circle-color': ['get', 'bordure'],
-            }}
-          />
+              IL ETAIT COMPOSE PAR LA CARTE en trois couches : un cercle de la couleur du type,
+              un anneau par-dessus, un pictogramme blanc par-dessus encore. La maquette demande
+              un emoji, et un emoji ne se compose pas ici — la police servie avec les tuiles
+              n'en contient aucun, c'est la lecon du 31 octobre. Il est donc dessine a l'avance :
+              voir scripts/make-report-markers.py. */}
           <Layer
-            id="reports-disc"
-            filter={filtreNonDepasse}
-            type="circle"
-            source="reports"
-            paint={{
-              /* Le disque grandit avec l'anneau, dans la meme proportion : 14 contre 17, comme
-               * 11,5 contre 14 auparavant. Sans cela l'anneau mangerait le pictogramme. */
-              'circle-radius': 14,
-              'circle-color': ['get', 'color'],
-            }}
-          />
-          <Layer
-            id="reports-icon"
+            id="reports-marker"
             filter={filtreNonDepasse}
             type="symbol"
             source="reports"
             layout={{
-              'icon-image': ['get', 'picto'],
-              /* Le pictogramme suit l'agrandissement du marqueur : il occupait 61 % du disque,
-               * il l'occupe toujours. */
-              'icon-size': 0.95,
+              'icon-image': ['get', 'marqueur'],
+              /* Les images sont cuites a 34 points, en 1x/2x/3x : aucune mise a l'echelle. */
+              'icon-size': 1,
               /* `allow-overlap` : deux signalements voisins doivent tous deux rester visibles.
                  Les laisser se masquer ferait disparaitre un danger parce qu'un autre est a
                  cote — exactement l'endroit ou il y en a le plus. */
@@ -2589,6 +2572,7 @@ ${t(`report.badge_${report.kind}`)}`,
               'icon-ignore-placement': true,
             }}
           />
+
           {/* LE LIBELLE, SOUS LE MARQUEUR. Le client le veut lisible en conduisant : nom du
               type en haut, badge en dessous. Il peut, LUI, s'effacer quand deux marqueurs se
               chevauchent — c'est du texte, et deux libelles superposes ne se lisent ni l'un ni

@@ -93,7 +93,9 @@
       "circulation": "Traffic",
       "route": "Road",
       "environnement": "Environment"
-    }
+    },
+    "badge_nouveau": "New",
+    "badge_misAJour": "Updated"
   },
   "nav": {
     "start": "Start",

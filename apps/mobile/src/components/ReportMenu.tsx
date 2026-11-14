@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ReportKind } from '../shared';
-import { menuEmoji, REPORT_FAMILLE, SECTIONS_MENU } from '../reports/kinds';
+import { menuEmoji, REPORT_BADGE, SECTIONS_MENU } from '../reports/kinds';
 import { bordureSignalisation } from '../map/signalisation';
 import { RadarIcon } from './RadarIcon';
 import { useSession } from '../store/session';
@@ -138,7 +138,11 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
                 </Text>
                 <View style={styles.grid}>
                   {section.types.map((kind) => {
-                  const estNouveau = REPORT_FAMILLE[kind] === 'nouveau';
+                  /* LE BADGE VIENT D'UNE TABLE, plus de la famille. La maquette du panneau
+                   * en pose un second sur Route barree — << MIS A JOUR >>, meme pastille doree —
+                   * et une famille de teinte ne pouvait pas porter deux libelles. Voir
+                   * REPORT_BADGE dans reports/kinds.ts. */
+                  const badge = REPORT_BADGE[kind];
                   /* LES DECHETS SONT UNE CARTE COMME LES AUTRES — correction d'arsanne, vue a
                    * l'ecran le 9 novembre.
                    *
@@ -179,9 +183,9 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
                         },
                       ]}
                     >
-                      {estNouveau ? (
+                      {badge ? (
                         <View style={styles.badge}>
-                          <Text style={styles.badgeText}>{t('report.nouveau')}</Text>
+                          <Text style={styles.badgeText}>{t(`report.badge_${badge}`)}</Text>
                         </View>
                       ) : null}
 

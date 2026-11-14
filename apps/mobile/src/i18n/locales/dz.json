@@ -93,7 +93,9 @@
       "circulation": "حركة المرور",
       "route": "الطريق",
       "environnement": "المحيط"
-    }
+    },
+    "badge_nouveau": "جديد",
+    "badge_misAJour": "مُحدَّث"
   },
   "nav": {
     "start": "يالله نروحو",

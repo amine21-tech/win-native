@@ -248,37 +248,41 @@ for (const [kind, attendu] of [
 }
 
 /**
- * LE DISQUE GARDE SA COULEUR DE TYPE, et c'est la decision prise avec arsanne. Si le disque
- * prenait lui aussi la couleur de categorie, l'accident, le barrage, la route barree et
- * l'incendie deviendraient quatre marqueurs strictement identiques — seul le dessin les
- * separerait. Le controle porte sur le fait que les deux sources sont DIFFERENTES.
+ * LE MARQUEUR EST UNE SEULE IMAGE depuis la maquette du 13 novembre.
+ *
+ * CE QUE CE CONTROLE SURVEILLAIT AVANT, ET POURQUOI IL A CHANGE. La carte composait le marqueur
+ * en trois couches : un cercle de la couleur du type, un anneau de la couleur de la categorie,
+ * un pictogramme blanc par-dessus. On verifiait donc trois rayons et deux expressions de style.
+ *
+ * La maquette << 12 symboles signalement sur la carte >> demande autre chose : pastille pale,
+ * anneau de categorie, et l'EMOJI EN COULEUR au milieu — le meme que dans le menu. Un emoji ne
+ * peut pas etre compose par la carte (la police des tuiles n'en contient aucun, c'est la lecon
+ * du 31 octobre), donc le marqueur est cuit en une image.
+ *
+ * Le controle porte desormais sur ce qui compte : qu'il n'y ait plus qu'UNE couche, que l'image
+ * existe pour les quatorze types, et que ses dimensions soient celles du document. La mesure
+ * des pixels, elle, est faite par verifier-marqueurs-rendus.py.
  */
 verifier(
-  'le disque suit le TYPE, l anneau suit la CATEGORIE',
-  /'circle-color': \['get', 'bordure'\]/.test(ecran) && /'circle-color': \['get', 'color'\]/.test(ecran),
-  'deux proprietes distinctes sur le meme point',
+  'la carte ne compose plus le marqueur : une seule couche',
+  /id="reports-marker"/.test(ecran) &&
+    !/id="reports-ring"/.test(ecran) &&
+    !/id="reports-disc"/.test(ecran),
+  'trois couches qui devaient s accorder sont devenues un fichier',
 );
 verifier(
-  'les quatorze couleurs de type sont intactes',
-  Object.keys(SIGNALISATION).length === REPORT_KINDS.length,
-  `${Object.keys(SIGNALISATION).length} teintes`,
-);
-
-console.log('\nC6 — LE MARQUEUR FAIT 34 POINTS');
-verifier(
-  "l'anneau a un rayon de 17",
-  /'circle-radius': 17/.test(ecran),
-  'trente-quatre points de diametre : valeur du document',
+  "elle affiche l'image cuite",
+  /'icon-image': \['get', 'marqueur'\]/.test(ecran) && /marqueurSignalisation\(report\.kind\)/.test(ecran),
 );
 verifier(
-  'le disque a grandi dans la meme proportion',
-  /'circle-radius': 14/.test(ecran),
-  '14 contre 17, comme 11,5 contre 14 auparavant',
+  'sans mise a l echelle : les images sont cuites a la bonne taille',
+  /'icon-size': 1,/.test(ecran),
+  '34 points, en 1x/2x/3x',
 );
 verifier(
-  'le pictogramme suit',
-  /'icon-size': 0\.95/.test(ecran),
-  'il occupait 61 % du disque, il l occupe toujours',
+  'le marqueur garde le filtre des signalements depasses',
+  /id="reports-marker"[\s\S]{0,120}filter=\{filtreNonDepasse\}/.test(ecran),
+  "sans lui, l'icone ne disparaitrait plus 20 m apres le passage",
 );
 
 verifier(
