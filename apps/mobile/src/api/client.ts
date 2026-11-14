@@ -151,6 +151,29 @@ function forgetDeviceToken(): void {
   storage.delete('deviceId');
 }
 
+/**
+ * DELAI PAR DEFAUT DE TOUT APPEL — vingt secondes.
+ *
+ * POURQUOI IL A FALLU EN METTRE UN. Le `fetch` de React Native n'a AUCUN delai : il est bati
+ * sur XMLHttpRequest, dont le `timeout` vaut zero tant qu'on ne le regle pas, et zero veut dire
+ * << attendre indefiniment >>. Une requete dont la socket s'ouvre puis se tait — un passage de
+ * cellule, une perte de 4G dans un tunnel, un Nginx occupe — ne rend alors jamais la main. La
+ * promesse ne se resout pas, ne rejette pas : elle disparait.
+ *
+ * CE QUE CELA A COUTE, ET C'EST LE BUG DU 14 NOVEMBRE. `loadRoute` leve `recalculating` avant
+ * l'appel et le rabaisse dans son `finally`. Un `finally` qui n'arrive jamais laisse l'etat
+ * leve pour toujours : la pastille << Recalcul en cours >> restait a l'ecran sans fin, et comme
+ * ce meme etat MASQUE le guidage de voie et le message d'echec, le conducteur se retrouvait
+ * devant un ecran qui ne disait plus rien et ne recalculait plus rien. Trois symptomes, une
+ * seule cause.
+ *
+ * VINGT SECONDES, ET NON CINQ. Le serveur a deja ses propres delais — cinq secondes pour un
+ * recalcul presse, douze pour un calcul complet — et c'est a LUI de repondre le premier quand
+ * il le peut, parce qu'il sait dire pourquoi il echoue. Ce delai-ci n'est pas une politique de
+ * patience, c'est un filet : il n'attrape que le cas ou la reponse ne viendra jamais.
+ */
+const DELAI_DEFAUT_MS = 20_000;
+
 type Options = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
@@ -158,6 +181,8 @@ type Options = {
   /** Jeton administrateur, quand la route l'exige. */
   adminToken?: string;
   signal?: AbortSignal;
+  /** Delai propre a cet appel, en millisecondes. `0` renonce au filet. Voir DELAI_DEFAUT_MS. */
+  timeoutMs?: number;
 };
 
 /**
@@ -181,15 +206,40 @@ export async function api<T>(path: string, options: Options = {}, retrying = fal
   if (token) headers.authorization = `Bearer ${token}`;
   if (options.body !== undefined) headers['content-type'] = 'application/json';
 
+  /* LE FILET, ARME ICI ET DESARME DANS LE `finally`.
+   *
+   * On COMPOSE avec le signal de l'appelant plutot que de choisir entre les deux : un ecran qui
+   * abandonne son appel (admin.tsx le fait) doit continuer a pouvoir le faire, et le delai doit
+   * s'appliquer aussi a ceux qui n'en passent pas. `AbortSignal.any` fait exactement cela.
+   *
+   * SA PRESENCE EST VERIFIEE AVANT USAGE : `AbortSignal.any` est recent, et le moteur
+   * JavaScript d'un vieil Android peut ne pas l'avoir. Sans lui, on garde le delai seul quand
+   * l'appelant n'a pas donne de signal, et le signal de l'appelant sinon — jamais une erreur. */
+  const delaiMs = options.timeoutMs ?? DELAI_DEFAUT_MS;
+  const minuteur = delaiMs > 0 ? new AbortController() : null;
+  const echeance = minuteur ? setTimeout(() => minuteur.abort(), delaiMs) : null;
+  const signal = (() => {
+    if (!minuteur) return options.signal;
+    if (!options.signal) return minuteur.signal;
+    const composer = (AbortSignal as { any?: (s: AbortSignal[]) => AbortSignal }).any;
+    return composer ? composer([options.signal, minuteur.signal]) : options.signal;
+  })();
+
   let response: Response;
   try {
     response = await fetch(url.toString(), {
       method: options.method ?? 'GET',
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      signal: options.signal,
+      signal,
     });
   } catch (error) {
+    /* LE DELAI EXPIRE EST UNE PANNE RESEAU, PAS UN ABANDON. L'appelant doit pouvoir la
+     * distinguer d'un `AbortError` qu'il aurait lui-meme provoque — sans quoi un ecran qui
+     * traite l'abandon comme un non-evenement avalerait silencieusement un vrai echec. */
+    if (minuteur?.signal.aborted && !options.signal?.aborted) {
+      throw new ApiError(0, 'delai_depasse', "Le serveur n'a pas repondu. Verifiez la connexion.");
+    }
     /* Le serveur n'a pas ete joint du tout. Si c'est le NOM qui n'a pas pu etre traduit, on
      * tente le second et on refait l'appel — une seule fois, car `retrying` empeche de
      * tourner en rond entre les deux noms. L'abandon volontaire (`signal`) n'est pas une
@@ -200,7 +250,26 @@ export async function api<T>(path: string, options: Options = {}, retrying = fal
     return api<T>(path, options, true);
   }
 
-  const text = await response.text();
+  /* LE MINUTEUR COURT ENCORE PENDANT LA LECTURE DU CORPS, et ce n'est pas un detail.
+   *
+   * Un serveur peut envoyer ses entetes puis se taire : `fetch` a deja rendu la main, et c'est
+   * `text()` qui attend pour toujours. Desarmer le minuteur des que la reponse existe aurait
+   * laisse ce cas-la aussi ouvert que celui qu'on vient de fermer — la meme panne, deux lignes
+   * plus bas. On ne le desarme qu'une fois le corps entierement lu.
+   *
+   * Sur les chemins d'erreur ci-dessus, le minuteur n'est pas desarme : c'est sans consequence,
+   * `abort()` sur une requete terminee ne fait rien, et aucune reference n'est retenue. */
+  let text: string;
+  try {
+    text = await response.text();
+  } catch (error) {
+    if (minuteur?.signal.aborted && !options.signal?.aborted) {
+      throw new ApiError(0, 'delai_depasse', "Le serveur a coupe sa reponse. Verifiez la connexion.");
+    }
+    throw error;
+  } finally {
+    if (echeance) clearTimeout(echeance);
+  }
   // Toutes les reponses ne viennent pas de l'API : un 502 ou un 504 est produit par Nginx
   // et renvoie une page HTML. `JSON.parse` levait alors une SyntaxError brute, que les
   // ecrans — qui attendent tous une ApiError — laissaient remonter jusqu'a l'utilisateur

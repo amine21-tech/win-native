@@ -79,7 +79,7 @@ import { AlerteApproche } from '../src/components/AlerteApproche';
 import { BANDEAU_INFO_M, BandeauInfoSignalement } from '../src/components/BandeauInfoSignalement';
 import { PositionSheet } from '../src/components/PositionSheet';
 import { bordureSignalisation, marqueurSignalisation, SIGNALISATION } from '../src/map/signalisation';
-import { MARQUEURS_SIGNALISATION, PICTOS_SIGNALISATION } from '../src/map/pictos';
+import { MARQUEURS_SIGNALISATION, PICTOS_LIEUX, PICTOS_SIGNALISATION } from '../src/map/pictos';
 import { majProjections, projeterSurTrace, type TableProjection } from '../src/navigation/alerteApproche';
 import { PulseSignalements, RECENT_MS } from '../src/map/PulseSignalements';
 import { useApproachAlerts } from '../src/navigation/useApproachAlerts';
@@ -409,6 +409,12 @@ const MAP_IMAGES = {
    * d'alerte d'approche les pose, elle, sur un disque colore. */
   ...Object.fromEntries(
     Object.entries(MARQUEURS_SIGNALISATION).map(([kind, image]) => [`marker-${kind}`, image]),
+  ),
+  /* LES PICTOGRAMMES DE LIEU (14 novembre). Ils etaient poses en `text-field` et ne
+   * s'affichaient jamais — meme panne que les signalements le 31 octobre. Voir
+   * scripts/make-place-glyphs.py. */
+  ...Object.fromEntries(
+    Object.entries(PICTOS_LIEUX).map(([categorie, image]) => [`lieu-${categorie}`, image]),
   ),
 };
 
@@ -2496,9 +2502,11 @@ ${t(`report.badge_${report.kind}`)}`,
             minzoom={11}
             filter={['==', ['get', 'partner'], true]}
             layout={{
-              'text-field': ['get', 'emoji'],
-              'text-size': 16,
-              'text-allow-overlap': true,
+              /* UNE IMAGE, PAS UN EMOJI EN TEXTE : voir imageLieu. Pose en `text-field`, il
+                 n'etait jamais dessine, et le halo dore restait vide au milieu. */
+              'icon-image': ['get', 'picto'],
+              'icon-size': 1,
+              'icon-allow-overlap': true,
             }}
           />
           <Layer
@@ -2508,9 +2516,13 @@ ${t(`report.badge_${report.kind}`)}`,
             minzoom={13}
             filter={['!=', ['get', 'partner'], true]}
             layout={{
-              'text-field': ['get', 'emoji'],
-              'text-size': 15,
-              'text-allow-overlap': false,
+              /* Meme correction que la couche VIP ci-dessus. */
+              'icon-image': ['get', 'picto'],
+              'icon-size': 1,
+              /* Ils peuvent, EUX, se masquer entre eux : une rue commercante en aligne vingt,
+                 et vingt pictogrammes superposes ne se lisent pas. Un signalement, lui, garde
+                 `allow-overlap` — c'est une alerte, pas un decor. */
+              'icon-allow-overlap': false,
             }}
           />
           <Layer
@@ -2587,6 +2599,18 @@ ${t(`report.badge_${report.kind}`)}`,
             source="reports"
             layout={{
               'text-field': ['get', 'libelle'],
+              /* SANS CETTE LIGNE, LE LIBELLE N'EST JAMAIS DESSINE.
+               *
+               * MapLibre demande au serveur de tuiles les glyphes de la police nommee ici.
+               * Quand `text-font` n'est pas declare, il reclame sa valeur par defaut — << Open
+               * Sans Regular, Arial Unicode MS Regular >> — que notre serveur ne sert pas : la
+               * requete echoue et la couche entiere reste vide, sans la moindre erreur visible.
+               *
+               * LA LECON AVAIT DEJA ETE APPRISE DEUX FOIS dans ce fichier, sur l'etiquette de
+               * duree et sur le nom des lieux, qui portent toutes deux la meme ligne. Celle-ci
+               * est passee au travers — c'est pour cela que le controle porte desormais sur la
+               * REGLE (verifier-style-carte.ts) et non sur les couches une par une. */
+              'text-font': ['Noto Sans Regular'],
               'text-size': 10.5,
               'text-anchor': 'top',
               'text-offset': [0, 1.5],

@@ -63,6 +63,9 @@ const OFF_ROUTE_SCORE_TO_RECALC = 6;
  * conducteur le temps de s'engager vraiment sur le trajet propose avant qu'on en doute. */
 const RECALC_COOLDOWN_MS = 6_000;
 
+/** Au-dela, la pastille de recalcul est forcement bloquee : voir le `useEffect` qui s'en sert. */
+const PLAFOND_RECALCUL_MS = 25_000;
+
 /**
  * Au-dela, un recalcul est ANORMALEMENT lent et on le dit (point 15.A du client).
  *
@@ -218,6 +221,29 @@ export function useNavigationSession(params: {
    * couper l'itineraire en deux : la part deja parcourue et celle qui reste. */
   const [progress, setProgress] = useState<RouteLocation | null>(null);
   const [recalculating, setRecalculating] = useState(false);
+
+  /**
+   * PLAFOND DE SECURITE : la pastille ne peut PAS rester levee plus de vingt-cinq secondes.
+   *
+   * POURQUOI UNE SECONDE BARRIERE alors que la premiere suffit. `loadRoute` rabaisse l'etat
+   * dans un `finally`, et depuis le 14 novembre l'appel reseau a une echeance, donc ce
+   * `finally` finit toujours par s'executer. Ce garde-fou ne sert a rien — tant que la premiere
+   * barriere tient.
+   *
+   * CE QUE COUTE SA DEFAILLANCE justifie pourtant de doubler. Cet etat ne fait pas qu'afficher
+   * une pastille : il MASQUE le guidage de voie et le message d'echec. Reste-t-il leve, et
+   * l'application devient un ecran mort qui affiche << Recalcul en cours >> jusqu'a ce qu'on la
+   * tue — au volant, sur la route. C'est exactement ce qu'arsanne a vu le 14 novembre.
+   *
+   * VINGT-CINQ SECONDES, parce que l'echeance la plus longue d'un calcul en vaut seize : ce
+   * plafond ne peut donc se declencher QUE si quelque chose d'autre a casse. Il ne raccourcit
+   * aucune attente legitime, il interdit seulement l'attente infinie.
+   */
+  useEffect(() => {
+    if (!recalculating) return;
+    const minuteur = setTimeout(() => setRecalculating(false), PLAFOND_RECALCUL_MS);
+    return () => clearTimeout(minuteur);
+  }, [recalculating]);
   /**
    * Le recalcul dure-t-il ANORMALEMENT longtemps ? (point 15.A du client : trois secondes.)
    *

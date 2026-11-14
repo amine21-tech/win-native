@@ -71,3 +71,37 @@ export const MARQUEURS_SIGNALISATION: Record<ReportKind, number> = {
   fire: require('../../assets/map/marker-fire.png'),
   waste: require('../../assets/map/marker-waste.png'),
 };
+
+/**
+ * LES PICTOGRAMMES DE LIEU de la carte — un par categorie WIN.
+ *
+ * Meme raison d'etre que MARQUEURS_SIGNALISATION, et meme contrainte : les `require` sont
+ * ecrits UN PAR UN parce que Metro les resout a la compilation et ne sait pas suivre un chemin
+ * calcule. Une boucle produirait une table vide a l'execution, sans la moindre erreur.
+ *
+ * La cle est la categorie WIN ; `imageLieu` (src/map/placeIcons.ts) donne le nom de style
+ * correspondant, et retombe sur `autre` pour tout ce qu'il ne connait pas.
+ */
+export const PICTOS_LIEUX: Record<string, number> = {
+  pharmacie: require('../../assets/map/lieu-pharmacie.png'),
+  hopital: require('../../assets/map/lieu-hopital.png'),
+  clinique: require('../../assets/map/lieu-clinique.png'),
+  medecin: require('../../assets/map/lieu-medecin.png'),
+  ecole: require('../../assets/map/lieu-ecole.png'),
+  universite: require('../../assets/map/lieu-universite.png'),
+  mosquee: require('../../assets/map/lieu-mosquee.png'),
+  administration: require('../../assets/map/lieu-administration.png'),
+  banque: require('../../assets/map/lieu-banque.png'),
+  poste: require('../../assets/map/lieu-poste.png'),
+  commerce: require('../../assets/map/lieu-commerce.png'),
+  restaurant: require('../../assets/map/lieu-restaurant.png'),
+  cafe: require('../../assets/map/lieu-cafe.png'),
+  hotel: require('../../assets/map/lieu-hotel.png'),
+  station_service: require('../../assets/map/lieu-station_service.png'),
+  parking: require('../../assets/map/lieu-parking.png'),
+  garage: require('../../assets/map/lieu-garage.png'),
+  immobilier: require('../../assets/map/lieu-immobilier.png'),
+  transport: require('../../assets/map/lieu-transport.png'),
+  sport: require('../../assets/map/lieu-sport.png'),
+  autre: require('../../assets/map/lieu-autre.png'),
+};

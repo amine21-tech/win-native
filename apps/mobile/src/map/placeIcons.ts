@@ -62,3 +62,20 @@ export function emojiForPlace(place: Pick<SelectedPlace, 'category' | 'osmKey' |
   }
   return '📍';
 }
+
+/**
+ * Nom de l'image du pictogramme d'un lieu SUR LA CARTE, generee par scripts/make-place-glyphs.py.
+ *
+ * POURQUOI UNE IMAGE ET NON L'EMOJI LUI-MEME. La couche posait `'text-field': ['get','emoji']`,
+ * et il ne s'affichait JAMAIS : aucune police servie avec nos tuiles ne contient d'emoji, et la
+ * couche ne declarait meme pas de police, donc elle reclamait une famille par defaut que le
+ * serveur ne sert pas non plus. Deux raisons de ne rien dessiner, et aucune erreur pour le
+ * dire. Les lieux VIP montraient leur halo dore, vide au milieu ; les autres rien du tout.
+ *
+ * `emojiForPlace` RESTE, et sert toujours : les fiches de lieu, la destination et les listes
+ * sont du React Native ordinaire, rendu par la police du systeme, qui a les emoji. C'est la
+ * CARTE qui ne les a pas.
+ */
+export function imageLieu(categorie: PlaceCategory | null | undefined): string {
+  return `lieu-${categorie && categorie in CATEGORY_EMOJI ? categorie : 'autre'}`;
+}

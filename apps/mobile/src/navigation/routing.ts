@@ -172,6 +172,14 @@ export async function fetchRoute(opts: {
   blocage?: boolean;
 }): Promise<{ primary: Route; alternates: Route[] }> {
   const data = await api<RawRouteResponse>('/routing/route', {
+    /* UNE ECHEANCE PLUS COURTE QUE LE FILET GENERAL, parce qu'un conducteur attend.
+     *
+     * Le serveur s'accorde cinq secondes pour un recalcul presse et douze pour un calcul
+     * complet ; on lui laisse quelques secondes de plus pour qu'il reponde LUI-MEME quand il
+     * le peut — sa reponse dit pourquoi, la notre ne dit que << pas de reponse >>. Au-dela,
+     * l'attente n'a plus d'objet : le vehicule a deja parcouru plusieurs centaines de metres
+     * et le trajet calcule partirait d'un endroit qu'on a quitte. */
+    timeoutMs: opts.quick ? 9_000 : 16_000,
     method: 'POST',
     body: {
       from: opts.from,

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { api } from '../api/client';
 import { boundingBox, type Place } from '../shared';
-import { emojiForPlace } from './placeIcons';
+import { emojiForPlace, imageLieu } from './placeIcons';
 
 /** Rayon charge autour du conducteur. Trois kilometres couvrent largement ce qui est visible
  * au zoom ou la couche apparait, sans ramener une ville entiere. */
@@ -41,6 +41,10 @@ export function usePoiLayer(position: { lat: number; lon: number } | null, enabl
         properties: {
           id: place.id,
           name: place.enseigne || place.name,
+          /* LE NOM DE L'IMAGE, et non l'emoji : voir imageLieu. L'emoji reste pose a cote
+           * parce que la fiche du lieu, elle, l'affiche en React Native ordinaire — et la,
+           * c'est la police du systeme qui dessine, pas le serveur de tuiles. */
+          picto: imageLieu(place.category),
           emoji: emojiForPlace({ category: place.category }),
           partner: place.isPartner,
         },
