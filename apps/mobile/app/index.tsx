@@ -25,7 +25,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bearing as geoBearing, blocageConfirme, countryFromCoords, formatDistance, formatDuration, haversine, NEARBY_RADIUS_M, type Language, type Place, type Report, type ReportKind } from '../src/shared';
+import { bearing as geoBearing, blocageConfirme, bloqueLaRoute, countryFromCoords, formatDistance, formatDuration, haversine, NEARBY_RADIUS_M, type Language, type Place, type Report, type ReportKind } from '../src/shared';
 import { api, ApiError } from '../src/api/client';
 import { AddPlaceSheet } from '../src/components/AddPlaceSheet';
 import { AssistantPanel } from '../src/components/AssistantPanel';
@@ -802,11 +802,11 @@ export default function MapScreen() {
    */
   const avoidPoints = useCallback(() => {
     const retenus = liveReportsRef.current.filter(
-      (r) => r.kind === 'flood' || (r.kind === 'block' && blocageConfirme(r.temoins)),
+      (r) => r.kind === 'flood' || (bloqueLaRoute(r.kind) && blocageConfirme(r.temoins)),
     );
     return {
       points: retenus.slice(0, 20).map((r) => ({ lat: r.lat, lon: r.lon })),
-      blocage: retenus.some((r) => r.kind === 'block'),
+      blocage: retenus.some((r) => bloqueLaRoute(r.kind)),
     };
   }, []);
 
@@ -1522,7 +1522,10 @@ ${t(`report.badge_${report.kind}`)}`,
   });
 
   /**
-   * ROUTE BLOQUEE CONFIRMEE SUR NOTRE TRAJET : recalcul annonce (point 12 du client).
+   * ROUTE BLOQUEE OU BARRAGE CONFIRME SUR NOTRE TRAJET : recalcul silencieux.
+   *
+   * LE BARRAGE S'EST AJOUTE le 14 novembre : la liste des types qui bloquent vit desormais
+   * dans `bloqueLaRoute` (shared/constants.ts), avec la raison de chaque inclusion.
    *
    * POURQUOI UNE SURVEILLANCE A PART. Tous les autres recalculs naissent d'un constat sur le
    * vehicule : il s'est ecarte, il a rate une sortie. Celui-ci nait d'une information venue des
@@ -1553,7 +1556,7 @@ ${t(`report.badge_${report.kind}`)}`,
     }
     if (!nav.route || !position) return;
 
-    const bloquants = liveReports.filter((r) => r.kind === 'block' && blocageConfirme(r.temoins));
+    const bloquants = liveReports.filter((r) => bloqueLaRoute(r.kind) && blocageConfirme(r.temoins));
     if (bloquants.length === 0) return;
 
     const surTrace = projeterSurTrace(nav.route, bloquants);

@@ -26,9 +26,20 @@ import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg'
  * du document.
  */
 
-/** Repere de dessin de la fleche. Seule `size` fixe l'echelle reelle. */
-const BOX = 128;
-const CX = BOX / 2;
+/**
+ * REPERE DE DESSIN. Seule `size` fixe l'echelle reelle.
+ *
+ * LA BOITE N'EST PLUS CARREE depuis le 14 novembre. La fleche tient toujours dans les 128
+ * premiers points — rien de sa geometrie ne bouge — mais le point GPS se pose maintenant SOUS
+ * sa base, comme sur la maquette 8 du document, et il lui faut de la place en bas.
+ *
+ * LES 128 DU HAUT SONT INTOUCHES, et c'est voulu : le SVG est ancre par le haut (voir le style
+ * de la balise), donc la fleche garde exactement la taille et la position qu'elle avait dans le
+ * halo. Les 40 points ajoutes debordent vers le bas, la ou il n'y avait rien.
+ */
+const LARGEUR = 128;
+const HAUTEUR = 168;
+const CX = LARGEUR / 2;
 
 /** L'or des marqueurs WIN, repris de signalisation.ts. Valeur du document : #D4A017. */
 export const OR_FLECHE = '#D4A017';
@@ -90,30 +101,42 @@ const LUEUR_OPACITE = 0.55;
  */
 const POINT_GPS = '#E53935';
 /**
- * SEPT, ET NON QUATRE ET DEMI. A 4,5 le point faisait neuf points de diametre sur une fleche de
- * quarante : arsanne l'a vu sur sa capture et l'a pris pour une poussiere sur l'ecran. Un repere
- * qu'on prend pour une salissure ne repere rien.
+ * ONZE, MESURE SUR LA MAQUETTE 8 et non choisi.
+ *
+ * Sur le dessin du document, le point fait 17,5 points de rayon pour une fleche de 63,5 de
+ * demi-largeur, soit 0,276. Notre fleche fait 40 de demi-largeur : 0,276 x 40 = 11.
+ *
+ * IL ETAIT A SEPT, puis a quatre et demi avant cela. A 4,5 arsanne l'a pris pour une poussiere
+ * sur son ecran ; a 7 il se voyait, mais il etait trop petit pour le role que la maquette lui
+ * donne — la position EXACTE du vehicule, dont la fleche n'indique que le cap.
  */
-const POINT_GPS_RAYON = 7;
+const POINT_GPS_RAYON = 11;
 /**
- * OU SE POSE LE POINT, dans le repere 0-128 de la fleche. Et il a bouge deux fois.
+ * OU SE POSE LE POINT. Il a bouge trois fois, et la maquette 8 tranche enfin.
  *
  * A 27, IL FLOTTAIT A COTE. Le triangle n'y fait que quatre points de demi-largeur : le point,
  * bordure blanche comprise, debordait des deux cotes et se lisait comme un objet pose a cote du
  * marqueur.
  *
  * A 40, IL ETAIT POSE SUR LA FLECHE. C'est ce qu'arsanne a vu le 13 novembre et ce qu'il refuse :
- * << je trouvais qu'il est sur l'icone elle-meme, tu le mets avant l'icone >>. Il avait raison de
- * revenir au document, dont le tableau de composition donne l'ordre
- * [Halo] -> [Point rouge GPS] -> [Fleche] : le point est dessine AVANT la fleche, donc DESSOUS.
- * Le mien etait peint par-dessus.
+ * << je trouvais qu'il est sur l'icone elle-meme, tu le mets avant l'icone >>.
  *
- * A 8, IL EST DEVANT LA POINTE. Son bord inferieur touche la pointe du triangle, qui commence a
- * 16 ; il se lit comme un repere pose en avant du marqueur, dans le sens de la marche. Il ne
- * peut pas descendre plus haut : a rayon sept, le bord superieur arriverait a 1, et le dessin
- * est coupe au-dela de zero.
+ * A 8, IL ETAIT DEVANT LA POINTE, et c'etait encore faux. J'avais lu << avant >> comme
+ * << en avant, dans le sens de la marche >>. La maquette 8 montre le contraire : le point est
+ * SOUS la base de la fleche, pose sur le trace, et sa legende dit << juste derriere la fleche >>.
+ * << Avant >> parlait de l'ORDRE DE DESSIN — le document l'ecrit noir sur blanc : << dessine
+ * DERRIERE la fleche (z-order bas) >>. Les deux sens du mot tenaient dans la meme phrase, et
+ * j'ai choisi le mauvais.
+ *
+ * A 129, IL EST OU LA MAQUETTE LE MET. L'ecart entre la base de la fleche et le haut du point
+ * vaut 16 points sur un dessin dont la fleche fait 63,5 de demi-largeur, soit 0,252 ; sur la
+ * notre, 0,252 x 40 = 10. La base etant a 108 : 108 + 10 + 11 = 129.
+ *
+ * ET CE N'EST PAS UN DETAIL DE PLACEMENT. La fleche dit le CAP, le point dit la POSITION. Les
+ * confondre — en posant le point sur la fleche ou devant elle — revient a dire au conducteur
+ * qu'il est un demi-marqueur plus loin qu'il ne l'est, au moment precis ou il cherche sa sortie.
  */
-const POINT_GPS_Y = 8;
+const POINT_GPS_Y = 129;
 
 /**
  * LE CONTOUR PREND LA COULEUR OPPOSEE, et ce n'est pas dans le document.
@@ -256,7 +279,16 @@ export function NavArrow({
       </Animated.View>
       {/* LA FLECHE OPTION D : degrade blanc -> jaune -> or, contour blanc, et le point GPS
           rouge sous la pointe. Voir la note en tete de fichier. */}
-      <Svg width={size} height={size} viewBox={`0 0 ${BOX} ${BOX}`}>
+      {/* LE SVG EST ANCRE PAR LE HAUT, et non centre comme les anneaux.
+          Sa boite descend 40 points plus bas que la fleche pour loger le point GPS. Centre, il
+          remonterait la fleche de vingt points dans le halo — la fleche doit rester au centre du
+          halo, c'est le point qui deborde. */}
+      <Svg
+        style={{ position: 'absolute', top: (TAILLE_HALO - size) / 2 }}
+        width={size}
+        height={(size * HAUTEUR) / LARGEUR}
+        viewBox={`0 0 ${LARGEUR} ${HAUTEUR}`}
+      >
         <Defs>
           {/* Degrade VERTICAL dans le repere de la fleche : elle pointe toujours vers le haut,
               donc y=0 est la pointe et y=1 la base. La rotation du marqueur, quand il y en a
@@ -278,8 +310,13 @@ export function NavArrow({
             rien de visible. Un effet qu'on ne peut pas mesurer est un effet que le conducteur
             ne verra pas. */}
         {/* LE POINT GPS, DESSINE AVANT LA FLECHE DONC DESSOUS — c'est l'ordre du tableau de
-            composition du document : [Halo] -> [Point rouge] -> [Fleche]. Il etait peint
-            par-dessus, ce qui le posait SUR l'icone au lieu de l'accompagner. */}
+            composition du document : [Halo] -> [Point rouge] -> [Fleche].
+
+            IL ETAIT DESSINE DEUX FOIS, ici ET apres la fleche. Le second trace annulait le
+            premier : le point repassait PAR-DESSUS, ce qui est exactement ce qu'arsanne refuse
+            depuis trois versions. Tant qu'il se tenait au-dessus de la pointe, les deux traces
+            donnaient la meme image et le defaut ne se voyait pas ; sous la base de la fleche, il
+            se serait vu aussitot. Un seul trace, avant la fleche. */}
         <Circle
           cx={CX}
           cy={POINT_GPS_Y}
@@ -304,16 +341,6 @@ export function NavArrow({
           stroke={contour}
           strokeWidth={EPAISSEUR_LISERE}
           strokeLinejoin="round"
-        />
-        {/* LE POINT GPS, pose SOUS la pointe et non au centre de la fleche : c'est la que se
-            trouve reellement le vehicule. Sa bordure blanche le detache du degrade. */}
-        <Circle
-          cx={CX}
-          cy={POINT_GPS_Y}
-          r={POINT_GPS_RAYON}
-          fill={POINT_GPS}
-          stroke="#FFFFFF"
-          strokeWidth={1.6}
         />
       </Svg>
     </View>

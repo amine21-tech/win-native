@@ -1,4 +1,4 @@
-import type { ReportKind } from '../shared';
+import { bloqueLaRoute, type ReportKind } from '../shared';
 
 /**
  * MARQUEURS DE SIGNALISATION SUR LA CARTE — correction C1 du 31 octobre.
@@ -129,9 +129,46 @@ export const CATEGORIE: Record<ReportKind, CategorieSignalisation> = {
   waste: 'standard',
 };
 
-/** Couleur de bordure d'un signalement : celle de sa categorie. */
+/**
+ * Couleur de bordure d'un signalement SUR LA CARTE : celle de sa categorie.
+ *
+ * C'est l'anneau du marqueur, et la maquette des douze symboles le specifie type par type avec
+ * ses quatre couleurs. Elle sert aussi a la carte d'alerte, qui doit montrer exactement le
+ * marqueur qu'on va croiser.
+ */
 export function bordureSignalisation(kind: ReportKind): string {
   return COULEUR_CATEGORIE[CATEGORIE[kind] ?? 'standard'];
+}
+
+/**
+ * Couleur de bordure d'une carte DU MENU DE SIGNALEMENT. Ce n'est pas la meme regle.
+ *
+ * VERT POUR TOUTES, SAUF CELLE QUI DETOURNE. Les deux maquettes du panneau — celle du document
+ * du 14 novembre et celle du 13 — dessinent douze cadres verts et un seul rouge, sur Route
+ * barree. Le texte du document le dit aussi : << Tous les cadres en vert... Route bloquee :
+ * bordure rouge (#D32F2F) car type 'blocage' qui declenche le recalcul. >>
+ *
+ * CE QUE J'AVAIS COMPRIS DE TRAVERS. La correction C7 du 11 novembre disait << seule la bordure
+ * est rouge car c'est un type blocage >>, et j'en avais conclu que chaque categorie devait
+ * teinter son cadre : douze cartes, quatre couleurs. La phrase ne disait pas cela. Elle opposait
+ * la BORDURE au FOND — seule la bordure se colore, la carte ne devient pas rouge — pour un type
+ * blocage. Rien sur les trois autres categories.
+ *
+ * POURQUOI LA MAQUETTE A RAISON SUR LE FOND. Avec douze cadres colores, le rouge disait
+ * << categorie blocage >>, qu'il soit sur Accident, Barrage, Incendie ou Route barree : une
+ * information qu'on lit deja dans le nom et dans le dessin de la carte. Avec un seul cadre
+ * rouge, il dit autre chose, que rien d'autre ne dit — CETTE carte-la va modifier le trajet des
+ * conducteurs qui arrivent. C'est la seule des douze dont le signalement a une consequence
+ * au-dela de l'affichage, et elle est maintenant la seule a se distinguer.
+ *
+ * SUR LA CARTE, RIEN NE CHANGE : les marqueurs gardent leurs quatre couleurs d'anneau (voir
+ * bordureSignalisation). Les deux surfaces n'ont pas le meme travail a faire — au volant on
+ * REGARDE la carte et on CHOISIT dans le menu.
+ */
+export function bordureCarteMenu(kind: ReportKind): string {
+  return bloqueLaRoute(kind) && kind !== 'gendarmerie' && kind !== 'armee'
+    ? COULEUR_CATEGORIE.blocage
+    : COULEUR_CATEGORIE.standard;
 }
 
 /** Nom de l'image du pictogramme blanc, generee par scripts/make-report-glyphs.py.

@@ -21,6 +21,7 @@
 import {
   ABSENT_VOTE_THRESHOLD,
   blocageConfirme,
+  bloqueLaRoute,
   PERMANENT_KINDS,
   REPORT_KINDS,
   seuilDegagement,
@@ -104,6 +105,45 @@ verifier(
   'elle reste temporaire, et donc hors du mecanisme de temoins',
   !PERMANENT_KINDS.includes('flood') && TEMPORARY_TTL_MINUTES.flood > 0,
   `${TEMPORARY_TTL_MINUTES.flood} minutes`,
+);
+
+/* QUELS TYPES FONT SORTIR UN TRONCON DES CALCULS — document du 14 novembre, correction 3.
+ *
+ * Son enum SignalType separe explicitement deux groupes : << types declenchant recalcul
+ * proactif (blocage de route) >> — BARRAGE, ROUTE_BARREE, CHEMIN_SANS_ISSUE — et << types
+ * informatifs seulement >> pour les dix autres. Le barrage manquait chez nous.
+ *
+ * POURQUOI CE CONTROLE PLUTOT QU'UNE RELECTURE. La liste sert a DEUX endroits d'index.tsx :
+ * les points a eviter transmis a Valhalla, et la surveillance qui declenche le recalcul. Tant
+ * qu'elle etait ecrite en toutes lettres (`r.kind === 'block'`) aux deux endroits, ils
+ * pouvaient diverger sans que rien ne le dise — et un trajet aurait contourne un barrage sans
+ * jamais etre recalcule, ou l'inverse. */
+console.log('\nCE QUI BLOQUE LA ROUTE, ET CE QUI INFORME SEULEMENT');
+verifier('la route barree bloque', bloqueLaRoute('block'));
+verifier('le barrage aussi, depuis le 14 novembre', bloqueLaRoute('police'));
+const informatifs = REPORT_KINDS.filter((k) => !bloqueLaRoute(k as ReportKind));
+verifier(
+  'et rien d autre',
+  informatifs.length === REPORT_KINDS.length - 2,
+  `${informatifs.length} types informatifs sur ${REPORT_KINDS.length}`,
+);
+/* LES DEUX AUTRES FORCES NE BLOQUENT PAS, et ce n'est pas une incoherence. Gendarmerie et
+ * armee ne sont plus creables depuis le 9 novembre (<< un barrage, ca reste un barrage >>) :
+ * les signalements qui portent encore ces types sont d'anciennes donnees, et les laisser
+ * detourner un trajet aujourd'hui reviendrait a faire modifier des itineraires actuels par des
+ * saisies que plus personne ne peut confirmer ni dementir. */
+verifier(
+  'gendarmerie et armee, qui ne sont plus creables, ne detournent rien',
+  !bloqueLaRoute('gendarmerie') && !bloqueLaRoute('armee'),
+  'anciennes donnees : affichees sur la carte, sans effet sur le calcul',
+);
+/* L'ACCIDENT BLOQUE POURTANT LA ROUTE, lui aussi. Le document le range malgre tout parmi les
+ * informatifs, et il a raison : un accident se degage, souvent en minutes, et la chaussee
+ * reste franchissable sur un cote. Detourner tout le monde couterait plus que d'attendre. */
+verifier(
+  "l'accident informe sans detourner",
+  !bloqueLaRoute('crash'),
+  'il se degage en minutes et laisse presque toujours un passage',
 );
 
 console.log(

@@ -81,8 +81,19 @@ export function NavDestinationPicker({
           onPress={(e) => e.stopPropagation()}
           style={[styles.panel, { backgroundColor: colors.surface, paddingBottom: insets.bottom + spacing.lg }]}
         >
+          {/* LE TITRE << OU VOULEZ-VOUS ALLER ? >> A DISPARU — correction 2 du document du
+              14 novembre, qui l'ecrit sans detour : << Supprimer le titre. La barre de recherche
+              prend sa place en haut du bottom sheet. >>
+
+              POURQUOI C'EST JUSTE. Le panneau s'ouvre sur un appui de la loupe, EN ROULANT : la
+              question << ou voulez-vous aller ? >> est celle qu'on vient de poser au telephone,
+              pas celle qu'il doit reposer. Elle coutait une ligne de quinze points en haut d'un
+              panneau ou chaque ligne repousse la grille vers le bas de l'ecran.
+
+              La croix reste, seule sur sa ligne : c'est le seul element du bandeau qui FAIT
+              quelque chose. */}
           <View style={styles.head}>
-            <Text style={[styles.title, { color: colors.text }]}>{t('nav.whereTo')}</Text>
+            <View style={styles.titleSpacer} />
             {/* Croix bien visible, avec sa propre zone de toucher : aucun autre bouton a cote. */}
             <Pressable
               onPress={onClose}
@@ -173,8 +184,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     maxHeight: '86%',
   },
-  head: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginHorizontal: 6, marginBottom: 12 },
-  title: { flex: 1, fontSize: 15, fontWeight: '800' },
+  head: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginHorizontal: 6, marginBottom: 8 },
+  /* L'ESPACE QU'OCCUPAIT LE TITRE, et rien de plus : il pousse la croix a droite. Un
+   * `justifyContent: 'flex-end'` aurait fait la meme chose, mais le bandeau reste pret a
+   * reprendre un element a gauche sans qu'on redispose tout. */
+  titleSpacer: { flex: 1 },
   close: { width: 34, height: 34, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   // Grille de quatre colonnes, cases de 72 points de haut minimum, comme sur le site.
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

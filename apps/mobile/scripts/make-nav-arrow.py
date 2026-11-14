@@ -183,14 +183,17 @@ def make_arrow(nom, couleurs, scale):
         )
         img.alpha_composite(halo_fleche)
 
-    # LE POINT GPS ROUGE, DEVANT LA POINTE ET SOUS LA FLECHE.
+    # LE POINT GPS ROUGE, SOUS LA BASE DE LA FLECHE ET DERRIERE ELLE.
     #
     # Ordre du tableau de composition du document : [Halo] -> [Point rouge] -> [Fleche]. Il est
-    # donc dessine ICI, avant le degrade, et non apres. Memes valeurs que POINT_GPS_Y et
-    # POINT_GPS_RAYON dans NavArrow.tsx — voir la-bas pourquoi il a bouge deux fois.
-    rayon = 7.0 * k
+    # donc dessine ICI, avant le degrade, et non apres.
+    #
+    # IL ETAIT DEVANT LA POINTE, a huit. La maquette 8 du document le met SOUS la base, pose sur
+    # le trace, legende << juste derriere la fleche >>. Memes valeurs que POINT_GPS_Y (129) et
+    # POINT_GPS_RAYON (11) dans NavArrow.tsx — voir la-bas d'ou elles sortent.
+    rayon = 11.0 * k
     cx = ox + (BOX / 2.0) * k
-    cy = oy + 8.0 * k
+    cy = oy + 129.0 * k
     point = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     ImageDraw.Draw(point).ellipse(
         [cx - rayon, cy - rayon, cx + rayon, cy + rayon],

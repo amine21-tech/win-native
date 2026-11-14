@@ -224,28 +224,47 @@ verifier(
     % ', '.join(str(px[3]) for _, px in lus),
 )
 
-print('\nC9 - LE POINT GPS ROUGE EST DEVANT LA POINTE')
+print("\nLE POINT GPS ROUGE EST SOUS LA BASE, ET DERRIERE LA FLECHE")
 
-# IL EST A 8 DANS LE REPERE 0-128 DE LA FLECHE, rayon 7 : il couvre les unites 1 a 15, soit la
-# bande 0,324 - 0,363 de l'image, JUSTE AU-DESSUS de la pointe du triangle, qui commence a 16
-# (0,366).
+# OU LE CHERCHER. La boite de la fleche (0-168) se projette sur l'image de 112 dp ainsi :
+#   y_dp = 36 + 0,3125 x y_boite      (la fleche fait 40 dp pour 128 unites de boite)
+# Le point est a 129, rayon 11 : son centre tombe a 76,3 dp, soit 0,681 de l'image, et il
+# couvre la bande 0,650 - 0,712. La base de la fleche, elle, est a 0,623.
 #
-# CETTE BANDE A CHANGE DEUX FOIS, et le controle l'a signale les deux fois en repondant
+# CETTE BANDE A CHANGE TROIS FOIS, et le controle l'a signale les trois fois en repondant
 # << aucun pixel rouge >>. C'est exactement ce qu'on lui demande : si le point disparait ou se
 # deplace sans qu'on le veuille, il le dit, au lieu de laisser une fleche sans repere.
 w, h = jour.size
-bande = [jour.getpixel((w // 2, y)) for y in range(int(h * 0.322), int(h * 0.366))]
-rouges = [p for p in bande if p[0] > 180 and p[1] < 110 and p[2] < 110]
+bande = [jour.getpixel((w // 2, y)) for y in range(int(h * 0.655), int(h * 0.708))]
+rouges = [q for q in bande if q[0] > 180 and q[1] < 110 and q[2] < 110]
 verifier(
-    'un rouge franc apparait DEVANT la pointe',
+    'un rouge franc apparait SOUS la base de la fleche',
     len(rouges) > 0,
     'rgb%s' % (rouges[0][:3],) if rouges else 'aucun pixel rouge dans la bande',
 )
 
+# IL NE TOUCHE PAS LA FLECHE. La maquette 8 laisse un vide franc entre la base et le point ;
+# colles, ils se liraient comme une seule forme, et le point cesserait de dire une position
+# distincte du cap. La base est a 0,623, le point commence a 0,650 : on balaie l'entre-deux.
+#
+# LE SEUIL EST SUR L'ALPHA, A 180, ET NON SUR << AUCUN PIXEL >>. Une premiere version exigeait
+# la transparence pure et comptait cinq pixels opaques : c'etait LE HALO, qui couvre toute
+# cette zone a 132 d'alpha. Le halo a parfaitement le droit d'etre la — c'est la fleche et le
+# point qui ne doivent pas s'y trouver, et eux arrivent a 255.
+entre = [jour.getpixel((w // 2, y)) for y in range(int(h * 0.630), int(h * 0.645))]
+opaques = sum(1 for q in entre if q[3] >= 180)
+verifier(
+    'un vide franc le separe de la base',
+    opaques == 0,
+    '%d pixel(s) de fleche ou de point entre les deux (le halo, lui, a le droit)' % opaques,
+)
+
 # ET IL N EST PLUS SUR LE CORPS DE LA FLECHE. C'est la demande du 13 novembre : << je trouvais
-# qu'il est sur l'icone elle-meme, tu le mets avant l'icone >>. On balaie donc l'interieur du
-# triangle et on exige qu'aucun rouge n'y traine.
-corps = [jour.getpixel((w // 2, y)) for y in range(int(h * 0.40), int(h * 0.55))]
+# qu'il est sur l'icone elle-meme, tu le mets avant l'icone >>. On balaie l'interieur du
+# triangle — de la pointe (0,366) au creux arriere (0,567) — et on exige qu'aucun rouge n'y
+# traine. Ce balayage attrape AUSSI le defaut qui avait survecu trois versions : le point etait
+# dessine DEUX FOIS dans NavArrow.tsx, avant la fleche ET apres, donc repeint par-dessus elle.
+corps = [jour.getpixel((w // 2, y)) for y in range(int(h * 0.38), int(h * 0.56))]
 rouges_corps = [q for q in corps if q[0] > 180 and q[1] < 110 and q[2] < 110]
 verifier(
     'et AUCUN rouge ne subsiste sur le corps de la fleche',

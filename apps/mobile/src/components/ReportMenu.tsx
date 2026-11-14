@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ReportKind } from '../shared';
 import { menuEmoji, REPORT_BADGE, SECTIONS_MENU } from '../reports/kinds';
-import { bordureSignalisation } from '../map/signalisation';
+import { bordureCarteMenu } from '../map/signalisation';
 import { RadarIcon } from './RadarIcon';
 import { useSession } from '../store/session';
 import { radius, spacing, typography, type Palette } from '../theme';
@@ -174,12 +174,12 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
                         styles.item,
                         {
                           backgroundColor: pressed ? FOND_CARTE_PRESSE : FOND_CARTE,
-                          /* LA BORDURE DIT LA CATEGORIE (C7 du 11 novembre) : << seule la
-                           * bordure est rouge car c'est un type blocage >>. Les cartes etaient
-                           * toutes vertes depuis le 8 novembre. Le fond, lui, ne bouge pas :
-                           * quatorze fonds de couleur feraient le damier que le client avait
-                           * refuse le 31 octobre. */
-                          borderColor: bordureSignalisation(kind),
+                          /* LA BORDURE EST VERTE, SAUF SUR LA CARTE QUI DETOURNE. C'est ce
+                           * que dessinent les deux maquettes du panneau ; voir bordureCarteMenu
+                           * pour ce que la correction C7 voulait vraiment dire. Le fond, lui, ne
+                           * bouge pas : douze fonds de couleur feraient le damier que le client
+                           * avait refuse le 31 octobre. */
+                          borderColor: bordureCarteMenu(kind),
                         },
                       ]}
                     >

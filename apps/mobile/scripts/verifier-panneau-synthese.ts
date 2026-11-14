@@ -32,7 +32,8 @@ import {
   REPORT_MENU_ORDER,
   SECTIONS_MENU,
 } from '../src/reports/kinds';
-import { REPORT_KINDS, type ReportKind } from '../src/shared/constants';
+import { bordureCarteMenu, bordureSignalisation } from '../src/map/signalisation';
+import { bloqueLaRoute, REPORT_KINDS, type ReportKind } from '../src/shared/constants';
 
 let fautes = 0;
 function verifier(nom: string, ok: boolean, detail = ''): void {
@@ -124,6 +125,41 @@ for (const langue of ['fr', 'en', 'ar', 'dz', 'kab']) {
   const maj = dico.report?.badge_misAJour;
   verifier(`${langue.padEnd(4)}`, Boolean(neuf) && Boolean(maj), `${neuf ?? '—'} / ${maj ?? '—'}`);
 }
+
+console.log("\nLES CADRES SONT VERTS, SAUF CELUI QUI DETOURNE L ITINERAIRE");
+
+/* CE QUE LES DEUX MAQUETTES DESSINENT, et que le texte du document confirme : << Tous les
+ * cadres en vert... Route bloquee : bordure rouge (#D32F2F) car type 'blocage' qui declenche
+ * le recalcul. >>
+ *
+ * POURQUOI UN CONTROLE ET PAS UNE RELECTURE. La regle du menu et celle de la carte se
+ * ressemblent au point de porter presque le meme nom (bordureCarteMenu / bordureSignalisation)
+ * et de vivre dans le meme fichier. Les confondre ne produit aucune erreur : le menu prend
+ * quatre couleurs au lieu d'une, ou les marqueurs de la carte deviennent tous verts. Le second
+ * cas effacerait d'un coup la distinction que la maquette des douze symboles specifie type par
+ * type — et personne ne le verrait avant de regarder une carte chargee. */
+const ROUGE = '#D32F2F';
+const VERT = '#0D6E4F';
+verifier(
+  'Route barree porte le rouge, et elle seule',
+  bordureCarteMenu('block') === ROUGE &&
+    REPORT_MENU_ORDER.filter((k) => bordureCarteMenu(k) === ROUGE).length === 2,
+  'avec Barrage, qui detourne lui aussi depuis le 14 novembre',
+);
+const autres = REPORT_MENU_ORDER.filter((k) => !bloqueLaRoute(k));
+verifier(
+  'les dix autres cartes sont vertes',
+  autres.every((k) => bordureCarteMenu(k) === VERT),
+  autres.filter((k) => bordureCarteMenu(k) !== VERT).join(', ') || `${autres.length} cartes`,
+);
+
+/* ET LA CARTE GARDE SES QUATRE COULEURS. C'est l'autre moitie du controle : si quelqu'un
+ * applique la regle du menu aux marqueurs, ce test tombe. */
+verifier(
+  'mais les marqueurs de la carte gardent leurs quatre couleurs',
+  new Set(REPORT_MENU_ORDER.map((k) => bordureSignalisation(k))).size === 4,
+  [...new Set(REPORT_MENU_ORDER.map((k) => bordureSignalisation(k)))].join(' '),
+);
 
 console.log('\nLES TROIS SECTIONS SONT CELLES DE LA MAQUETTE, DANS SON ORDRE');
 verifier(

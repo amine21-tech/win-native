@@ -202,6 +202,35 @@ export function blocageConfirme(temoins: number | null | undefined): boolean {
   return (temoins ?? 1) >= TEMOINS_BLOCAGE;
 }
 
+/**
+ * LES TYPES QUI BLOQUENT LA ROUTE, et qui declenchent donc un recalcul proactif.
+ *
+ * CE QUE LE DOCUMENT DEMANDE (14 novembre, correction 3, son enum SignalType) : BARRAGE,
+ * ROUTE_BARREE et CHEMIN_SANS_ISSUE font sortir le troncon des calculs des que deux temoins
+ * differents l'ont signale. Tous les autres types — bouchon, accident, travaux, dos d'ane,
+ * radar, objet, trou, inondation, incendie, dechets — sont << informatifs seulement >>.
+ *
+ * << CHEMIN SANS ISSUE >> N'A PAS DE TYPE A LUI : c'est le sous-titre de la carte Route barree
+ * depuis le 9 novembre (<< Ou chemin sans issue >>), et les deux decrivent la meme chose pour
+ * le conducteur — on ne passe pas. Un type de plus aurait ajoute une case au menu pour une
+ * distinction qu'aucun temoin ne fait au volant.
+ *
+ * LE BARRAGE S'AJOUTE AUJOURD'HUI. Il ne declenchait rien : seul `block` sortait de
+ * l'itineraire. C'etait un oubli, pas un choix — un barrage tenu depuis une heure arrete la
+ * circulation aussi surement qu'une route barree, et c'est precisement la situation ou un
+ * detour vaut quelque chose.
+ *
+ * L'INONDATION RESTE A PART, et volontairement : elle exclut le troncon DES LE PREMIER temoin
+ * (voir avoidPoints), parce que personne ne signale une inondation par erreur et que s'y
+ * engager ne se repare pas. Elle n'a donc rien a faire dans une liste qui attend deux voix.
+ */
+export const KINDS_BLOQUANTS = ['block', 'police'] as const;
+
+/** Ce signalement empeche-t-il de passer ? Voir KINDS_BLOQUANTS. */
+export function bloqueLaRoute(kind: ReportKind): boolean {
+  return (KINDS_BLOQUANTS as readonly string[]).includes(kind);
+}
+
 /** Rayon par defaut, en metres, pour la recherche de signalements a proximite. */
 export const NEARBY_RADIUS_M = 5000;
 export const NEARBY_RADIUS_MAX_M = 25000;

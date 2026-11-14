@@ -292,7 +292,7 @@ verifier(
 );
 verifier(
   'le panel de signalement aussi',
-  /borderColor: bordureSignalisation\(kind\)/.test(menu),
+  /borderColor: bordureCarteMenu\(kind\)/.test(menu),
   '« seule la bordure est rouge car c est un type blocage »',
 );
 
