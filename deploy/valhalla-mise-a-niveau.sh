@@ -114,6 +114,39 @@ print("%d min, %.1f km, %d manoeuvres, %d avec voies" % (
 '
 }
 
+# ATTEND QUE LE MOTEUR DU PORT DONNE REPONDE, au lieu de dormir un nombre fixe de secondes.
+#
+# CE QUI S'EST PASSE LE 15 NOVEMBRE. `basculer` et `revenir` faisaient `sleep 3` puis
+# interrogeaient le moteur. Trois secondes suffisent parfois ; elles n'ont pas suffi au retour
+# en arriere. Le `curl` a echoue, et comme le script tourne sous `set -euo pipefail`, un
+# pipeline en echec l'a ARRETE NET — avant le controle, avant le message final.
+#
+# Le retour en arriere lui-meme avait abouti : les renommages se font AVANT le controle. Mais
+# l'ecran n'affichait plus que deux lignes nues, sans un mot pour dire dans quel etat on etait.
+# Sur une bascule de production, un script qui se tait est presque aussi mauvais qu'un script
+# qui echoue.
+#
+# On attend donc une VRAIE reponse, jusqu'a soixante secondes, et on le dit si elle ne vient
+# pas. Un moteur qui recharge 3346 tuiles peut prendre plus de trois secondes selon la charge
+# du serveur : c'est normal, ce n'est pas une panne.
+attendre_moteur() {
+  local port="${1:-8002}" i
+  printf 'Attente du moteur sur %s ' "$port"
+  for i in $(seq 1 30); do
+    if curl -s -m 5 "http://127.0.0.1:$port/status" >/dev/null 2>&1; then
+      echo " pret."
+      return 0
+    fi
+    printf '.'
+    sleep 2
+  done
+  echo
+  echo "ATTENTION : le moteur n'a pas repondu en 60 secondes."
+  echo "  etat du conteneur : docker ps -a --filter name=valhalla_win"
+  echo "  journaux          : docker logs --tail 40 valhalla_win"
+  return 1
+}
+
 case "${1:-}" in
   verifier)
     echo "== Version visee";                    echo "$VERSION  (image : $IMAGE)"
@@ -211,7 +244,8 @@ case "${1:-}" in
       n=$((n + 1))
       echo "-- Trajet $n"
       printf '   ancien (8002) : '
-      curl -s -m 30 -X POST http://127.0.0.1:8002/route -H 'content-type: application/json' -d "$t" | resume
+      printf 'Voies rendues : '
+      curl -s -m 30 -X POST http://127.0.0.1:8002/route -H 'content-type: application/json' -d "$t" | resume || true
       printf '   nouveau (%s)  : ' "$PORT_NEUF"
       curl -s -m 30 -X POST "http://127.0.0.1:$PORT_NEUF/route" -H 'content-type: application/json' -d "$t" | resume
     done
@@ -264,11 +298,16 @@ case "${1:-}" in
       [ "$reseau" = "bridge" ] && continue
       docker network connect "$reseau" valhalla_win && echo "rattache a $reseau"
     done
-    sleep 5
+    # LE CONTROLE NE PEUT PLUS ARRETER LE SCRIPT. La bascule a eu lieu de toute facon, et
+    # c'est justement quand elle se passe mal qu'il faut pouvoir lire la suite du message
+    # plutot que de se retrouver devant un ecran muet.
+    attendre_moteur 8002 || true
     echo "== Controle apres bascule"
-    curl -s -m 10 http://127.0.0.1:8002/status | head -c 120; echo
-    curl -s -m 30 -X POST http://127.0.0.1:8002/route -H 'content-type: application/json' -d "$TRAJET" | resume
+    curl -s -m 10 http://127.0.0.1:8002/status | head -c 200 || true; echo
+    printf 'Voies rendues : '
+    curl -s -m 30 -X POST http://127.0.0.1:8002/route -H 'content-type: application/json' -d "$TRAJET" | resume || true
     echo "L'ancien est garde, a l'arret, sous le nom valhalla_win_avant."
+    echo "Retour en arriere immediat si besoin :  bash $0 revenir"
     ;;
 
   revenir)
@@ -283,11 +322,12 @@ case "${1:-}" in
     docker rename valhalla_win "$NEUF"
     docker rename valhalla_win_avant valhalla_win
     docker start valhalla_win
-    sleep 3
-    curl -s -m 10 http://127.0.0.1:8002/status | head -c 200; echo
+    attendre_moteur 8002 || true
+    curl -s -m 10 http://127.0.0.1:8002/status | head -c 200 || true; echo
     printf 'Voies rendues : '
-    curl -s -m 30 -X POST http://127.0.0.1:8002/route -H 'content-type: application/json' -d "$TRAJET" | resume
+    curl -s -m 30 -X POST http://127.0.0.1:8002/route -H 'content-type: application/json' -d "$TRAJET" | resume || true
     echo "Retour a l'ancien moteur. Le nouveau est garde, a l'arret, sous le nom $NEUF."
+    echo "Pour rebasculer sans rien reconstruire :  bash $0 basculer"
     ;;
 
   nettoyer)
