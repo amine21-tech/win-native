@@ -40,6 +40,10 @@
 #   bash valhalla-mise-a-niveau.sh basculer     # le nouveau prend le port 8002
 #   bash valhalla-mise-a-niveau.sh revenir      # retour a l'ancien, immediat
 #   bash valhalla-mise-a-niveau.sh nettoyer     # supprime l'ancien, une fois rassure
+#
+# Par defaut la construction reproduit les reglages EXACTS du moteur en service, pour que la
+# version soit la seule chose qui change. EXTRAS=oui y ajoute zones administratives, fuseaux
+# horaires et barème de vitesses par defaut — a mesurer separement, voir plus bas.
 set -euo pipefail
 
 # LA VERSION VISEE EST LA PLUS PETITE QUI APPORTE LA FONCTION, et c'est deliberement.
@@ -53,6 +57,31 @@ set -euo pipefail
 # Pour viser une autre version :  VERSION=3.9.2 bash valhalla-mise-a-niveau.sh construire
 # Le dossier et le conteneur portent la version : deux essais ne se marchent pas dessus.
 VERSION="${VERSION:-3.6.1}"
+
+# LES MEMES REGLAGES QUE LE MOTEUR EN SERVICE, ET RIEN DE PLUS.
+#
+# CE QUI S'EST PASSE LE 15 NOVEMBRE. La premiere construction a ajoute trois options que le
+# moteur en service n'a pas : les zones administratives, les fuseaux horaires, et surtout le
+# barème de vitesses par defaut d'OpenStreetMapSpeeds. Resultat mesure sur trois trajets :
+# memes routes, memes distances, et des durees de 26 a 59 % PLUS LONGUES. Un trajet changeait
+# meme de chemin, les couts relatifs ayant bouge.
+#
+# C'est un barème generique, bien plus prudent que ce que Valhalla deduit seul des routes
+# algeriennes. Annoncer 44 minutes pour un trajet qui en prend 30 est pire que de ne pas
+# afficher les fleches de voie.
+#
+# ON NE CHANGE DONC QU'UNE SEULE CHOSE : la version du moteur. C'est la seule facon qu'un ecart
+# de duree veuille dire quelque chose — et c'est toute la raison d'etre de l'etape `tester`.
+#
+# EXTRAS=oui activera les trois options, SEPAREMENT et plus tard, une fois la version acquise.
+# Ce sont de bonnes options en soi : les fuseaux servent au calcul horaire, les zones
+# administratives aux regles propres a chaque pays. Elles meritent leur propre mesure.
+EXTRAS="${EXTRAS:-non}"
+if [ "$EXTRAS" = "oui" ]; then
+  REGLAGES=(-e build_admins=True -e build_time_zones=True -e use_default_speeds_config=True)
+else
+  REGLAGES=(-e build_admins=False -e build_time_zones=False -e use_default_speeds_config=False)
+fi
 SUFFIXE="${VERSION//./}"
 
 IMAGE="ghcr.io/valhalla/valhalla-scripted:$VERSION"
@@ -129,7 +158,16 @@ case "${1:-}" in
         cp -f "$source" "$cible"
       fi
     done
-    sudo rm -rf "$NEW_DIR/valhalla_tiles" "$NEW_DIR/valhalla_tiles.tar" "$NEW_DIR/file_hashes.txt"
+    # LA CONFIGURATION ET LES DONNEES ANNEXES PARTENT AUSSI, et pas seulement les tuiles.
+    #
+    # `update_existing_config=True` fait que l'image REPREND un valhalla.json deja present. Un
+    # fichier laisse par une construction precedente continuerait donc de pointer vers des
+    # zones administratives ou un barème de vitesses qu'on vient justement de desactiver : les
+    # variables diraient une chose et la configuration en ferait une autre. Les fichiers .pbf,
+    # eux, ne sont JAMAIS touches — ce sont les seules donnees qu'on tient a garder identiques.
+    sudo rm -rf "$NEW_DIR/valhalla_tiles" "$NEW_DIR/valhalla_tiles.tar" "$NEW_DIR/file_hashes.txt" \
+      "$NEW_DIR/valhalla.json" "$NEW_DIR/admins.sqlite" "$NEW_DIR/timezones.sqlite" \
+      "$NEW_DIR/default_speeds.json" "$NEW_DIR/duplicateways.txt"
     ls -lh "$NEW_DIR"/*.osm.pbf
 
     docker rm -f "$NEUF" 2>/dev/null || true
@@ -147,7 +185,8 @@ case "${1:-}" in
       --cpus 4 \
       -p 127.0.0.1:$PORT_NEUF:8002 \
       -v "$NEW_DIR":/custom_files \
-      -e build_elevation=False -e build_admins=True -e build_time_zones=True \
+      -e build_elevation=False \
+      "${REGLAGES[@]}" \
       -e force_rebuild=True \
       -e server_threads=4 \
       "$IMAGE"
@@ -217,7 +256,8 @@ case "${1:-}" in
     docker run -d --name valhalla_win --restart unless-stopped \
       -p 127.0.0.1:8002:8002 \
       -v "$NEW_DIR":/custom_files \
-      -e build_elevation=False -e build_admins=True -e build_time_zones=True \
+      -e build_elevation=False \
+      "${REGLAGES[@]}" \
       -e server_threads=4 \
       "$IMAGE"
     for reseau in $RESEAUX; do
