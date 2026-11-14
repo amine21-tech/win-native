@@ -111,7 +111,18 @@ case "${1:-}" in
     ls -lh "$NEW_DIR"/*.osm.pbf
 
     docker rm -f "$NEUF" 2>/dev/null || true
+    # LA CONSTRUCTION EST BRIDEE A QUATRE COEURS SUR LES SIX DU SERVEUR.
+    #
+    # Elle dure de trente a soixante minutes et prend tout ce qu'on lui laisse. Pendant ce
+    # temps, le MEME serveur sert l'API, Postgres et le moteur d'itineraire EN SERVICE : une
+    # construction qui mange les six coeurs ferait ramer l'application pour les conducteurs
+    # qui roulent, et c'est precisement ce que cette mise a niveau est censee ameliorer.
+    #
+    # Deux coeurs reserves suffisent largement a la pile, qui en utilise une fraction au
+    # repos. La construction y perd quelques minutes — personne ne l'attend, elle tourne en
+    # fond, et c'est le seul moment ou l'on peut choisir qui ralentit.
     docker run -d --name "$NEUF" --restart no \
+      --cpus 4 \
       -p 127.0.0.1:$PORT_NEUF:8002 \
       -v "$NEW_DIR":/custom_files \
       -e build_elevation=False -e build_admins=True -e build_time_zones=True \
