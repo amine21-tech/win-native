@@ -38,7 +38,15 @@ const ATTENDU: Record<string, number> = {
   d100m: 100,
   d200m: 200,
   d300m: 300,
+  /* 400, 600, 700 ET 800 SONT ARRIVES LE 16 NOVEMBRE avec le second envoi. Ils manquaient
+   * alors que `palierParleM` les PRONONCE : la synthese francaise disait << dans 700
+   * metres >> pendant que le kabyle se taisait, et c est la tranche qu on entend le plus,
+   * la premiere annonce etant plafonnee a 800 m. */
+  d400m: 400,
   d500m: 500,
+  d600m: 600,
+  d700m: 700,
+  d800m: 800,
   d1km: 1000,
   d2km: 2000,
   d5km: 5000,
@@ -80,10 +88,19 @@ verifier(
   `la synthese dit « ${spokenDistance(2300, 'fr')} »`,
 );
 verifier('3,7 km non plus', clipDistance(3700) === null);
+/* 700 M A SON CLIP DEPUIS LE 16 NOVEMBRE. Ce controle exigeait son silence ; il exige
+ * maintenant qu'il parle, et qu'il dise le MEME chiffre que la synthese francaise. Les
+ * distances qui se taisent encore sont celles que la synthese arrondit au cent metres SOUS
+ * le kilometre — 2,3 km, 3,7 km — et pour lesquelles aucun clip n'existe ni n'existera. */
 verifier(
-  '700 m non plus — il n\'existe pas de clip pour ce palier',
-  clipDistance(700) === null,
+  '700 m parle maintenant, et dit le bon palier',
+  clipDistance(700) === 'd700m',
   `la synthese dit « ${spokenDistance(700, 'fr')} »`,
+);
+verifier(
+  '800 m aussi, le palier le plus lointain qu\'une annonce atteigne',
+  clipDistance(800) === 'd800m',
+  'la premiere annonce est plafonnee a 800 m : au-dela, personne ne l\'entend',
 );
 
 /* LE DEFAUT QUE CE SCRIPT A TROUVE, ET QUI NE CONCERNAIT PAS LE KABYLE.
@@ -146,24 +163,60 @@ for (const [type, cle, libelle] of CONNUES) {
 }
 
 /* ------------------------------------------------------------------ */
-console.log('\nCE QUI N\'A PAS ETE ENREGISTRE SE TAIT, PLUTOT QUE D\'APPROXIMER');
+console.log('\nLES MANOEUVRES FINES PARLENT DEPUIS LE SECOND ENVOI');
 
 /**
- * C'EST LE CONTROLE LE PLUS IMPORTANT DU FICHIER. La tentation, quand un clip manque, est de
- * jouer le voisin : << tournez a droite >> pour << serrez legerement a droite >>. Sur une
- * bifurcation d'autoroute, les deux mouvements menent a deux routes differentes, et le
- * conducteur n'a aucun moyen de savoir que l'application a approxime.
+ * CE CONTROLE A CHANGE DE SENS LE 16 NOVEMBRE, ET C'EST UNE BONNE NOUVELLE.
+ *
+ * Il verrouillait jusque-la le SILENCE de neuf manoeuvres : serrez legerement, tournez
+ * franchement, les trois bretelles, l'insertion. C'etait le controle le plus important du
+ * fichier, parce que la tentation, quand un clip manque, est de jouer le voisin — et sur une
+ * bifurcation d'autoroute, << tournez a droite >> et << serrez legerement a droite >> menent a
+ * deux routes differentes sans que le conducteur puisse savoir qu'on a approxime.
+ *
+ * Le second envoi du locuteur les a toutes enregistrees. Le controle verifie donc maintenant
+ * que chacune dit SA phrase, et non celle d'a cote : une erreur de cablage entre `serrerDroite`
+ * et `serrerGauche` serait exactement le genre de faute que ce fichier existe pour attraper,
+ * et elle ne se verrait a l'usage qu'en kabyle, au volant, trop tard.
+ */
+const FINES: [number, string, string][] = [
+  [9, 'serrerDroite', 'Serrez legerement a droite'],
+  [16, 'serrerGauche', 'Serrez legerement a gauche'],
+  [11, 'tournerFranchementDroite', 'Tournez franchement a droite'],
+  [14, 'tournerFranchementGauche', 'Tournez franchement a gauche'],
+  [17, 'bretelle', 'Prenez la bretelle'],
+  [18, 'bretelleDroite', 'Bretelle a droite'],
+  [19, 'bretelleGauche', 'Bretelle a gauche'],
+  [25, 'insertion', 'Inserez-vous'],
+  [28, 'ferryEntree', 'Prenez le ferry'],
+  [29, 'ferrySortie', 'Quittez le ferry'],
+];
+for (const [type, cle, libelle] of FINES) {
+  verifier(`${libelle} (type ${type}) → ${cle}`, clipManoeuvre(type) === cle);
+}
+
+/* LA GAUCHE ET LA DROITE NE SE CONFONDENT PAS. Dix cles, dix clips distincts : si deux types
+ * pointaient vers le meme enregistrement, la verification ligne a ligne ci-dessus passerait
+ * quand meme tant que chaque ligne est juste prise seule. */
+const clesFines = FINES.map(([type]) => clipManoeuvre(type));
+verifier(
+  'dix manoeuvres, dix clips differents',
+  new Set(clesFines).size === FINES.length,
+  `${new Set(clesFines).size} clips distincts sur ${FINES.length} manoeuvres`,
+);
+
+/* ------------------------------------------------------------------ */
+console.log("\nCE QUI N'A TOUJOURS PAS ETE ENREGISTRE SE TAIT, PLUTOT QUE D'APPROXIMER");
+
+/**
+ * Il reste le depart. << Demarrez >> n'a pas de clip, et n'en a pas besoin : la consigne de
+ * depart est suivie immediatement de la premiere manoeuvre, qui, elle, parle. La regle de fond
+ * ne bouge pas — un clip manquant se tait, il n'emprunte pas celui du voisin.
  */
 const MUETTES: [number, string][] = [
-  [9, 'Serrez legerement a droite'],
-  [16, 'Serrez legerement a gauche'],
-  [11, 'Tournez franchement a droite'],
-  [14, 'Tournez franchement a gauche'],
-  [17, 'Prenez la bretelle'],
-  [18, 'Bretelle a droite'],
-  [19, 'Bretelle a gauche'],
-  [25, 'Inserez-vous'],
   [1, 'Demarrez'],
+  [2, 'Depart a droite'],
+  [3, 'Depart a gauche'],
 ];
 for (const [type, libelle] of MUETTES) {
   verifier(`${libelle} (type ${type}) : aucun clip`, clipManoeuvre(type) === null);

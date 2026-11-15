@@ -52,15 +52,32 @@ export { PALIERS_M } from './alerteApproche';
 /**
  * Les signalements qui ont un enregistrement tamazight. Quatre sur treize.
  *
- * Les neuf autres — barrage, dos d'ane, trou, inondation, incendie, objet, voie fermee — n'ont
- * pas ete enregistres. Ils passent par la synthese francaise plutot que par un clip voisin :
- * annoncer << accident >> pour un dos d'ane ferait freiner brutalement sans raison.
+ * LES AUTRES ONT ETE ENREGISTRES LE 16 NOVEMBRE. Ils passaient jusque-la par la synthese
+ * francaise, jamais par un clip voisin : annoncer << accident >> pour un dos d'ane ferait
+ * freiner brutalement sans raison. La regle tenait ; il ne manquait que les voix.
  */
 const CLIPS_SIGNALEMENT: Partial<Record<string, CleVoix>> = {
   crash: 'accident',
   jam: 'bouchon',
   works: 'travaux',
   radar: 'radar',
+  /* LES SEPT AUTRES SONT ARRIVES LE 16 NOVEMBRE. Ils se taisaient jusque-la, et la note
+   * ci-dessus expliquait pourquoi on ne leur pretait pas un clip voisin. */
+  police: 'barrage',
+  bump: 'dosDane',
+  pothole: 'trou',
+  object: 'objet',
+  flood: 'inondation',
+  fire: 'incendie',
+  block: 'routeBloquee',
+  /* GENDARMERIE ET ARMEE DISENT << BARRAGE >>, comme la carte et le menu depuis le 9 novembre
+   * — << un barrage, ca reste un barrage >>. Ils ne sont plus creables, mais les signalements
+   * deja en base le sont, et ils doivent s'annoncer. */
+  gendarmerie: 'barrage',
+  armee: 'barrage',
+  /* LES DECHETS SAUVAGES N'ONT PAS DE CLIP, et ce n'est pas un oubli du locuteur : une
+   * decharge en bord de route ne demande aucune manoeuvre. La barre d'info la montre, la voix
+   * se tait — elle est reservee a ce qui change la conduite. */
 };
 
 export function useApproachAlerts(params: {

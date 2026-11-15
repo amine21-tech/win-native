@@ -709,14 +709,20 @@ export function useNavigationSession(params: {
    * justifie pas de passer outre — l'ecran, lui, affiche deja le recalcul. */
   direManoeuvreRateeRef.current = (sortie: boolean) => {
     if (!voiceGuidanceEnabled) return;
-    /* LE CLIP TAMAZIGHT EXISTE, ET IL N'ETAIT PAS JOUE. En kabyle la voix ne dit que des
-     * enregistrements ; sans cle de clip, `speakGuidance` se taisait — y compris pour une
-     * sortie manquee, alors que << recalculEnCours >> fait partie des 68 enregistrements
-     * livres. Le conducteur kabyle voyait donc l'application recalculer sans un mot. */
+    /* EN KABYLE, LA VOIX NE DIT QUE DES ENREGISTREMENTS : sans cle de clip, `speakGuidance`
+     * se tait. Le conducteur kabyle voyait l'application recalculer sans un mot.
+     *
+     * LA SORTIE MANQUEE A MAINTENANT SON PROPRE CLIP (second envoi du 16 novembre). On enchaine
+     * donc deux clips — ce qui s'est passe, puis ce que l'application fait — la ou il fallait
+     * se contenter de << recalcul en cours >>, qui disait la consequence sans la cause.
+     *
+     * LE VIRAGE MANQUE, LUI, N'EN A PAS, et on ne lui prete pas celui de la sortie : rater un
+     * virage en ville et rater une sortie d'autoroute ne coutent pas la meme chose, et le
+     * second clip ferait croire a un detour de plusieurs kilometres. */
     speakGuidance(
       sortie ? phraseSortieRatee(spokenLang) : phraseVirageManque(spokenLang),
       spokenLang,
-      ['recalculEnCours'],
+      sortie ? ['sortieManquee', 'recalculEnCours'] : ['recalculEnCours'],
     );
   };
 

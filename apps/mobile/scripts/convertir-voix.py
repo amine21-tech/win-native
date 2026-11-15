@@ -134,6 +134,63 @@ CLES = {
     'mosqué': 'mosquee',
     'aéroport': 'aeroport',
     'arrêt de bus': 'arretBus',
+
+    # ==================================================================================
+    # SECOND ENVOI — 16 novembre 2026, vingt-quatre clips.
+    #
+    # Ils comblent EXACTEMENT les manques que le code documentait depuis le 9 novembre. Trois
+    # commentaires disaient alors, en substance, << il n'existe pas d'enregistrement pour ceci,
+    # on laisse parler la synthese francaise >> : les manoeuvres fines, les paliers de distance
+    # au-dela de 300 m, et sept types de signalement sur onze. Les trois listes sont desormais
+    # completes.
+    #
+    # LES NOMS LIVRES PORTENT UN NUMERO DE PISTE (<< - Track 17 >>) et quelques fautes de frappe
+    # (<< dos d'an >>, << Quitez >>, << Inserez vous >>). On les transcrit tels qu'ils arrivent :
+    # cette table est la seule source de verite, et la corriger reviendrait a ne plus retrouver
+    # le fichier d'origine le jour ou il faudra le reecouter.
+    # ==================================================================================
+
+    # --- manoeuvres fines -------------------------------------------------------------
+    # Elles passaient toutes par la synthese francaise. Le commentaire de voixKabRegles.ts
+    # expliquait pourquoi on ne les remplacait pas par un clip voisin : dire << tournez a
+    # droite >> pour << serrez legerement a droite >> fait prendre la mauvaise voie a une
+    # bifurcation d'autoroute, et rien n'avertit le conducteur de l'approximation.
+    'serrez a droite  - Track 1': 'serrerDroite',
+    'serrez a gauche  Track 2': 'serrerGauche',
+    'Tournez franchement a droite - Track 3': 'tournerFranchementDroite',
+    'Tournez franchement a gauche - Track 4': 'tournerFranchementGauche',
+    'Prenez la Bretelle - Track 5': 'bretelle',
+    'Prenez la bretelle sur la droite - Track 6': 'bretelleDroite',
+    'Prenez la bretelle a gauche  - Track 7': 'bretelleGauche',
+    'Inserez vous - Track 8': 'insertion',
+    'prenez le ferry- Track 9': 'ferryEntree',
+    'Quitez le ferry - Track 10': 'ferrySortie',
+
+    # --- paliers de distance manquants --------------------------------------------------
+    # `palierParleM` arrondit a la centaine au-dela de 400 m : 400, 600, 700 et 800 etaient
+    # donc PRONONCABLES par la synthese mais muets en kabyle. La premiere annonce se declenche
+    # dix-huit secondes avant la manoeuvre, plafonnees a 800 m — a vitesse d'autoroute, ces
+    # quatre paliers sont ceux qu'on entend le plus.
+    'dans 400 m - Track 11': 'd400m',
+    'dans 600 m - Track 12': 'd600m',
+    'dans 700 m - Track 13': 'd700m',
+    'dans 800 m- Track 14': 'd800m',
+
+    # --- signalements ------------------------------------------------------------------
+    # Quatre types sur onze parlaient kabyle (accident, bouchon, travaux, radar). Les sept
+    # autres se taisaient.
+    "dos d'an - Track 15": 'dosDane',
+    'Trou sur la route - Track 16': 'trou',
+    'barrage - Track 17': 'barrage',
+    'Objet sur la route - Track 18': 'objet',
+    'Incendie - Track 19': 'incendie',
+    'inondation - Track 20': 'inondation',
+    'route bloquee  - Track 21': 'routeBloquee',
+
+    # --- evenements de navigation --------------------------------------------------------
+    'Sortie manquee - Track 22': 'sortieManquee',
+    'route bloquee recalcul - Track 23': 'routeBloqueeRecalcul',
+    'Aucun itineraire - Track 24': 'aucunItineraire',
 }
 
 # FICHIERS ECARTES, ET POURQUOI. Les laisser passer en silence serait pire : on croirait que

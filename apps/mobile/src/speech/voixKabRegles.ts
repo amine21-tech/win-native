@@ -21,35 +21,51 @@ export const CLES_VOIX = [
   'arretBus',
   'arrivee',
   'attention',
+  'aucunItineraire',
   'banque',
+  'barrage',
   'bienvenue',
   'bouchon',
+  'bretelle',
+  'bretelleDroite',
+  'bretelleGauche',
   'd100m',
   'd10km',
   'd1km',
   'd200m',
   'd2km',
   'd300m',
+  'd400m',
   'd500m',
   'd50m',
   'd5km',
+  'd600m',
+  'd700m',
+  'd800m',
   'demiTour',
   'destinationDroite',
   'destinationGauche',
   'destinationToutDroit',
   'ditesDestination',
+  'dosDane',
+  'ferryEntree',
+  'ferrySortie',
   'gpsFaible',
   'gpsPerdu',
   'gpsRetrouve',
   'hopital',
   'horsLigne',
   'hotel',
+  'incendie',
+  'inondation',
+  'insertion',
   'internetPerdu',
   'itineraireRecalcule',
   'mosquee',
   'navigationArretee',
   'navigationDemarree',
   'nouvelItineraire',
+  'objet',
   'parking',
   'pharmacie',
   'plusieursResultats',
@@ -66,17 +82,25 @@ export const CLES_VOIX = [
   'resterDroite',
   'resterGauche',
   'rondPoint',
+  'routeBloquee',
+  'routeBloqueeRecalcul',
+  'serrerDroite',
+  'serrerGauche',
   'sortie1',
   'sortie2',
   'sortie3',
   'sortie4',
   'sortieAutoroute',
+  'sortieManquee',
   'stationService',
   'supermarche',
   'tournerDroite',
+  'tournerFranchementDroite',
+  'tournerFranchementGauche',
   'tournerGauche',
   'toutDroit',
   'travaux',
+  'trou',
   'tunnelEntree',
   'tunnelSortie',
   'virageDangereux',
@@ -99,7 +123,18 @@ const PALIERS_DISTANCE: Record<number, CleVoix> = {
   100: 'd100m',
   200: 'd200m',
   300: 'd300m',
+  /* 400, 600, 700 ET 800 SONT ARRIVES LE 16 NOVEMBRE, avec le second envoi du locuteur.
+   *
+   * Ils manquaient, et le manque etait visible : `palierParleM` arrondit a la centaine des
+   * 400 m, donc la synthese francaise prononcait bien << dans 700 metres >> pendant que le
+   * kabyle se taisait. Et ce ne sont pas des paliers rares — la premiere annonce se declenche
+   * dix-huit secondes avant la manoeuvre, plafonnees a 800 m : a vitesse d'autoroute, c'est
+   * exactement cette tranche qu'on entend en premier. */
+  400: 'd400m',
   500: 'd500m',
+  600: 'd600m',
+  700: 'd700m',
+  800: 'd800m',
   1000: 'd1km',
   2000: 'd2km',
   5000: 'd5km',
@@ -127,13 +162,21 @@ export function clipDistance(metres: number): CleVoix | null {
 /* ------------------------------------------------------------------ */
 
 /**
- * Types de manoeuvre Valhalla vers clip. Les absents sont volontaires : il n'existe pas
- * d'enregistrement pour << serrez legerement a droite >>, << tournez franchement >>,
- * << prenez la bretelle >> ni << inserez-vous >>. Ils passent par la synthese francaise.
+ * Types de manoeuvre Valhalla vers clip.
  *
- * ON NE REMPLACE PAS UN CLIP MANQUANT PAR UN CLIP VOISIN. Dire << tournez a droite >> pour
- * << serrez legerement a droite >> ferait prendre la mauvaise voie a une bifurcation
- * d'autoroute, et le conducteur n'aurait aucun moyen de savoir que l'application a approxime.
+ * LA LISTE S'EST COMPLETEE LE 16 NOVEMBRE. Elle portait jusque-la cette note : << il n'existe
+ * pas d'enregistrement pour "serrez legerement a droite", "tournez franchement", "prenez la
+ * bretelle" ni "inserez-vous" ; ils passent par la synthese francaise >>. Le second envoi du
+ * locuteur les apporte tous les quatre, plus les deux ferries.
+ *
+ * ON NE REMPLACE JAMAIS UN CLIP MANQUANT PAR UN CLIP VOISIN, et c'est ce qui rendait ces
+ * manques couteux plutot que genants. Dire << tournez a droite >> pour << serrez legerement a
+ * droite >> ferait prendre la mauvaise voie a une bifurcation d'autoroute, et le conducteur
+ * n'aurait aucun moyen de savoir que l'application a approxime. La regle ne change pas : ce
+ * sont les enregistrements qui ont rattrape la liste.
+ *
+ * CE QUI MANQUE ENCORE, et qui reste volontaire : les types 1 a 3 (<< demarrez >>, dit par la
+ * consigne de depart elle-meme) et 2/3 (depart a droite ou a gauche).
  */
 const MANOEUVRES: Record<number, CleVoix> = {
   0: 'toutDroit',
@@ -142,16 +185,26 @@ const MANOEUVRES: Record<number, CleVoix> = {
   6: 'destinationGauche',
   7: 'toutDroit',
   8: 'toutDroit',
+  9: 'serrerDroite',
   10: 'tournerDroite',
+  11: 'tournerFranchementDroite',
   12: 'demiTour',
   13: 'demiTour',
+  14: 'tournerFranchementGauche',
   15: 'tournerGauche',
+  16: 'serrerGauche',
+  17: 'bretelle',
+  18: 'bretelleDroite',
+  19: 'bretelleGauche',
   20: 'sortieAutoroute',
   21: 'sortieAutoroute',
   22: 'toutDroit',
   23: 'resterDroite',
   24: 'resterGauche',
+  25: 'insertion',
   26: 'rondPoint',
+  28: 'ferryEntree',
+  29: 'ferrySortie',
 };
 
 /** Les quatre sorties de rond-point enregistrees. Au-dela, la synthese francaise. */
