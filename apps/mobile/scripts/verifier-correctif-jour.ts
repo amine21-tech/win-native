@@ -28,7 +28,8 @@ const lire = (chemin: string) => readFileSync(resolve(chemin), 'utf8');
 
 const fleche = lire('apps/mobile/src/components/NavArrow.tsx');
 const flecheImage = lire('apps/mobile/scripts/make-nav-arrow.py');
-const alerte = lire('apps/mobile/src/components/AlerteApproche.tsx');
+/* La carte d'alerte a ete retiree le 16 novembre : c'est le bandeau qui previent seul. */
+const bandeau = lire('apps/mobile/src/components/BandeauInfoSignalement.tsx');
 const panneau = lire('apps/mobile/src/components/NavDestinationPicker.tsx');
 const session = lire('apps/mobile/src/navigation/useNavigationSession.ts');
 const pastille = lire('apps/mobile/src/components/RecalcToast.tsx');
@@ -180,16 +181,37 @@ verifier(
 );
 
 /* ------------------------------------------------------------------ */
-console.log('\nC5 — LA CROIX NE TOUCHE PLUS RIEN');
+console.log("\nC5 — L AVERTISSEMENT TIENT SUR UNE LIGNE, ET ON PEUT LE COUPER");
 
-verifier('marge de 10 points', /CROIX_MARGE = 10/.test(alerte));
-verifier('taille de 24 points, inchangee', /CROIX_TAILLE = 24/.test(alerte));
+/* CE QUE CE CONTROLE SURVEILLAIT AVANT. La carte d'alerte avait une croix de fermeture qui
+ * touchait le texte ; C5 verifiait sa marge et sa taille. Cette carte n'existe plus : arsanne
+ * l'a essayee au volant le 16 novembre et l'a refusee — un bloc haut comme un tiers
+ * d'ecran pour dire ce que la barre d'info disait deja sur une ligne.
+ *
+ * LE CONTROLE PORTE DONC SUR CE QUI RESTE, et sur ce qui pourrait se reperdre : que la carte
+ * ne revienne pas, que la barre reste seule, et que son interrupteur coupe les alertes A LA
+ * RACINE plutot que de masquer l'affichage en laissant parler la voix.
+ */
 verifier(
-  'sa place est RESERVEE dans le contenu',
-  /paddingRight: CROIX_MARGE \+ CROIX_TAILLE \+ 6/.test(alerte),
-  "ecarter la croix du bord la rapproche du texte : la marge seule ne suffit pas",
+  "la carte d'alerte a bien disparu de l'ecran",
+  !/<AlerteApproche/.test(ecran),
+  "un bloc de la hauteur d un tiers d ecran, refuse au volant",
 );
-
+verifier(
+  "la barre accompagne le signalement jusqu'au bout",
+  /report={infoSignalement\?\.report \?\? null}/.test(ecran),
+  "elle ne s efface plus a 150 m : plus rien ne prend le relais",
+);
+verifier(
+  "l'interrupteur coupe la voix AUSSI, pas seulement l'affichage",
+  /setApproachAlerts\(false\)/.test(ecran) && /onCouper=/.test(ecran),
+  "couper l ecran en laissant parler serait ce qu on demande d arreter",
+);
+verifier(
+  "il se voit vert, comme la ligne Alertes actives du panneau",
+  /backgroundColor: '#2BA84A'/.test(bandeau) && /accessibilityRole="switch"/.test(bandeau),
+  "deux commandes qui font la meme chose doivent se ressembler",
+);
 /* ------------------------------------------------------------------ */
 console.log("\nC6 — L ICONE DISPARAIT 20 m APRES LE PASSAGE");
 
@@ -303,11 +325,6 @@ verifier(
   "sans lui, l'icone ne disparaitrait plus 20 m apres le passage",
 );
 
-verifier(
-  'la carte d alerte montre la meme bordure',
-  /borderColor: bordureSignalisation\(report\.kind\)/.test(alerte),
-  'le conducteur vient de voir ce marqueur sur la carte',
-);
 verifier(
   'le panel de signalement aussi',
   /borderColor: bordureCarteMenu\(kind\)/.test(menu),

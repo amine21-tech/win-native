@@ -24,7 +24,8 @@ from pathlib import Path
 
 RACINE = Path(__file__).resolve().parents[3]
 SUPPRESSION = RACINE / 'apps/mobile/src/components/ConfirmDeleteSheet.tsx'
-ALERTE = RACINE / 'apps/mobile/src/components/AlerteApproche.tsx'
+# La carte d'alerte a ete retiree le 16 novembre : la barre d'info previent seule.
+BANDEAU = RACINE / 'apps/mobile/src/components/BandeauInfoSignalement.tsx'
 
 fautes = []
 
@@ -73,42 +74,57 @@ verifier(
 )
 
 # ------------------------------------------------------------------ point 17
-print("\nPOINT 17 — carte d'alerte compacte (tableau du client)")
-src = lire(ALERTE)
+print("\nPOINT 17 — l'avertissement de proximite, et sa coupure")
 
-# LA CARTE A CHANGE DE PLACE LE 1er NOVEMBRE, et ce controle suit la derniere demande en
-# gardant la trace de la precedente.
-#   29/10 : 230 x 110 points, ancree en BAS A GAUCHE, au-dessus de la barre Android. C'etait
-#           le seul coin libre tant que la consigne de conduite occupait elle-meme le bas.
-#   01/11 : la consigne est rentree dans le bandeau du haut ; le bas a gauche a cesse d'etre
-#           libre — la capture du client montre la carte par-dessus « Recentrer » et le cadre
-#           de progression. Elle remonte sous la bande de direction et retrecit.
+# LA CARTE D'ALERTE A ETE RETIREE LE 16 NOVEMBRE, et ce controle suit la derniere demande en
+# gardant la trace des precedentes.
+#   29/10 : carte de 230 x 110 points, ancree en bas a gauche.
+#   01/11 : elle remonte sous la bande de direction, le bas n'etant plus libre.
+#   16/11 : elle DISPARAIT. arsanne l'a essayee au volant : << l'ancien indicateur prend
+#           beaucoup plus de place >>. La barre d'info, qui disait deja la meme chose sur une
+#           ligne, reste seule — << c'est visible et c'est tres tres discret >>.
 # Sans cette note, on relira le point 17 du 29 octobre et on croira a une regression.
+src = lire(BANDEAU)
+
 verifier(
-    'largeur : au plus 230 points, mais plus imposee',
-    'LARGEUR_MAX = 230' in src,
-    'elle prend ce qui reste entre les pastilles de vitesse et la colonne de boutons',
-)
-verifier('barre de couleur en tete : 5 points', 'BARRE = 5' in src)
-verifier(
-    'position : sous la bande de direction, et non plus en bas',
-    'top,' in src and 'left,' in src and 'right,' in src and "position: 'absolute'" in src,
-    'le point 17 du 29 octobre la voulait en bas a gauche',
+    "la barre tient sur UNE ligne",
+    'numberOfLines={1}' in src,
+    "c'est tout ce qu'on lui demande : etre vue sans etre regardee",
 )
 verifier(
-    'elle ne couvre plus le cadre de progression ni le bouton Recentrer',
-    'bottom:' not in src and 'insets.bottom' not in src,
-    "c'est ce que la capture du 1er novembre reprochait",
+    'filet de couleur en tete, pour reconnaitre le type sans lire',
+    'filet' in src and 'SIGNALISATION' in src,
 )
-verifier('panneau triangulaire + symbole, 22 points', 'width: 22' in src and 'height: 22' in src)
-verifier('badge de distance', 'badge' in src and 'formatDistance' in src)
-verifier('separateur fin avant la question', 'hairlineWidth' in src)
-verifier("question « Desactiver les alertes ? »", 'approach.disableQuestion' in src)
-verifier("bouton OUI en vert fonce", "VERT = '#0B5B2C'" in src and 'approach.disableYes' in src)
-verifier('bouton NON en gris clair', "GRIS = '#ECEFED'" in src and 'approach.disableNo' in src)
 verifier(
-    "point vert + « Alertes actives »",
-    "backgroundColor: '#2BA84A'" in src and 'approach.alertsOn' in src,
+    'la distance descend avec l\'approche',
+    'formatDistance' in src and 'approach.inDistance' in src,
+    "<< dans 300 m >> puis << dans 30 m >> : un texte fige passerait pour un affichage oublie",
+)
+verifier('ombre portee douce', 'shadowOpacity' in src and 'elevation' in src)
+verifier(
+    "l'interrupteur de coupure, vert quand les alertes sont actives",
+    "backgroundColor: '#2BA84A'" in src and 'accessibilityRole="switch"' in src,
+    "<< un bouton vert quand il est active, on coulisse pour desactiver >>",
+)
+verifier(
+    'sa pastille glisse au lieu de sauter',
+    'translateX' in src and 'Animated' in src,
+    "un interrupteur qui change d'etat sans bouger laisse un doute : a-t-on appuye ?",
+)
+verifier(
+    'la zone de toucher est plus large que le dessin',
+    'hitSlop' in src and 'interrupteur:' in src,
+    'au volant, la zone de toucher compte plus que le dessin',
+)
+verifier(
+    "la barre laisse passer les appuis destines a la carte",
+    'pointerEvents="box-none"' in src,
+    "<< none >> aurait rendu l'interrupteur lui-meme intouchable",
+)
+verifier(
+    "la carte d'alerte a bien disparu du depot",
+    not (RACINE / 'apps/mobile/src/components/AlerteApproche.tsx').exists(),
+    'retiree le 16 novembre, pas seulement decrochee de l ecran',
 )
 
 # ------------------------------------------------------------------ repetitions

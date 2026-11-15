@@ -75,7 +75,6 @@ import { emojiForPlace } from '../src/map/placeIcons';
 import { useAssistant } from '../src/assistant/useAssistant';
 import { durationInWords } from '../src/assistant/commands';
 import { formatClock24, useAutoScheme } from '../src/utils/clock';
-import { AlerteApproche } from '../src/components/AlerteApproche';
 import { BANDEAU_INFO_M, BandeauInfoSignalement } from '../src/components/BandeauInfoSignalement';
 import { PositionSheet } from '../src/components/PositionSheet';
 import { bordureSignalisation, marqueurSignalisation, SIGNALISATION } from '../src/map/signalisation';
@@ -1474,31 +1473,16 @@ ${t(`report.badge_${report.kind}`)}`,
    */
   const approachTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
-   * Signalement dont on s'approche, et distance au moment de l'alerte.
+   * LE SIGNALEMENT DONT ON S'APPROCHE N'EST PLUS RETENU DANS UN ETAT.
    *
-   * SEPARE DE `votingReport`, et c'est tout l'objet du point 17. L'alerte d'approche ouvrait
-   * la feuille de vote : une fenetre qui monte du bas et occupe la moitie de l'ecran, en
-   * pleine conduite, sans qu'on l'ait demandee. Elle ouvre maintenant une carte compacte dans
-   * le coin bas-gauche. Le vote, lui, reste atteignable par un appui sur le MARQUEUR — on ne
-   * le subit plus, on le demande.
+   * Il l'etait pour alimenter la carte d'alerte, retiree le 16 novembre : un etat, un minuteur
+   * de six secondes pour la refermer, et un rappel qui les tenait a jour. Tout cela ne servait
+   * qu'a elle. La barre d'info, qui la remplace, se nourrit de `infoSignalement`, lequel est
+   * calcule a partir des positions deja projetees sur le trace — sans rien a retenir.
    *
-   * La distance est figee a l'instant de l'alerte plutot que recalculee a chaque image : le
-   * badge doit dire a quelle distance on a ete prevenu, pas defiler comme un compteur.
+   * Le hook d'alerte garde son rappel `onApproach` : c'est lui qui declenche la VOIX a 150 m,
+   * et il n'a plus rien a faire cote affichage.
    */
-  const [approche, setApproche] = useState<{ report: Report; distanceM: number | null } | null>(null);
-  const onApproachReport = useCallback(
-    (report: Report) => {
-      if (approachTimerRef.current) clearTimeout(approachTimerRef.current);
-      setApproche({
-        report,
-        distanceM: position ? haversine(position.lat, position.lon, report.lat, report.lon) : null,
-      });
-      /* Elle se referme seule au bout de 6 s : au volant, on ne doit jamais avoir a fermer
-       * quoi que ce soit pour continuer a rouler. */
-      approachTimerRef.current = setTimeout(() => setApproche(null), 6000);
-    },
-    [position],
-  );
 
   useEffect(() => () => {
     if (approachTimerRef.current) clearTimeout(approachTimerRef.current);
@@ -1524,7 +1508,9 @@ ${t(`report.badge_${report.kind}`)}`,
     lang,
     route: navigating ? nav.route : null,
     traveledM: avanceSurTraceM,
-    onApproach: onApproachReport,
+    /* Plus rien a afficher au passage du palier : la voix du hook suffit, et la barre d'info
+     * se met a jour toute seule. Voir la note de l'etat retire, plus haut. */
+    onApproach: () => {},
   });
 
   /**
@@ -3010,16 +2996,18 @@ ${t(`report.badge_${report.kind}`)}`,
 
           Hors navigation il n'y a pas de bandeau : on repart alors du bas de l'en-tete, pour
           que la carte ne se colle pas a la barre d'etat. */}
-      {/* LA BARRE D'INFO A 500 METRES (point 6). Elle s'efface des que la carte d'alerte prend
-          le relais a 150 m sur le MEME signalement : la meme information deux fois a l'ecran,
-          l'une sous l'autre, ne previent pas mieux — elle encombre. Elle ne parle pas : la voix
-          garde son unique annonce a 150 m, decision prise au volant le 2 novembre. */}
+      {/* LA BARRE D'INFO, SEUL INDICATEUR DE SIGNALEMENT DEPUIS LE 16 NOVEMBRE.
+
+          Une CARTE d'alerte la remplacait a 150 m : un bloc avec deux boutons, haut comme un
+          tiers de l'ecran. arsanne l'a essayee au volant et l'a refusee — elle disait la meme
+          chose que cette barre en occupant dix fois la place, a l'instant precis ou il faut
+          voir la route. La barre accompagne donc maintenant le signalement de cinq cents
+          metres jusqu'au passage, sa distance descendant au fur et a mesure.
+
+          Elle ne parle toujours pas : la voix garde son unique annonce a 150 m, decision prise
+          au volant le 2 novembre et inchangee. */}
       <BandeauInfoSignalement
-        report={
-          infoSignalement && approche?.report?.id !== infoSignalement.report.id
-            ? infoSignalement.report
-            : null
-        }
+        report={infoSignalement?.report ?? null}
         distanceM={infoSignalement?.distanceM ?? 0}
         top={
           (navBounds.bannerBottom > 0
@@ -3028,27 +3016,17 @@ ${t(`report.badge_${report.kind}`)}`,
         }
         left={spacing.md + 72}
         right={spacing.lg + fabPrimarySize + spacing.md}
-      />
-
-      <AlerteApproche
-        report={approche?.report ?? null}
-        distanceM={approche?.distanceM ?? null}
-        top={
-          (navBounds.bannerBottom > 0
-            ? navBounds.bannerBottom
-            : insets.top + HEADER_HEIGHT + (topBlockH || HIT_SIZE)) + spacing.sm
-        }
-        // Degage les deux pastilles de vitesse, posees a gauche sous le bandeau.
-        left={spacing.md + 72}
-        // Degage la colonne de boutons, comme le bandeau des alertes officielles.
-        right={spacing.lg + fabPrimarySize + spacing.md}
-        onGarder={() => setApproche(null)}
-        onDesactiver={() => {
-          setApproche(null);
+        /* L'INTERRUPTEUR COUPE A LA RACINE, pas seulement l'affichage : `approachAlertsEnabled`
+         * est aussi ce qui active le hook de la VOIX. Couper l'un sans l'autre laisserait
+         * parler une alerte qu'on vient de faire taire a l'ecran — ce qui est exactement ce
+         * que le conducteur demande d'arreter. Le reglage est retenu (voir session.ts) et se
+         * reactive par la ligne << Alertes actives >> du panneau de signalement. */
+        onCouper={() => {
           setApproachAlerts(false);
           setToast(t('approach.alertsOff'));
         }}
       />
+
 
       {votingReport ? (
         /* En navigation, le bandeau d'instruction occupe le haut de l'ecran : la carte de vote
