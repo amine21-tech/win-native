@@ -450,7 +450,31 @@ export type RankableResult = {
   osmKey?: string;
   osmValue?: string;
   type?: string;
+  /** Code ISO du pays, quand la source le donne. Sert au quatrieme palier. */
+  countryCode?: string;
+  /** Nom du pays, quand le code manque — certaines sources ne rendent que lui. */
+  country?: string;
 };
+
+/**
+ * Le resultat est-il ALGERIEN ? Les autres passent apres, quels qu'ils soient.
+ *
+ * << Resultats Tunisie : apres les resultats Algerie uniquement. >> La Tunisie est servie par
+ * la meme base depuis le deblocage du 29 octobre, et un conducteur a Annaba voit des villes
+ * tunisiennes a quatre-vingts kilometres quand la sienne est a deux cents. C'est juste
+ * geographiquement, et faux pour lui : il cherche presque toujours en Algerie.
+ *
+ * DANS LE DOUTE, ALGERIEN. Une source qui ne dit pas le pays rend des resultats locaux dans
+ * l'immense majorite des cas ; les reléguer derriere la Tunisie sur une donnee absente
+ * punirait le cas courant pour proteger l'exception.
+ */
+export function estAlgerien(r: RankableResult): boolean {
+  const code = (r.countryCode || '').toUpperCase();
+  if (code) return code === 'DZ';
+  const nom = (r.country || '').toLowerCase();
+  if (!nom) return true;
+  return nom.includes('alger') || nom.includes('جزائر') || nom.includes('dzayer');
+}
 
 /** Rang d'entite habitee : ville > bourg > village/lieu-dit. 0 si ce n'en est pas une. */
 export function cityRank(r: RankableResult): number {
@@ -471,16 +495,32 @@ export type RankedResult<T> = T & {
 };
 
 /**
- * Classement des resultats de recherche, repris a l'identique de doSearch()
- * en v83 : deux paliers seulement.
- *   1. les VILLES dont le nom est exactement celui tape (la plus grande
- *      d'abord, puis la plus proche) — corrige "Strasbourg -> Belfort" (la
- *      ville passe devant un lieu-dit homonyme plus proche).
- *   2. tout le reste, strictement du plus proche au plus eloigne — corrige
- *      "Paris" (un "Paris Store" a 1,6 km ne doit pas suivre des resultats a
- *      400 km juste parce qu'ils correspondent mieux au texte tape).
- * Les autoroutes et troncons multi-villes ("Blida;Oran") sont elimines par
- * un score negatif avant le tri, jamais par la distance.
+ * QUATRE PALIERS, ET LE PAYS AU-DESSUS DE TOUT — point E.1 du 18 novembre.
+ *
+ *     1. Ville EXACTE          : le nom tape est celui de la ville, au caractere pres.
+ *     2. Commune / daira       : une localite dont le nom CONTIENT le terme.
+ *     3. POI et adresses       : du plus proche au plus eloigne.
+ *     4. Hors Algerie          : apres tout le reste, quelle que soit la distance.
+ *
+ * CE QU'IL Y AVAIT AVANT : deux paliers. Les villes exactes, puis TOUT le reste strictement
+ * par distance. C'etait deja une correction importante — elle reglait << Paris >>, ou un
+ * << Paris Store >> a 1,6 km passait derriere des resultats a 400 km. Mais elle melangeait
+ * une commune et une boutique des que ni l'une ni l'autre n'etait une correspondance exacte :
+ * taper << Khroub >> depuis Constantine rendait d'abord les commerces du quartier, et la
+ * commune d'El Khroub plus bas, parce qu'elle est a six kilometres de plus.
+ *
+ * LE PALIER 2 CORRIGE CELA, et il ne coute rien aux autres : il ne retient que les LOCALITES
+ * — ville, bourg, village, commune — dont le nom contient le terme. Un commerce dont
+ * l'enseigne contient le meme mot reste au palier 3. C'est la difference entre << ou est cette
+ * commune >> et << qu'y a-t-il pres d'ici qui s'appelle ainsi >>, et les deux questions ne se
+ * posent pas au meme moment.
+ *
+ * LE PAYS PASSE AVANT LES PALIERS, et non apres. Un resultat tunisien, meme ville exacte, vient
+ * derriere une adresse algerienne quelconque : c'est ce que demande le document, et c'est le
+ * bon ordre pour une application algerienne dont la Tunisie est une extension.
+ *
+ * CE QUI NE CHANGE PAS : les autoroutes et les troncons multi-villes (<< Blida;Oran >>) sont
+ * toujours elimines par un score negatif AVANT le tri, jamais par la distance.
  */
 export function rankSearchResults<T extends RankableResult>(
   results: T[],
@@ -490,10 +530,11 @@ export function rankSearchResults<T extends RankableResult>(
   const qLow = query.toLowerCase().trim();
   const qNorm = normalizeCity(query);
 
-  const scored: RankedResult<T>[] = results.map((r) => {
+  const scored = results.map((r) => {
     let score = 0;
     const nLow = (r.name || '').toLowerCase();
-    const isExact = nLow === qLow || normalizeCity(r.name || '') === qNorm;
+    const nNorm = normalizeCity(r.name || '');
+    const isExact = nLow === qLow || nNorm === qNorm;
     const rank = cityRank(r);
     if (isExact) score += 100;
     else if (nLow.startsWith(qLow)) score += 60;
@@ -505,35 +546,45 @@ export function rankSearchResults<T extends RankableResult>(
     if (r.osmKey === 'highway' || ['motorway', 'trunk', 'primary', 'secondary'].includes(r.osmValue ?? '')) score -= 60;
     if ((r.name || '').includes(';')) score -= 80;
 
+    /* LE PALIER SE DEDUIT, il n'est jamais donne par la source. Une localite dont le nom
+     * contient le terme sans lui etre egale est une commune au sens du document — El Khroub
+     * pour << Khroub >>, Hamma Bouziane pour << Hamma >>. */
+    const contient = nLow.includes(qLow) || nNorm.includes(qNorm);
+    const palier = isExact && rank > 0 ? 1 : rank > 0 && contient ? 2 : 3;
+
     return {
       ...r,
       score,
       exactCity: isExact && rank > 0,
       _cityRank: rank,
+      _palier: palier,
+      _horsDz: estAlgerien(r) ? 0 : 1,
       distanceM: here ? haversine(here.lat, here.lon, r.lat, r.lon) : undefined,
-    } as RankedResult<T> & { _cityRank: number };
+    } as RankedResult<T> & { _cityRank: number; _palier: number; _horsDz: number };
   });
 
   const filtered = scored.filter((r) => r.score > -40);
 
-  if (here) {
-    filtered.sort((a, b) => {
-      const ac = (a as unknown as { _cityRank: number })._cityRank;
-      const bc = (b as unknown as { _cityRank: number })._cityRank;
-      if (a.exactCity !== b.exactCity) return a.exactCity ? -1 : 1;
-      if (a.exactCity && b.exactCity && ac !== bc) return bc - ac;
-      return (a.distanceM! - b.distanceM!) || (b.score - a.score);
-    });
-  } else {
-    filtered.sort((a, b) => {
-      const ac = (a as unknown as { _cityRank: number })._cityRank;
-      const bc = (b as unknown as { _cityRank: number })._cityRank;
-      return (Number(b.exactCity) - Number(a.exactCity)) || (bc - ac) || (b.score - a.score);
-    });
-  }
+  type Interne = RankedResult<T> & { _cityRank: number; _palier: number; _horsDz: number };
+  filtered.sort((x, y) => {
+    const a = x as Interne;
+    const b = y as Interne;
+    /* PAYS, PUIS PALIER, PUIS LA REGLE PROPRE AU PALIER. Trois cles, lues dans cet ordre —
+     * c'est tout le classement. */
+    if (a._horsDz !== b._horsDz) return a._horsDz - b._horsDz;
+    if (a._palier !== b._palier) return a._palier - b._palier;
+
+    /* ENTRE DEUX VILLES EXACTES, LA PLUS GRANDE D'ABORD. C'est ce qui corrige
+     * << Strasbourg -> Belfort >> : la ville passe devant un lieu-dit homonyme plus proche. */
+    if (a._palier === 1 && a._cityRank !== b._cityRank) return b._cityRank - a._cityRank;
+
+    /* PARTOUT AILLEURS, LA DISTANCE. Sans position connue, on retombe sur le score du texte :
+     * c'est la seule chose qu'on sache comparer. */
+    if (here) return (a.distanceM! - b.distanceM!) || (b.score - a.score);
+    return b.score - a.score;
+  });
   return filtered;
 }
-
 
 /* ------------------------------------------------------------------ */
 /* Fautes de frappe et transcriptions                                  */
