@@ -829,5 +829,16 @@
         "body": "Happy Hijri New Year to everyone. Drive slowly and carefully."
       }
     }
+  },
+  "lane": {
+    "demiTour": "U-turn",
+    "serreeGauche": "Left",
+    "gauche": "Left",
+    "legereGauche": "Slight L.",
+    "toutDroit": "Straight",
+    "legereDroite": "Slight R.",
+    "droite": "Right",
+    "serreeDroite": "Right",
+    "rabattement": "Merge"
   }
 }

@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { GeocodedResult } from '../search/geocode';
-import { radius, spacing, type Palette } from '../theme';
+import { HIT_SIZE, radius, spacing, type Palette } from '../theme';
 import { SearchBar } from './SearchBar';
 import { SearchResults } from './SearchResults';
 
@@ -205,6 +205,19 @@ const styles = StyleSheet.create({
   },
   cellEmoji: { fontSize: 22, lineHeight: 26 },
   cellLabel: { fontSize: 10.5, fontWeight: '700', textAlign: 'center', lineHeight: 12 },
-  searchWrap: { marginTop: 14 },
+  /* L'ECART SOUS LA BARRE VAUT SA PROPRE HAUTEUR — mesure sur la maquette du correctif 2.
+   *
+   * LE DOCUMENT SE CONTREDIT : il demande << marginBottom 57px >> et, entre parentheses,
+   * << ~ 1,5 cm >>. Les deux ne sont pas la meme chose. Cinquante-sept pixels PHYSIQUES font
+   * dix-neuf points sur un ecran a trois fois la densite — moins que l'ecart actuel. Un
+   * centimetre et demi en fait quatre-vingt-quatorze — presque le double de la barre.
+   *
+   * On a donc MESURE le dessin plutot que de choisir entre les deux chiffres : sur la
+   * maquette, l'espace entre le bas de la barre et la premiere rangee d'icones vaut 1,08 fois
+   * la hauteur de la barre. Celle-ci fait 52 points (HIT_SIZE) ; l'ecart en fait autant.
+   *
+   * MARGE DU HAUT : 24, la valeur du document, qui s'accorde avec le dessin (0,56 x la barre,
+   * soit 29 points mesures — l'ecart tient a l'epaisseur de la poignee de la feuille). */
+  searchWrap: { marginTop: 24, marginBottom: HIT_SIZE, marginHorizontal: 4 },
   results: { marginTop: 8, maxHeight: 340 },
 });

@@ -59,11 +59,18 @@ export function SearchBar({
         hitSlop={10}
         onPressIn={onMicPressIn}
         onPressOut={onMicPressOut}
-        style={styles.mic}
+        /* UN BOUTON ROND VERT, ET NON UN EMOJI POSE — maquette du correctif 2.
+         *
+         * << Bouton vert a droite de la barre. >> L'emoji seul ne se lisait pas comme un
+         * bouton : rien ne disait qu'on pouvait appuyer dessus, et le client a signale deux
+         * fois que le micro << ne fonctionnait pas >> alors qu'il fonctionnait — on ne
+         * l'essayait simplement pas.
+         *
+         * IL ROUGIT PENDANT L'ECOUTE, comme avant : c'est le seul retour qu'on ait sur un
+         * appui maintenu, et il doit rester visible meme en plein soleil. */
+        style={[styles.mic, { backgroundColor: listening ? colors.danger : colors.accentDark }]}
       >
-        <Text style={[styles.micGlyph, { color: listening ? colors.danger : colors.accent }]}>
-          {listening ? '🔴' : '🎤'}
-        </Text>
+        <Text style={styles.micGlyph}>🎤</Text>
       </Pressable>
     </View>
   );
@@ -100,6 +107,15 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15, height: '100%' },
   clear: { padding: spacing.xs },
   clearGlyph: { fontSize: 16, lineHeight: 18 },
-  mic: { padding: spacing.xs },
+  /* LE BOUTON FAIT 38 POINTS DE COTE dans une barre de 52 : il remplit la hauteur utile sans
+   * la toucher, comme sur la maquette. Plus petit, il redevient une icone ; plus grand, il
+   * mange le texte saisi. */
+  mic: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   micGlyph: { fontSize: 17, lineHeight: 20 },
 });

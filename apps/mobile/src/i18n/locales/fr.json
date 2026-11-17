@@ -829,5 +829,16 @@
         "body": "Bonne année hégirienne à toute la population. Roulez doucement et prudemment."
       }
     }
+  },
+  "lane": {
+    "demiTour": "Demi-tour",
+    "serreeGauche": "Gauche",
+    "gauche": "Gauche",
+    "legereGauche": "Légère g.",
+    "toutDroit": "Tout droit",
+    "legereDroite": "Légère d.",
+    "droite": "Droite",
+    "serreeDroite": "Droite",
+    "rabattement": "Insertion"
   }
 }

@@ -829,5 +829,16 @@
         "body": "سنة هجرية سعيدة على الجميع. قودوا بهدوء وحذر."
       }
     }
+  },
+  "lane": {
+    "demiTour": "دوران",
+    "serreeGauche": "يسار",
+    "gauche": "يسار",
+    "legereGauche": "يسار خفيف",
+    "toutDroit": "مستقيم",
+    "legereDroite": "يمين خفيف",
+    "droite": "يمين",
+    "serreeDroite": "يمين",
+    "rabattement": "اندماج"
   }
 }

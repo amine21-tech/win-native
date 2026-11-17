@@ -829,5 +829,16 @@
         "body": "عام هجري مبروك على الجميع. سوقوا بالراحة وبحذر."
       }
     }
+  },
+  "lane": {
+    "demiTour": "دوران",
+    "serreeGauche": "ليسار",
+    "gauche": "ليسار",
+    "legereGauche": "ليسار شوية",
+    "toutDroit": "نيشان",
+    "legereDroite": "ليمين شوية",
+    "droite": "ليمين",
+    "serreeDroite": "ليمين",
+    "rabattement": "دخول"
   }
 }

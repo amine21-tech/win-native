@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { FlecheVoie } from './FlecheVoie';
+import { libelleOption, optionsDeVoies } from '../navigation/optionsVoies';
 import { surGrandAxe } from '../navigation/grandAxe';
 import type { Lane } from '../navigation/routing';
 
@@ -137,6 +139,7 @@ export function LaneGuidance({
   /* LE CLIGNOTEMENT TOURNE MEME QUAND RIEN N'EST AFFICHE, et c'est une contrainte de React et
    * non un choix : un hook ne peut pas etre appele apres un `return`. L'animation est native
    * et ne touche pas au fil JavaScript — la faire tourner pour rien ne coute rien. */
+  const { t } = useTranslation();
   const clignote = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -179,40 +182,58 @@ export function LaneGuidance({
 
   return (
     <View style={styles.row} pointerEvents="none">
-      {lanes.map((lane, i) => {
-        /* `active` = la voie ou l'on est deja bien place ; `valid` = elle mene quand meme la ou
-         * l'on va. Les deux comptent comme « a prendre » pour l'affichage. */
-        const aPrendre = lane.active !== 0 || lane.valid !== 0;
+      {optionsDeVoies(lanes).map((option, i) => {
+        /* UNE TUILE PAR CHOIX, ET NON PAR FILE — correctif du 17 novembre, point 7.
+         *
+         * << On N'affiche PAS une fleche par voie — impossible sur petits ecrans. On affiche
+         * les OPTIONS DE DIRECTION (2-3 max) et la bonne clignote. >>
+         *
+         * Sur l'A61, mesuree le 16 novembre, Valhalla renvoie cinq voies : trois qui vont a
+         * gauche, deux a droite. Cinq tuiles de trente-deux points faisaient cinq
+         * timbres-poste, dont trois disaient la meme chose. Le regroupement vit dans
+         * navigation/optionsVoies.ts, eprouve a part. */
+        const { aPrendre } = option;
+
         /* SEUL LE FOND CLIGNOTE, PAS LA FLECHE — et il faut deux vues pour l'obtenir.
          *
          * Une premiere version posait l'opacite animee sur la case ELLE-MEME. En React Native
          * comme sur le web, l'opacite d'une vue s'applique a tous ses enfants : la fleche
          * palissait donc avec le fond et devenait illisible vingt fois par minute, c'est-a-dire
          * exactement ce que le clignotement est cense eviter. Le defaut est invisible a la
-         * relecture — on lit << opacity sur le fond >>, et le fond est bien ce qu'on a ecrit.
+         * relecture — on lit << opacite sur le fond >>, et le fond est bien ce qu'on a ecrit.
          *
          * Le fond est donc une vue SOUS la fleche, en position absolue, et c'est elle qui
          * respire. La fleche, posee par-dessus, reste a pleine opacite en permanence. */
         return (
-          <View key={i} style={styles.case}>
-            {aPrendre ? (
-              <Animated.View
-                style={[
-                  styles.fond,
-                  { backgroundColor: FOND_RECOMMANDE, opacity: clignote },
-                ]}
+          <View key={i} style={styles.colonne}>
+            <View style={styles.case}>
+              {aPrendre ? (
+                <Animated.View
+                  style={[styles.fond, { backgroundColor: FOND_RECOMMANDE, opacity: clignote }]}
+                />
+              ) : (
+                <View style={[styles.fond, { backgroundColor: FOND_AUTRE }]} />
+              )}
+              <FlecheVoie
+                lane={option.lane}
+                size={26}
+                couleur={aPrendre ? FLECHE_RECOMMANDEE : FLECHE_AUTRE}
               />
-            ) : (
-              <View style={[styles.fond, { backgroundColor: FOND_AUTRE }]} />
-            )}
-            <FlecheVoie
-              lane={lane}
-              size={26}
-              couleur={aPrendre ? FLECHE_RECOMMANDEE : FLECHE_AUTRE}
-            />
-            {/* LA PASTILLE DOREE, a cheval sur le coin haut-droit. Elle ne clignote PAS : c'est
-                tout son interet, elle designe la voie meme quand le fond est efface. */}
-            {aPrendre ? <View style={styles.pastille} /> : null}
+              {/* LA PASTILLE DOREE, a cheval sur le coin haut-droit. Elle ne clignote PAS :
+                  c'est tout son interet, elle designe la voie meme quand le fond est efface. */}
+              {aPrendre ? <View style={styles.pastille} /> : null}
+            </View>
+            {/* LE MOT SOUS LA TUILE, comme chaque case de la maquette des neuf scenarios.
+                C'est lui qui rend trois tuiles lisibles la ou trois fleches seules se
+                ressemblent : au volant, on reconnait un mot plus vite qu'on ne compare deux
+                angles. Il ne clignote pas — il dit ce qu'est la tuile, pas ce qu'il faut
+                faire. */}
+            <Text
+              style={[styles.libelle, { color: aPrendre ? FOND_RECOMMANDE : FLECHE_AUTRE }]}
+              numberOfLines={1}
+            >
+              {t(libelleOption(option.geste))}
+            </Text>
           </View>
         );
       })}
@@ -223,7 +244,11 @@ export function LaneGuidance({
 const styles = StyleSheet.create({
   // Une simple rangee, posee dans le bandeau : ni carte, ni bordure, ni ombre. Elle fait
   // partie du bandeau, elle ne se pose plus dessus.
-  row: { flexDirection: 'row', gap: 4, alignItems: 'center', marginTop: 4 },
+  row: { flexDirection: 'row', gap: 6, alignItems: 'flex-start', marginTop: 4 },
+  /* La tuile et son mot, l'un sous l'autre. La colonne porte l'ecart ; la tuile garde sa
+   * taille exacte, qui est celle de la maquette. */
+  colonne: { alignItems: 'center', gap: 2 },
+  libelle: { fontSize: 9.5, fontWeight: '700' as const, maxWidth: 46 },
   /* Chaque voie dans sa case, comme le montre la maquette : les fleches etaient posees cote a
    * cote sans fond, et sur l'aplat vert du bandeau on ne voyait plus ou s'arretait une file et
    * ou commencait la suivante. */

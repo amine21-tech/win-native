@@ -829,5 +829,16 @@
         "body": "Aseggas ameggaz n Hijra i yimezdaɣ meṛṛa. Ruḥ s leɛqel."
       }
     }
+  },
+  "lane": {
+    "demiTour": "Uɣal",
+    "serreeGauche": "Azelmaḍ",
+    "gauche": "Azelmaḍ",
+    "legereGauche": "Azelmaḍ drus",
+    "toutDroit": "Srid",
+    "legereDroite": "Ayfus drus",
+    "droite": "Ayfus",
+    "serreeDroite": "Ayfus",
+    "rabattement": "Akcam"
   }
 }
