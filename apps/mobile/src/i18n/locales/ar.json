@@ -205,7 +205,15 @@
     "startRoute": "ابدأ المسار",
     "manageSection": "إدارة هذا المكان",
     "viber": "فايبر",
-    "vipBadge": "WIN VIP"
+    "vipBadge": "WIN VIP",
+    "vipManageAction": "إدارة (رمز WIN)",
+    "vipManageTitle": "عنوان VIP: {{name}}",
+    "vipManageBody": "أدخل رمز WIN لإزالة الحالة أو حذف العنوان.",
+    "vipDowngrade": "تحويل إلى عنوان عادي",
+    "vipDelete": "حذف نهائي",
+    "vipActionFailed": "لم تنجح العملية.",
+    "vipDowngraded": "تم تحويل العنوان: أُزيلت حالة VIP.",
+    "vipDeleted": "تم حذف العنوان."
   },
   "categories": {
     "groups": {

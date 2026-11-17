@@ -205,7 +205,15 @@
     "startRoute": "Bdu abrid",
     "manageSection": "Sefrek takarḍiwt-a",
     "viber": "Viber",
-    "vipBadge": "WIN VIP"
+    "vipBadge": "WIN VIP",
+    "vipManageAction": "Sefrek (tangalt WIN)",
+    "vipManageTitle": "Tansa VIP: {{name}}",
+    "vipManageBody": "Sekcem tangalt WIN akken ad tekkseḍ addad neɣ tansa.",
+    "vipDowngrade": "Err-it d tansa tamagnut",
+    "vipDelete": "Kkes-it i lebda",
+    "vipActionFailed": "Tigawt ur teddi ara.",
+    "vipDowngraded": "Tansa tettwarra: addad VIP yettwakkes.",
+    "vipDeleted": "Tansa tettwakkes."
   },
   "categories": {
     "groups": {

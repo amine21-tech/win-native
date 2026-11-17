@@ -21,6 +21,7 @@ import { usePlaces } from '../store/places';
 import { fonts, radius, spacing, typography, type Palette } from '../theme';
 import { AdminEditPlaceSheet } from './AdminEditPlaceSheet';
 import { CorrectionSheet } from './CorrectionSheet';
+import { VipActionSheet } from './VipActionSheet';
 import { TripCard } from './TripCard';
 import { WinPlaceActions, WinPlaceCard } from './WinPlaceCard';
 
@@ -171,6 +172,9 @@ export function PlaceSheet({
   /* La seule exception qui subsiste : une fiche PARTENAIRE a ete payee. Son auteur et l'equipe
    * peuvent la retirer, un passant non. Le serveur refuse aussi, avec le meme motif. */
   const peutSupprimer = peutGerer && (isMine || !place.isPartner);
+  /* LA PORTE DU CODE VIP — point B du 18 novembre. Elle remplace le mur : voir la note de
+   * `expliquerDroit` et le composant VipActionSheet. */
+  const [vipActionOpen, setVipActionOpen] = useState(false);
   /**
    * FICHE COMPACTE pour une adresse enregistree par un utilisateur WIN (point 12 du client).
    *
@@ -200,6 +204,16 @@ export function PlaceSheet({
         onPress: () => {
           setManageOpen(false);
           setCorrectionOpen(true);
+        },
+      },
+      /* LE TROISIEME CHOIX OUVRE LA PORTE — point B. La regle ne change pas : une fiche payee
+       * ne se retire pas d'un appui distrait. Mais ceux qui en ont le droit n'avaient aucun
+       * moyen d'agir depuis l'application, et devaient passer par quelqu'un. */
+      {
+        text: t('place.vipManageAction'),
+        onPress: () => {
+          setManageOpen(false);
+          setVipActionOpen(true);
         },
       },
     ]);
@@ -632,6 +646,27 @@ export function PlaceSheet({
         onClose={() => setPhotoReportOpen(false)}
         onSent={() => setPhotoReportOpen(false)}
         colors={colors}
+      />
+
+      <VipActionSheet
+        visible={vipActionOpen}
+        placeId={place.placeId ?? null}
+        placeName={place.name}
+        colors={colors}
+        onClose={() => setVipActionOpen(false)}
+        onFait={() => {
+          setVipActionOpen(false);
+          /* MEME GESTE POUR LES DEUX ACTIONS, deux raisons differentes. Declassee, la fiche
+           * reste mais a change : on la referme pour que l'ecran la recharge sans son statut.
+           * Supprimee, il n'y a plus rien a montrer.
+           *
+           * `oublierLieu` est le meme oubli que dans la suppression directe : sans lui, la
+           * fiche retiree reapparait depuis l'historique du telephone des qu'on retape son
+           * nom. */
+          oublierLieu(place.lat, place.lon);
+          refreshMyPlaces();
+          refermerApresModal(onClose);
+        }}
       />
 
       <MyPlaceSheet

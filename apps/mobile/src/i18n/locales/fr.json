@@ -205,7 +205,15 @@
     "startRoute": "Démarrer l'itinéraire",
     "manageSection": "Gérer cette fiche",
     "viber": "Viber",
-    "vipBadge": "WIN VIP"
+    "vipBadge": "WIN VIP",
+    "vipManageAction": "Gérer (code WIN)",
+    "vipManageTitle": "Adresse VIP : {{name}}",
+    "vipManageBody": "Entrez le code WIN pour déclasser ou supprimer cette adresse.",
+    "vipDowngrade": "Déclasser en adresse normale",
+    "vipDelete": "Supprimer définitivement",
+    "vipActionFailed": "L'action n'a pas abouti.",
+    "vipDowngraded": "Adresse déclassée : le statut VIP a été retiré.",
+    "vipDeleted": "Adresse supprimée."
   },
   "categories": {
     "groups": {

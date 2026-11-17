@@ -7,6 +7,7 @@ import {
   searchPlacesQuery,
   updatePlaceInput,
   contributorCheckInput,
+  vipActionInput,
   vipCheckInput,
 } from '@win/shared';
 import { timingSafeEqual } from 'node:crypto';
@@ -310,6 +311,73 @@ const routes: FastifyPluginAsync = async (app) => {
 
   /** Ajout d'un lieu par un contributeur. */
   /** Verifie un code VIP avant d'ouvrir le formulaire VIP dans l'application. */
+  /**
+   * SUPPRIMER OU DECLASSER UNE ADRESSE VIP — point B du 18 novembre.
+   *
+   * << 2 actions possibles via code 0000 : (1) Supprimer definitivement ; (2) Declasser en
+   * adresse normale — garde l'adresse, retire uniquement le statut VIP. >>
+   *
+   * POURQUOI UNE ROUTE A PART, et non le DELETE existant. Celui-ci REFUSE les fiches
+   * partenaires a tout le monde sauf leur auteur : << elle a ete payee, la retirer coute de
+   * l'argent a quelqu'un >>. Cette regle ne change pas. Ce qu'on ajoute ici, c'est une porte
+   * qui demande le code — celui que detient l'equipe WIN, pas un passant.
+   *
+   * LE DECLASSEMENT EXISTE PARCE QUE LA SUPPRESSION EST TROP BRUTALE. Un partenaire qui ne
+   * renouvelle pas garde un commerce, une adresse, un numero : effacer la fiche entiere ferait
+   * perdre a la carte une information vraie, et obligerait quelqu'un a la ressaisir. Le
+   * declassement retire ce qui a ete vendu — le statut et l'encart promotionnel — et laisse
+   * le reste.
+   *
+   * CE QU'IL NE RETIRE PAS, ET C'EST UN ECART ASSUME. Le document liste aussi le telephone et
+   * le WhatsApp parmi les champs a effacer. Dans notre modele, ce sont des champs d'adresse
+   * ORDINAIRE : une boulangerie non partenaire a un numero. Les effacer reviendrait a punir
+   * l'adresse pour une facture impayee, et a degrader la carte pour tous.
+   *
+   * LA LIMITE D'ESSAIS EST CELLE DU CODE VIP, par adresse IP : un code a quatre chiffres ne
+   * resiste pas a un essai systematique, et c'est cette limite qui le protege.
+   */
+  app.post<{ Params: { id: string } }>(
+    '/places/:id/vip-action',
+    { config: VIP_RATE_LIMIT },
+    async (req) => {
+      const { code, action } = parse(vipActionInput, req.body);
+      if (!vipCodeMatches(code)) {
+        throw new HttpError(403, 'code_vip_invalide', 'Code VIP incorrect.');
+      }
+
+      const avant = await etatFiche(req.params.id);
+      if (!avant) throw notFound();
+
+      if (action === 'supprimer') {
+        /* SUPPRESSION LOGIQUE, comme partout ailleurs : la fiche quitte la carte, ses donnees
+         * restent. C'est ce qui rend le geste reparable depuis le journal de moderation —
+         * et le document parle de << supprimer definitivement >> du point de vue de
+         * l'utilisateur, pas de celui de la base. */
+        const rows = (await db.execute(sql`
+          UPDATE places SET deleted_at = now()
+          WHERE id = ${req.params.id} AND deleted_at IS NULL
+          RETURNING id
+        `)) as unknown as unknown[];
+        if (rows.length === 0) throw notFound();
+      } else {
+        const rows = (await db.execute(sql`
+          UPDATE places SET is_partner = false, promo = NULL
+          WHERE id = ${req.params.id} AND deleted_at IS NULL
+          RETURNING id
+        `)) as unknown as unknown[];
+        if (rows.length === 0) throw notFound();
+      }
+
+      await db.execute(sql`
+        INSERT INTO moderation_log (entity_type, entity_id, action, before)
+        VALUES ('place', ${req.params.id},
+                ${action === 'supprimer' ? 'vip_delete' : 'vip_downgrade'},
+                ${JSON.stringify(avant)}::jsonb)
+      `);
+      return { ok: true, action };
+    },
+  );
+
   app.post('/places/vip-check', { config: VIP_RATE_LIMIT }, async (req) => {
     const { code } = parse(vipCheckInput, req.body);
     if (!vipCodeMatches(code)) {

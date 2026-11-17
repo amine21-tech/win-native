@@ -205,7 +205,15 @@
     "startRoute": "ابدا الطريق",
     "manageSection": "سير هاد البلاصة",
     "viber": "فايبر",
-    "vipBadge": "WIN VIP"
+    "vipBadge": "WIN VIP",
+    "vipManageAction": "سيّر (كود WIN)",
+    "vipManageTitle": "عنوان VIP: {{name}}",
+    "vipManageBody": "دخّل كود WIN باش تنحّي الحالة ولا تمسح العنوان.",
+    "vipDowngrade": "رجّعه عنوان عادي",
+    "vipDelete": "امسحه نهائي",
+    "vipActionFailed": "ما خدمتش العملية.",
+    "vipDowngraded": "تبدّل العنوان: راحت حالة VIP.",
+    "vipDeleted": "تمسح العنوان."
   },
   "categories": {
     "groups": {

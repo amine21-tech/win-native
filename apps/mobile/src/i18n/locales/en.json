@@ -205,7 +205,15 @@
     "startRoute": "Start the route",
     "manageSection": "Manage this place",
     "viber": "Viber",
-    "vipBadge": "WIN VIP"
+    "vipBadge": "WIN VIP",
+    "vipManageAction": "Manage (WIN code)",
+    "vipManageTitle": "VIP address: {{name}}",
+    "vipManageBody": "Enter the WIN code to downgrade or delete this address.",
+    "vipDowngrade": "Downgrade to normal address",
+    "vipDelete": "Delete permanently",
+    "vipActionFailed": "The action did not go through.",
+    "vipDowngraded": "Address downgraded: VIP status removed.",
+    "vipDeleted": "Address deleted."
   },
   "categories": {
     "groups": {

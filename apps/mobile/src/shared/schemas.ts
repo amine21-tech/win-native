@@ -143,6 +143,18 @@ export const createPlaceInput = z.object({
 });
 export type CreatePlaceInput = z.infer<typeof createPlaceInput>;
 
+/**
+ * Entree de /places/:id/vip-action — point B du 18 novembre.
+ *
+ * Les deux actions sont NOMMEES plutot que booleennes : un `supprimer: true` se lit mal au
+ * moment ou l'on relit le code, et un jour quelqu'un ecrirait `supprimer: false` en croyant
+ * declasser.
+ */
+export const vipActionInput = z.object({
+  code: z.string().min(4).max(12),
+  action: z.enum(['supprimer', 'declasser']),
+});
+
 export const vipCheckInput = z.object({ code: z.string().trim().min(1).max(32) });
 export type VipCheckInput = z.infer<typeof vipCheckInput>;
 
