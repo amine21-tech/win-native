@@ -650,7 +650,7 @@
     "title": "Jobs near you",
     "radius": "Offers within 50 km",
     "all": "All",
-    "empty": "No offer within 50 km right now.",
+    "empty": "No offers within {{km}} km right now.",
     "needPosition": "Your position is needed to find offers around you.",
     "call": "Call",
     "route": "Directions",

@@ -313,7 +313,12 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
             ) : query.isError ? (
               <Text style={styles.vide}>{t('errors.unknown')}</Text>
             ) : offres.length === 0 ? (
-              <Text style={styles.vide}>{t('jobs.empty')}</Text>
+              /* LE MESSAGE PORTE LE RAYON REELLEMENT CHERCHE — defaut trouve le 18 novembre
+                 en reprenant la synthese exigence par exigence. Il disait << dans un rayon de
+                 50 km >> en dur : avec le curseur, il aurait menti des le premier
+                 deplacement, et c'est le seul endroit ou le chercheur apprend jusqu'ou on a
+                 regarde. */
+              <Text style={styles.vide}>{t('jobs.empty', { km: rayonCherche })}</Text>
             ) : (
               offres.map((o) => <CarteOffre key={o.id} offre={o} onNavigate={onNavigate} />)
             )}

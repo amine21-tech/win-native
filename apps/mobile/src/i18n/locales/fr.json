@@ -650,7 +650,7 @@
     "title": "Emploi près de vous",
     "radius": "Offres dans un rayon de 50 km",
     "all": "Tous",
-    "empty": "Aucune offre dans un rayon de 50 km pour le moment.",
+    "empty": "Aucune offre dans un rayon de {{km}} km pour le moment.",
     "needPosition": "Votre position est nécessaire pour trouver les offres autour de vous.",
     "call": "Appeler",
     "route": "Itinéraire",

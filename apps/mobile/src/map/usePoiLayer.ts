@@ -60,7 +60,19 @@ export function usePoiLayer(position: { lat: number; lon: number } | null, enabl
    * rares — et c'est sur autoroute, loin de tout, qu'ils servent le plus. */
   const { data: vip } = useQuery({
     queryKey: ['poi-vip', key, rayonVipM],
-    enabled: enabled && position !== null,
+    /* LES PARTENAIRES RESTENT CHARGES PENDANT LE GUIDAGE, contrairement aux lieux ordinaires.
+     *
+     * CE DEFAUT A ETE TROUVE LE 18 NOVEMBRE en reprenant la synthese exigence par exigence.
+     * La couche entiere etait coupee en navigation — `usePoiLayer(position, !navigating)` —
+     * et le rayon VIP n'avait donc aucun effet LA OU LE CLIENT LE JUSTIFIE : << 10 km trop
+     * court sur autoroute >>. On travaillait sur un reglage invisible dans sa propre
+     * situation de reference.
+     *
+     * LES LIEUX ORDINAIRES RESTENT COUPES, et c'est une decision qui tient : une carte de
+     * navigation couverte de boulangeries cache la route. Un partenaire, lui, est rare — il
+     * y en a quelques-uns dans vingt kilometres, et c'est precisement en roulant qu'ils
+     * servent. */
+    enabled: position !== null,
     staleTime: 5 * 60_000,
     queryFn: () => {
       const [west, south, east, north] = boundingBox(position!.lat, position!.lon, rayonVipM);
@@ -76,7 +88,8 @@ export function usePoiLayer(position: { lat: number; lon: number } | null, enabl
      * doublerait son halo dore et fausserait les appuis. */
     const fusion = new Map<string, Place>();
     for (const place of enabled ? (data?.items ?? []) : []) fusion.set(place.id, place);
-    for (const place of enabled ? (vip?.items ?? []) : []) fusion.set(place.id, place);
+    /* LES PARTENAIRES NE SONT PAS SOUMIS A `enabled` : voir la note de leur requete. */
+    for (const place of vip?.items ?? []) fusion.set(place.id, place);
     const items = [...fusion.values()];
     return {
       type: 'FeatureCollection',

@@ -650,7 +650,7 @@
     "title": "Axeddim ɣur-k",
     "radius": "Tilɣa deg 50 km",
     "all": "Akk",
-    "empty": "Ulac talɣut deg 50 km akka tura.",
+    "empty": "Ulac tasuffeɣt deg {{km}} km tura.",
     "needPosition": "Adeg-ik ilaq akken ad naf tilɣa ɣur-k.",
     "call": "Siwel",
     "route": "Abrid",
