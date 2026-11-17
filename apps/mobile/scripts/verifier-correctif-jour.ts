@@ -204,13 +204,58 @@ verifier(
 );
 verifier(
   "l'interrupteur coupe la voix AUSSI, pas seulement l'affichage",
-  /setApproachAlerts\(false\)/.test(ecran) && /onCouper=/.test(ecran),
+  /setApproachAlerts\(on\)/.test(ecran) && /onBasculer=/.test(ecran),
   "couper l ecran en laissant parler serait ce qu on demande d arreter",
 );
 verifier(
   "il se voit vert, comme la ligne Alertes actives du panneau",
-  /backgroundColor: '#2BA84A'/.test(bandeau) && /accessibilityRole="switch"/.test(bandeau),
-  "deux commandes qui font la meme chose doivent se ressembler",
+  /const VERT = '#2BA84A'/.test(bandeau) && /accessibilityRole="switch"/.test(bandeau),
+  'deux commandes qui font la meme chose doivent se ressembler',
+);
+
+/* LA BASCULE VA DANS LES DEUX SENS — correction du 17 novembre.
+ *
+ * L'interrupteur ne faisait que COUPER. Une fois coupe, la barre disparaissait avec lui : il
+ * fallait rouvrir le panneau de signalement pour revenir en arriere. Un interrupteur qui ne
+ * revient pas n'est pas un interrupteur, c'est un bouton — et un reglage qu'on ne peut que
+ * desactiver depuis l'ecran ou il se trouve est un piege.
+ *
+ * Le controle porte sur la SIGNATURE, parce que c'est elle qui rend le retour possible :
+ * `onBasculer(actif: boolean)` peut dire les deux, `onCouper()` ne pouvait dire qu'une chose. */
+verifier(
+  'il bascule dans les deux sens',
+  /onBasculer: \(actif: boolean\) => void/.test(bandeau) &&
+    /onBasculer\(true\)/.test(bandeau) &&
+    /onBasculer\(false\)/.test(bandeau),
+  "coupe, il devait rester un moyen de revenir SUR CET ECRAN",
+);
+verifier(
+  'et il devient ROUGE quand les alertes sont coupees',
+  /const ROUGE = '#D32F2F'/.test(bandeau) && /outputRange: \[ROUGE, VERT\]/.test(bandeau),
+  'le rouge de l application, celui des signalements bloquants',
+);
+
+/* UN SEUL REGLAGE, AFFICHE A DEUX ENDROITS. C'est ce qui rend la synchronisation impossible a
+ * casser : il n'y a pas deux etats a tenir d'accord. Si quelqu'un introduisait un etat local
+ * dans la barre, ce controle tomberait. */
+verifier(
+  'il lit le MEME reglage que le panneau de signalement',
+  /actif=\{approachAlertsEnabled\}/.test(ecran) && /setApproachAlerts\(on\)/.test(ecran),
+  'un seul etat, affiche a deux endroits : rien a tenir d accord',
+);
+
+/* LE MODE REDUIT. Coupe, l'avertissement ne disparait pas : il retrecit en pastille posee
+ * au-dessus du compteur de vitesse. Un reglage qui efface toute trace de lui-meme devient
+ * introuvable au volant. */
+verifier(
+  'coupe, il se reduit en pastille plutot que de disparaitre',
+  /if \(!actif\) \{/.test(bandeau) && /styles\.reduit/.test(bandeau),
+  "<< ca devienne un icone reduit au-dessus de 0 km/h >>",
+);
+verifier(
+  'et la pastille s aligne sur le compteur de vitesse',
+  /leftReduit=\{spacing\.md\}/.test(ecran),
+  'NavigationOverlay pose le compteur a la meme marge',
 );
 /* ------------------------------------------------------------------ */
 console.log("\nC6 — L ICONE DISPARAIT 20 m APRES LE PASSAGE");

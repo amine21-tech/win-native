@@ -3016,14 +3016,21 @@ ${t(`report.badge_${report.kind}`)}`,
         }
         left={spacing.md + 72}
         right={spacing.lg + fabPrimarySize + spacing.md}
-        /* L'INTERRUPTEUR COUPE A LA RACINE, pas seulement l'affichage : `approachAlertsEnabled`
-         * est aussi ce qui active le hook de la VOIX. Couper l'un sans l'autre laisserait
-         * parler une alerte qu'on vient de faire taire a l'ecran — ce qui est exactement ce
-         * que le conducteur demande d'arreter. Le reglage est retenu (voir session.ts) et se
-         * reactive par la ligne << Alertes actives >> du panneau de signalement. */
-        onCouper={() => {
-          setApproachAlerts(false);
-          setToast(t('approach.alertsOff'));
+        /* EN MODE REDUIT, LA PASTILLE S'ALIGNE SUR LE COMPTEUR DE VITESSE — demande d'arsanne
+         * du 17 novembre : << ca devienne un icone reduit au-dessus de 0 km/h >>. Le compteur
+         * est pose a `spacing.md` par NavigationOverlay ; la pastille prend la meme marge, et
+         * sa hauteur la place juste au-dessus de lui. */
+        leftReduit={spacing.md}
+        /* UN SEUL REGLAGE, AFFICHE A DEUX ENDROITS. Cet interrupteur et la ligne << Alertes
+         * actives >> du panneau de signalement lisent et ecrivent `approachAlertsEnabled` :
+         * il n'y a pas deux etats a tenir d'accord, donc rien qui puisse se desynchroniser. */
+        actif={approachAlertsEnabled}
+        /* IL COUPE A LA RACINE, pas seulement l'affichage : ce meme reglage active le hook de
+         * la VOIX. Couper l'un sans l'autre laisserait parler une alerte qu'on vient de faire
+         * taire a l'ecran — exactement ce que le conducteur demande d'arreter. */
+        onBasculer={(on) => {
+          setApproachAlerts(on);
+          setToast(t(on ? 'approach.alertsOn' : 'approach.alertsOff'));
         }}
       />
 

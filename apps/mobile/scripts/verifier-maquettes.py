@@ -102,9 +102,29 @@ verifier(
 )
 verifier('ombre portee douce', 'shadowOpacity' in src and 'elevation' in src)
 verifier(
-    "l'interrupteur de coupure, vert quand les alertes sont actives",
-    "backgroundColor: '#2BA84A'" in src and 'accessibilityRole="switch"' in src,
+    "l'interrupteur, vert quand les alertes sont actives",
+    "VERT = '#2BA84A'" in src and 'accessibilityRole="switch"' in src,
     "<< un bouton vert quand il est active, on coulisse pour desactiver >>",
+)
+verifier(
+    'et rouge quand elles sont coupees',
+    "ROUGE = '#D32F2F'" in src and 'outputRange: [ROUGE, VERT]' in src,
+    "<< ca va devenir rouge >> — correction du 17 novembre",
+)
+verifier(
+    'il revient en arriere, il ne fait pas que couper',
+    'onBasculer(true)' in src and 'onBasculer(false)' in src,
+    "un interrupteur qui ne revient pas n'est pas un interrupteur, c'est un bouton",
+)
+verifier(
+    'coupe, la barre se reduit en pastille au lieu de disparaitre',
+    'if (!actif)' in src and 'reduit:' in src,
+    "<< ca devienne un icone reduit au-dessus de 0 km/h >>",
+)
+verifier(
+    'la pastille reduite porte un point rouge',
+    'reduitPoint' in src,
+    "sans lui, elle se lirait comme un avertissement de plus — elle dit l'inverse",
 )
 verifier(
     'sa pastille glisse au lieu de sauter',
