@@ -209,6 +209,10 @@ export const NavigationOverlay = memo(function NavigationOverlay({
           ecartSuivanteM={ecartSuivanteM}
           lang={lang}
           arrived={arrived}
+          /* POUR LE CLIGNOTEMENT A 500 M : la fleche ne doit s'animer que sur autoroute et
+           * nationale — les memes conditions que la rangee de voies. */
+          nomVoie={nextManeuver?.streetName ?? null}
+          surAutoroute={nextManeuver?.surAutoroute ?? false}
         />
 
         {/* Heure d'arrivee estimee et distance restante, EN HAUT comme EN BAS : le client les

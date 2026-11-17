@@ -1,6 +1,8 @@
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { FlecheManoeuvre } from './FlecheManoeuvre';
+import { surGrandAxe } from '../navigation/grandAxe';
 import { localizedInstruction, roadRef } from '../navigation/instructions';
 import type { Maneuver } from '../navigation/routing';
 import { formatDistance, type Language } from '../shared';
@@ -55,6 +57,26 @@ const TAILLE_FLECHE = 80;
  * Trois cents metres : a 50 km/h c'est une vingtaine de secondes, le temps de faire la
  * premiere manoeuvre et d'aborder la seconde sans surprise.
  */
+/**
+ * LA FLECHE DU BANDEAU CLIGNOTE 500 M AVANT LA MANOEUVRE — point F.2 du 18 novembre.
+ *
+ * << La fleche doit clignoter 500 m avant chaque manoeuvre, UNIQUEMENT sur autoroute et route
+ * nationale. La fleche qui clignote doit etre la BONNE (droite, gauche, etc.). >>
+ *
+ * CE N'EST PAS LA RANGEE DE VOIES, et c'est ce qui manquait. La rangee de tuiles clignotait
+ * deja ; la grande fleche de la consigne, elle, restait fixe. Or c'est elle qu'on regarde —
+ * elle fait quatre-vingts points, les tuiles en font trente-deux.
+ *
+ * MEMES VALEURS QUE LA RANGEE : de 1,0 a 0,2 en 500 ms, aller-retour, sans fin. Deux objets
+ * qui clignotent cote a cote a des rythmes differents se disputeraient le regard.
+ *
+ * ET SEULEMENT SUR GRAND AXE, comme la rangee : en ville, les manoeuvres s'enchainent a chaque
+ * carrefour et une fleche qui clignote en permanence cesse d'alerter.
+ */
+const CLIGNOTEMENT_M = 500;
+const CLIGNOTEMENT_MS = 500;
+const CLIGNOTEMENT_MIN = 0.2;
+
 const SUIVANTE_PROCHE_M = 300;
 
 type Props = {
@@ -66,6 +88,10 @@ type Props = {
   ecartSuivanteM: number | null;
   lang: Language;
   arrived: boolean;
+  /** Nom de la voie en cours, pour reconnaitre une nationale. Voir grandAxe. */
+  nomVoie: string | null;
+  /** Valhalla marque l'autoroute et la voie rapide ; la nationale se lit au nom. */
+  surAutoroute: boolean;
 };
 
 export function PanneauDirection({
@@ -75,6 +101,8 @@ export function PanneauDirection({
   ecartSuivanteM,
   lang,
   arrived,
+  nomVoie,
+  surAutoroute,
 }: Props) {
   const { t } = useTranslation();
 
@@ -86,13 +114,50 @@ export function PanneauDirection({
     );
   }
 
+  /* L'ANIMATION TOURNE EN PERMANENCE ET SON OPACITE EST APPLIQUEE OU NON.
+   *
+   * Un hook ne peut pas etre appele apres un retour conditionnel, et ce composant en a un
+   * plus haut (l'arrivee). L'animation est donc declaree avant, et elle ne coute rien : elle
+   * tourne sur le fil natif, sans traverser le pont JavaScript. */
+  const clignote = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const boucle = Animated.loop(
+      Animated.sequence([
+        Animated.timing(clignote, {
+          toValue: CLIGNOTEMENT_MIN,
+          duration: CLIGNOTEMENT_MS,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(clignote, {
+          toValue: 1,
+          duration: CLIGNOTEMENT_MS,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    boucle.start();
+    return () => boucle.stop();
+  }, [clignote]);
+
   const montrerSuivante =
     suivante != null && ecartSuivanteM != null && ecartSuivanteM <= SUIVANTE_PROCHE_M;
 
   return (
     <View style={styles.bloc} pointerEvents="none">
       <View style={styles.ligne}>
-        <FlecheManoeuvre type={maneuver.type} size={TAILLE_FLECHE} />
+        {/* ELLE NE CLIGNOTE QUE DANS LES CINQ CENTS DERNIERS METRES, ET SUR GRAND AXE.
+            Ailleurs, l'opacite reste a 1 : la meme vue, sans animation visible. */}
+        <Animated.View
+          style={
+            distanceM != null && distanceM <= CLIGNOTEMENT_M && surGrandAxe(surAutoroute, nomVoie)
+              ? { opacity: clignote }
+              : undefined
+          }
+        >
+          <FlecheManoeuvre type={maneuver.type} size={TAILLE_FLECHE} />
+        </Animated.View>
 
         <View style={styles.textes}>
           <View style={styles.distanceLigne}>

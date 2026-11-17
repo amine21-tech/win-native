@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { changeLanguage } from '../i18n';
 import type { Language } from '../shared';
+import { jouerClips } from '../speech/voixKab';
 import { fonts, radius, spacing, type Palette } from '../theme';
 import { formatClock24, useClock } from '../utils/clock';
 
@@ -37,8 +38,12 @@ const LANGUAGE_PILLS: { code: Language | 'kab'; label: string; pret: boolean }[]
   { code: 'fr', label: 'FR', pret: true },
   // Le darija s'ecrit en caracteres arabes : c'est la langue parlee, pas une autre graphie.
   { code: 'dz', label: 'دارجة', pret: true },
-  // Tifinagh, l'alphabet officiel, dans la graphie meme du document du client.
-  { code: 'kab', label: 'ⴰⵎⴰⵣⵉⵖ', pret: true },
+  /* TIFINAGH, l'alphabet officiel — et l'orthographe corrigee le 18 novembre.
+   *
+   * On ecrivait ⴰⵎⴰⵣⵉⵖ (Amaziɣ), qui nomme la PERSONNE. La langue se dit ⵜⴰⵎⴰⵣⵉⵖⵜ
+   * (Tamaziɣt) : le prefixe et le suffixe en t- -t font le feminin, comme en kabyle parle.
+   * Correction validee par Mazigh ARHAB, cite par le client. */
+  { code: 'kab', label: 'ⵜⴰⵎⴰⵣⵉⵖⵜ', pret: true },
   { code: 'ar', label: 'عربي', pret: true },
   { code: 'en', label: 'EN', pret: true },
 ];
@@ -60,6 +65,16 @@ export function Header({ colors, top }: Props) {
   const pickLanguage = (lang: Language) => {
     if (lang === i18n.language) return;
     changeLanguage(lang);
+    /* L'AUDIO DE BIENVENUE AU CHOIX DU TAMAZIGHT — demande du 18 novembre.
+     *
+     * POURQUOI SEULEMENT CELUI-LA. Le client demande aussi un audio darija, mais il n'a pas
+     * ete enregistre : les deux envois du locuteur ne contiennent que du kabyle. Jouer autre
+     * chose — une synthese, un clip voisin — irait contre la regle qui tient depuis le
+     * 9 novembre : en tamazight, les enregistrements ou rien.
+     *
+     * ET C'EST LE PREMIER MOT QU'ON ENTEND dans sa langue : la liste des 92 clips contient
+     * `bienvenue` depuis le premier envoi, sans qu'aucun ecran ne l'ait jamais joue. */
+    if (lang === 'kab') jouerClips(['bienvenue']);
   };
 
   return (

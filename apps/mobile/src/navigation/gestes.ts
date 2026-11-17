@@ -23,6 +23,15 @@ export type Geste = 'tout-droit' | 'gauche' | 'droite' | 'legere-gauche' | 'lege
 const GESTES: Record<number, Geste> = {
   2: 'droite', // depart vers la droite
   3: 'gauche',
+  /* LA DESTINATION A UN COTE, ET LA FLECHE L'IGNORAIT — trouve le 18 novembre en confrontant
+   * la table des gestes a celle des phrases, type par type.
+   *
+   * Le bandeau disait << Votre destination est sur la droite >> en dessinant une fleche qui
+   * MONTE. Les deux tableaux sont justes pris separement ; personne ne les avait compares, et
+   * le defaut ne se voit qu'a l'arrivee, au moment ou l'on cherche ou se garer. C'est
+   * exactement le defaut que le client decrit — une fleche qui contredit sa phrase. */
+  5: 'droite', // destination a droite
+  6: 'gauche',
   9: 'legere-droite',
   10: 'droite',
   11: 'droite', // droite serree
