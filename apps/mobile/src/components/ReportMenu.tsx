@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ReportKind } from '../shared';
 import { menuEmoji, REPORT_BADGE, SECTIONS_MENU } from '../reports/kinds';
+import { signalementAutorise } from '../navigation/signalementBlocage';
 import { bordureCarteMenu } from '../map/signalisation';
 import { RadarIcon } from './RadarIcon';
 import { useSession } from '../store/session';
@@ -13,6 +14,10 @@ type Props = {
   onClose: () => void;
   onPick: (kind: ReportKind) => void;
   colors: Palette;
+  /** Guidage en cours : la condition des 20 m ne applique seulement alors. */
+  enNavigation: boolean;
+  /** Metres deja parcourus dans le segment courant, ou null si inconnu. */
+  avanceSegmentM: number | null;
 };
 
 /* Fond et bordure des cartes, repris de la maquette du client.
@@ -60,7 +65,7 @@ const BORDURE_PANNEAU = 2.5;
 const MARGE_PANNEAU = 14;
 
 /** Menu de signalement : grille 2 colonnes, heritee de `.alert-menu`/`.am-grid` en v83. */
-export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
+export function ReportMenu({ visible, onClose, onPick, colors, enNavigation, avanceSegmentM }: Props) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   /* LE CHOIX DE LA FORCE A DISPARU — demande d'arsanne, 9 novembre : << un barrage, ca reste un
@@ -143,6 +148,13 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
                    * et une famille de teinte ne pouvait pas porter deux libelles. Voir
                    * REPORT_BADGE dans reports/kinds.ts. */
                   const badge = REPORT_BADGE[kind];
+
+                  /* LES SIGNALEMENTS QUI DETOURNENT ATTENDENT VINGT METRES — point C du
+                   * 18 novembre. A l'instant ou l'on franchit une intersection, l'application
+                   * ne sait pas encore laquelle des routes on a prise : un appui attacherait
+                   * le blocage au mauvais tronçon, et fermerait une route ouverte pour tout
+                   * le monde. Voir navigation/signalementBlocage.ts. */
+                  const autorise = signalementAutorise(kind, enNavigation, avanceSegmentM);
                   /* LES DECHETS SONT UNE CARTE COMME LES AUTRES — correction d'arsanne, vue a
                    * l'ecran le 9 novembre.
                    *
@@ -167,8 +179,10 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
                   return (
                     <Pressable
                       key={kind}
-                      onPress={() => choisir(kind)}
+                      onPress={() => (autorise ? choisir(kind) : undefined)}
+                      disabled={!autorise}
                       accessibilityRole="button"
+                      accessibilityState={{ disabled: !autorise }}
                       accessibilityLabel={t(`report.${kind}`)}
                       style={({ pressed }) => [
                         styles.item,
@@ -181,6 +195,10 @@ export function ReportMenu({ visible, onClose, onPick, colors }: Props) {
                            * avait refuse le 31 octobre. */
                           borderColor: bordureCarteMenu(kind),
                         },
+                        /* GRISEE, PAS CACHEE. La carte reste a sa place : si elle
+                         * disparaissait, le conducteur la chercherait, et la grille entiere
+                         * se reorganiserait sous ses yeux au milieu d'un carrefour. */
+                        autorise ? null : styles.indisponible,
                       ]}
                     >
                       {badge ? (
@@ -327,6 +345,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   badgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '800' as const },
+  /* L'opacite du document : << alpha = 0.4f >>. Assez pale pour qu'on voie qu'elle ne repond
+   * pas, assez lisible pour qu'on sache ce qu'elle est. */
+  indisponible: { opacity: 0.4 },
   // Le titre s'arrete avant la croix : sinon un libelle long passerait dessous.
   titre: { paddingRight: 40 },
   sousTitre: { paddingRight: 40, marginBottom: spacing.md },

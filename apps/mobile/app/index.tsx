@@ -25,6 +25,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { avanceDansSegmentM } from '../src/navigation/signalementBlocage';
 import { bearing as geoBearing, blocageConfirme, bloqueLaRoute, countryFromCoords, formatDistance, formatDuration, haversine, NEARBY_RADIUS_M, type Language, type Place, type Report, type ReportKind } from '../src/shared';
 import { api, ApiError } from '../src/api/client';
 import { AddPlaceSheet } from '../src/components/AddPlaceSheet';
@@ -3092,7 +3093,17 @@ ${t(`report.badge_${report.kind}`)}`,
         position={position}
       />
 
-      <ReportMenu visible={reportMenuOpen} onClose={() => setReportMenuOpen(false)} onPick={submitReport} colors={colors} />
+      <ReportMenu
+        visible={reportMenuOpen}
+        onClose={() => setReportMenuOpen(false)}
+        onPick={submitReport}
+        colors={colors}
+        /* LA CONDITION DES 20 M (point C du 18 novembre). La longueur du segment vient de
+         * la manoeuvre en cours, ce qui en reste vient du suivi : la difference est ce que
+         * le conducteur a deja parcouru depuis la derniere intersection. */
+        enNavigation={navigating}
+        avanceSegmentM={avanceDansSegmentM(nav.currentManeuver?.distanceM, nav.distanceToNextManeuverM)}
+      />
       <SosPanel
         visible={sosOpen}
         onClose={() => setSosOpen(false)}
