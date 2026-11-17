@@ -16,7 +16,7 @@
  * Usage, depuis la racine du depot :
  *   npx tsx apps/mobile/scripts/verifier-options-voies.ts
  */
-import { MAX_OPTIONS, optionsDeVoies } from '../src/navigation/optionsVoies';
+import { MAX_OPTIONS, optionsDeManoeuvre, optionsDeVoies } from '../src/navigation/optionsVoies';
 import { LANE, type Lane } from '../src/navigation/voies';
 
 let fautes = 0;
@@ -141,6 +141,77 @@ verifier(
 );
 /* LaneGuidance exige au moins deux voies AVANT de grouper : une rangee d'une seule tuile ne
  * dit pas ou se placer. Ce controle constate seulement que le groupement, lui, ne ment pas. */
+
+console.log("\nSANS MARQUAGE AU SOL, LA MANOEUVRE SUFFIT");
+
+/* LA CORRECTION DU CLIENT, 17 novembre : << Les donnees Valhalla (maneuver.type +
+ * maneuver.highway + maneuver.length) sont suffisantes. On ne demande pas une fleche par voie
+ * physique — on demande que la fleche directionnelle recommandee clignote. >>
+ *
+ * POURQUOI CELA CHANGE TOUT EN ALGERIE. La rangee exigeait `lanes.length >= 2`, c'est-a-dire
+ * le marquage au sol d'OpenStreetMap. Comptage Overpass du 15 novembre : CENT DOUZE tronçons
+ * le portent dans toute la region d'Alger. La fonction etait donc ecrite, testee, et
+ * invisible. */
+const SORTIES: [number, string, string][] = [
+  [20, 'Sortie a droite', 'legere-droite'],
+  [21, 'Sortie a gauche', 'legere-gauche'],
+  [10, 'Tournez a droite', 'droite'],
+  [15, 'Tournez a gauche', 'gauche'],
+  [9, 'Legerement a droite', 'legere-droite'],
+  [16, 'Legerement a gauche', 'legere-gauche'],
+  [12, 'Demi-tour', 'demi-tour'],
+  [25, 'Inserez-vous', 'rabattement'],
+];
+for (const [type, libelle, geste] of SORTIES) {
+  const opts = optionsDeManoeuvre(type);
+  const pris = opts?.find((o) => o.aPrendre);
+  verifier(
+    `${libelle} (type ${type}) → ${geste}`,
+    pris?.geste === geste,
+    opts ? opts.map((o) => `${o.geste}${o.aPrendre ? '*' : ''}`).join(' | ') : 'aucune option',
+  );
+}
+
+console.log("\nLA RANGEE SUIT LA CHAUSSEE : la direction se pose de SON cote");
+/* Sans cela, le conducteur chercherait a gauche ce qui est a droite, et la rangee lui
+ * couterait du temps au lieu de lui en faire gagner. */
+const droite = optionsDeManoeuvre(20);
+verifier(
+  'une sortie a droite se pose a droite',
+  droite?.[0]?.geste === 'tout-droit' && droite?.[1]?.aPrendre === true,
+  droite?.map((o) => o.geste).join(' | '),
+);
+const gauche = optionsDeManoeuvre(21);
+verifier(
+  'une sortie a gauche se pose a gauche',
+  gauche?.[0]?.aPrendre === true && gauche?.[1]?.geste === 'tout-droit',
+  gauche?.map((o) => o.geste).join(' | '),
+);
+
+console.log("\nDEUX TUILES, JAMAIS PLUS, ET UNE SEULE CLIGNOTE");
+for (const [type] of SORTIES) {
+  const opts = optionsDeManoeuvre(type) ?? [];
+  if (opts.length !== 2 || opts.filter((o) => o.aPrendre).length !== 1) {
+    verifier(`type ${type} : deux tuiles dont une a prendre`, false, `${opts.length} tuiles`);
+  }
+}
+verifier(
+  'les huit manoeuvres donnent deux tuiles dont une seule designee',
+  SORTIES.every(([type]) => {
+    const o = optionsDeManoeuvre(type) ?? [];
+    return o.length === 2 && o.filter((x) => x.aPrendre).length === 1;
+  }),
+  'la rangee dit de quel cote se placer, elle ne decrit pas la chaussee',
+);
+
+console.log("\nUNE MANOEUVRE TOUT DROIT NE MONTRE RIEN");
+/* La rangee existe pour dire DE QUEL COTE se placer. Quand il n'y a rien a choisir, deux
+ * fleches identiques n'apprennent rien et occupent le bandeau. La maquette montre bien un cas
+ * << restez voie principale >>, mais il suppose de savoir qu'une sortie existe — ce que seul
+ * le marquage au sol dit. L'inventer reviendrait a dessiner une route qu'on ne connait pas. */
+for (const type of [0, 7, 8, 22]) {
+  verifier(`type ${type} : aucune rangee`, optionsDeManoeuvre(type) === null);
+}
 
 console.log(
   fautes === 0

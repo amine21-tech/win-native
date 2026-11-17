@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { FlecheVoie } from './FlecheVoie';
-import { libelleOption, optionsDeVoies } from '../navigation/optionsVoies';
+import { libelleOption, optionsDeManoeuvre, optionsDeVoies } from '../navigation/optionsVoies';
 import { surGrandAxe } from '../navigation/grandAxe';
 import type { Lane } from '../navigation/routing';
 
@@ -127,6 +127,7 @@ export function LaneGuidance({
   distanceM,
   surAutoroute,
   nomVoie,
+  typeManoeuvre,
 }: {
   lanes: Lane[];
   /** Distance restante jusqu'a la bifurcation, ou `null` si elle est inconnue. */
@@ -135,6 +136,9 @@ export function LaneGuidance({
   surAutoroute: boolean;
   /** Nom de la voie, seul moyen de reconnaitre une NATIONALE : voir grandAxe.ts. */
   nomVoie?: string | null;
+  /** Type de manoeuvre Valhalla. Il suffit a dessiner la fleche recommandee quand le
+   *  marquage au sol manque — voir optionsDeManoeuvre. */
+  typeManoeuvre: number | null;
 }) {
   /* LE CLIGNOTEMENT TOURNE MEME QUAND RIEN N'EST AFFICHE, et c'est une contrainte de React et
    * non un choix : un hook ne peut pas etre appele apres un `return`. L'animation est native
@@ -176,13 +180,34 @@ export function LaneGuidance({
    * nationales taguees `primary` : on les reconnait a leur nom — << RN 12 >>, << N5 >>. Voir
    * grandAxe.ts. */
   if (!surGrandAxe(surAutoroute, nomVoie)) return null;
-  if (lanes.length < LANE_GUIDANCE_MIN || distanceM == null || distanceM > LANE_GUIDANCE_VISIBLE_M) {
-    return null;
-  }
+  if (distanceM == null || distanceM > LANE_GUIDANCE_VISIBLE_M) return null;
+
+  /* LA RANGEE N'EXIGE PLUS LE MARQUAGE AU SOL — correction du client, 17 novembre.
+   *
+   * << Les donnees Valhalla (maneuver.type + maneuver.highway + maneuver.length) sont
+   * suffisantes. On ne demande pas une fleche par voie physique — on demande que la fleche
+   * directionnelle recommandee clignote. Ce sont deux choses differentes. >>
+   *
+   * J'AVAIS CONFONDU LES DEUX, et cela rendait la fonction presque toujours invisible. La
+   * condition etait `lanes.length >= 2`, c'est-a-dire le marquage au sol que Valhalla ne
+   * renvoie que la ou OpenStreetMap porte `turn:lanes`. J'avais moi-meme compte ces
+   * tronçons le 15 novembre : CENT DOUZE dans toute la region d'Alger. La rangee ne pouvait
+   * donc presque jamais s'afficher — ce que le client constatait en roulant.
+   *
+   * LE MARQUAGE RESTE PREFERE QUAND IL EXISTE : il dit combien de files vont ou, pas
+   * seulement la direction. La manoeuvre ne sert que lorsqu'il manque. */
+  const options =
+    lanes.length >= LANE_GUIDANCE_MIN
+      ? optionsDeVoies(lanes)
+      : typeManoeuvre == null
+        ? null
+        : optionsDeManoeuvre(typeManoeuvre);
+
+  if (!options || options.length === 0) return null;
 
   return (
     <View style={styles.row} pointerEvents="none">
-      {optionsDeVoies(lanes).map((option, i) => {
+      {options.map((option, i) => {
         /* UNE TUILE PAR CHOIX, ET NON PAR FILE — correctif du 17 novembre, point 7.
          *
          * << On N'affiche PAS une fleche par voie — impossible sur petits ecrans. On affiche

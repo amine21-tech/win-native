@@ -222,6 +222,9 @@ export const NavigationOverlay = memo(function NavigationOverlay({
         {!arrived && !recalculating ? (
           <LaneGuidance
             lanes={nextManeuver?.lanes ?? []}
+            /* LE TYPE DE MANOEUVRE SUFFIT quand le marquage au sol manque, ce qui est le cas
+             * presque partout en Algerie. Voir la note de LaneGuidance. */
+            typeManoeuvre={nextManeuver?.type ?? null}
             distanceM={distanceToUpcoming}
             surAutoroute={nextManeuver?.surAutoroute ?? false}
             nomVoie={nextManeuver?.streetName ?? null}

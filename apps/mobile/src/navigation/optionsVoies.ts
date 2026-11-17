@@ -133,3 +133,92 @@ function reduireATrois(groupes: OptionVoie[]): OptionVoie[] {
 export function libelleOption(geste: GesteVoie): string {
   return `lane.${geste.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())}`;
 }
+
+/* ------------------------------------------------------------------ */
+/* Quand Valhalla ne connait pas les voies                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * CE QUE LE CLIENT A CORRIGE LE 17 NOVEMBRE, ET IL AVAIT RAISON.
+ *
+ * << Les donnees Valhalla (maneuver.type + maneuver.highway + maneuver.length) sont
+ * suffisantes. On ne demande pas une fleche par voie physique — on demande que la fleche
+ * directionnelle recommandee clignote. Ce sont deux choses differentes. >>
+ *
+ * J'AVAIS CONFONDU LES DEUX. La rangee etait conditionnee a `lanes.length >= 2`, c'est-a-dire
+ * au marquage au sol que Valhalla ne renvoie que la ou OpenStreetMap porte `turn:lanes`. Or
+ * j'avais moi-meme compte ces tronçons le 15 novembre : CENT DOUZE dans toute la region
+ * d'Alger. La rangee ne pouvait donc presque jamais apparaitre — et c'est exactement ce que le
+ * client constatait en roulant, sans que le reste du dispositif soit en cause.
+ *
+ * `maneuver.type`, LUI, EST TOUJOURS LA. Il dit la direction a prendre : sortie a droite,
+ * bifurcation a gauche, demi-tour. C'est tout ce qu'il faut pour dessiner la fleche
+ * recommandee et la faire clignoter.
+ *
+ * ON NE REMPLACE PAS LES VOIES, ON LES COMPLETE. Quand le marquage existe, il reste meilleur :
+ * il dit combien de files vont ou, pas seulement la direction. La deduction ci-dessous ne sert
+ * que lorsqu'il manque.
+ */
+const GESTE_PAR_MANOEUVRE: Record<number, GesteVoie> = {
+  9: 'legere-droite',
+  10: 'droite',
+  11: 'serree-droite',
+  12: 'demi-tour',
+  13: 'demi-tour',
+  14: 'serree-gauche',
+  15: 'gauche',
+  16: 'legere-gauche',
+  /* Les bretelles et les sorties : une bretelle droite se prend comme une sortie droite, et
+   * le conducteur n'a pas a savoir que Valhalla les distingue. */
+  18: 'legere-droite',
+  19: 'legere-gauche',
+  20: 'legere-droite',
+  21: 'legere-gauche',
+  23: 'legere-droite',
+  24: 'legere-gauche',
+  /* L'insertion a sa propre fleche depuis le 3 novembre : voir FlecheVoie. */
+  25: 'rabattement',
+};
+
+/** Ce geste part-il vers la gauche ? Sert a ranger la rangee dans l'ordre de la chaussee. */
+function versLaGauche(geste: GesteVoie): boolean {
+  return geste.endsWith('gauche');
+}
+
+/**
+ * Les options de direction deduites d'une manoeuvre, ou `null` s'il n'y a pas de choix a
+ * presenter.
+ *
+ * DEUX TUILES, ET DEUX SEULEMENT : la direction a prendre, et << tout droit >> comme repere.
+ * C'est ce que montrent les cases de la maquette ou il n'y a pas de marquage au sol —
+ * << Tout droit | Droite >>, << Gauche | Tout droit >>, << Demi-tour | Tout droit >>.
+ *
+ * L'ORDRE SUIT LA CHAUSSEE : une direction a gauche se pose a gauche de la rangee, une
+ * direction a droite a droite. Sans cela, le conducteur chercherait a gauche ce qui est a
+ * droite — et la rangee lui couterait du temps au lieu de lui en faire gagner.
+ *
+ * `null` POUR UNE MANOEUVRE TOUT DROIT, et c'est un choix. La rangee existe pour dire DE QUEL
+ * COTE se placer ; quand il n'y a rien a choisir, deux fleches identiques n'apprennent rien et
+ * occupent le bandeau. La maquette montre bien un cas << restez voie principale >>, mais il
+ * suppose de savoir qu'une sortie existe — ce que seul le marquage au sol dit. Inventer cette
+ * sortie reviendrait a dessiner une route qu'on ne connait pas.
+ */
+export function optionsDeManoeuvre(type: number): OptionVoie[] | null {
+  const geste = GESTE_PAR_MANOEUVRE[type];
+  if (!geste) return null;
+
+  const direction: OptionVoie = {
+    geste,
+    lane: { directions: 0, valid: 1, active: 1 },
+    aPrendre: true,
+    voies: 1,
+  };
+  const toutDroit: OptionVoie = {
+    geste: 'tout-droit',
+    lane: { directions: 0, valid: 0, active: 0 },
+    aPrendre: false,
+    voies: 1,
+  };
+
+  return versLaGauche(geste) ? [direction, toutDroit] : [toutDroit, direction];
+}
