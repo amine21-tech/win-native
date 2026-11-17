@@ -755,7 +755,8 @@
     "photoAdd": "Add",
     "photoRemove": "Remove photo",
     "photosHint": "Up to {{max}} photos: the premises, the team, the site.",
-    "photoPermission": "Allow access to photos to add one."
+    "photoPermission": "Allow access to photos to add one.",
+    "searchRadius": "Search radius: {{km}} km"
   },
   "share": {
     "title": "WIN DZ position",

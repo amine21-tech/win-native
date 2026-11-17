@@ -755,7 +755,8 @@
     "photoAdd": "Ajouter",
     "photoRemove": "Retirer la photo",
     "photosHint": "Jusqu’à {{max}} photos : le local, l’équipe, le chantier.",
-    "photoPermission": "Autorisez l'accès aux photos pour en ajouter une."
+    "photoPermission": "Autorisez l'accès aux photos pour en ajouter une.",
+    "searchRadius": "Rayon de recherche : {{km}} km"
   },
   "share": {
     "title": "Position WIN DZ",

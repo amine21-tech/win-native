@@ -755,7 +755,8 @@
     "photoAdd": "زيد",
     "photoRemove": "نحي التصويرة",
     "photosHint": "حتى {{max}} تصاور: المحل، الفريق، الورشة.",
-    "photoPermission": "اسمح بالوصول للتصاور باش تزيد وحدة."
+    "photoPermission": "اسمح بالوصول للتصاور باش تزيد وحدة.",
+    "searchRadius": "نطاق البحث: {{km}} كم"
   },
   "share": {
     "title": "موقع WIN DZ",

@@ -755,7 +755,8 @@
     "photoAdd": "Rnu",
     "photoRemove": "Kkes tawlaft",
     "photosHint": "Arma d {{max}} n tewlafin : axxam, tarbaɛt, acaḍi.",
-    "photoPermission": "Serreḥ i unekcum ɣer tewlafin akken a ternuḍ yiwet."
+    "photoPermission": "Serreḥ i unekcum ɣer tewlafin akken a ternuḍ yiwet.",
+    "searchRadius": "Azday n unadi: {{km}} km"
   },
   "share": {
     "title": "Adeg WIN DZ",

@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api/client';
 import { dateDepuisServeur, formatDistance, type DureeEmploi, type FormuleEmploi } from '../shared';
 import { adresseLisible } from '../jobs/adresse';
+import { CurseurRayon, RAYON_MIN_KM } from './CurseurRayon';
 import { radius, spacing } from '../theme';
 
 /**
@@ -147,12 +148,25 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
    * un endroit qui n'existait pas. */
   const [mesAnnonces, setMesAnnonces] = useState(false);
 
+  /* LE RAYON DE RECHERCHE DU CHERCHEUR — point E.3 du 18 novembre.
+   *
+   * DEUX ETATS ET NON UN, et c'est ce qui rend le curseur agreable. `rayonAffiche` suit le
+   * doigt et ne sert qu'au libelle ; `rayonCherche` ne change qu'au relachement et declenche
+   * la requete. Avec un seul etat, glisser d'un bout a l'autre lancerait une trentaine
+   * d'appels reseau dont un seul compte — et la liste clignoterait sous le doigt.
+   *
+   * CINQUANTE PAR DEFAUT : la valeur du document, et exactement le rayon fixe d'avant. Un
+   * chercheur qui ne touche a rien voit donc ce qu'il voyait hier. */
+  const [rayonAffiche, setRayonAffiche] = useState(50);
+  const [rayonCherche, setRayonCherche] = useState(50);
+
   const query = useQuery({
-    queryKey: ['jobs', position?.lat, position?.lon, secteur],
+    queryKey: ['jobs', position?.lat, position?.lon, secteur, rayonCherche],
     enabled: visible && !mesAnnonces && position != null,
     queryFn: () =>
       api<{ items: JobOffer[]; radiusM: number }>(
-        `/jobs?lat=${position!.lat}&lon=${position!.lon}${secteur ? `&sector=${secteur}` : ''}`,
+        `/jobs?lat=${position!.lat}&lon=${position!.lon}&radiusKm=${rayonCherche}` +
+          (secteur ? `&sector=${secteur}` : ''),
       ),
   });
 
@@ -214,6 +228,22 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
                 : t('jobs.count', { count: offres.length })}
             </Text>
           </View>
+
+          {/* LE CURSEUR DE RAYON, sous le sous-bandeau et au-dessus de la liste — la place que
+              le document lui donne : << sous le titre Emploi, au-dessus de la liste >>.
+              Il ne s'affiche pas dans << Mes annonces >> : on n'y cherche pas par distance,
+              on y relit ce qu'on a publie. */}
+          {!mesAnnonces ? (
+            <CurseurRayon
+              valeurKm={rayonAffiche}
+              onChange={setRayonAffiche}
+              onFini={(km) => {
+                setRayonAffiche(km);
+                setRayonCherche(Math.max(RAYON_MIN_KM, km));
+              }}
+              libelle={t('jobs.searchRadius', { km: rayonAffiche })}
+            />
+          ) : null}
 
           {/* FILTRES EN CHIPS DEFILANTS, comme la maquette. Horizontal et non une grille : sept
               secteurs plus « Tous » prendraient trois lignes au-dessus de la liste, et

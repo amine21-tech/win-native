@@ -27,6 +27,16 @@ import { HttpError, notFound, parse } from '../lib/http.js';
 /** Cinquante kilometres, valeur du client. Une annonce au-dela ne concerne plus le conducteur. */
 const RAYON_M = 50_000;
 
+/**
+ * Bornes du curseur du chercheur, en metres. Valeurs du document : de 1 a 2000 km.
+ *
+ * LA BORNE HAUTE N'EST PAS DECORATIVE : deux mille kilometres couvrent l'Algerie entiere, et
+ * au-dela la requete n'a plus de sens geographique — autant la refuser que de la laisser
+ * balayer la planete.
+ */
+const RAYON_CHERCHEUR_MIN_M = 1_000;
+const RAYON_CHERCHEUR_MAX_M = 2_000_000;
+
 /** Duree de visibilite d'une annonce activee, en jours. */
 const DUREE_JOURS = 30;
 
@@ -118,6 +128,14 @@ const routes: FastifyPluginAsync = async (app) => {
    * telephone donnerait un chiffre legerement different de celui qui a servi au tri.
    */
   app.get('/jobs', async (req) => {
+    /* LE RAYON DU CHERCHEUR, borne et retombant sur la valeur d'avant. Un parametre absent,
+     * vide ou absurde ne doit pas vider la liste : il rend les cinquante kilometres
+     * historiques. */
+    const rayonDemandeKm = Number((req.query as Record<string, string>).radiusKm);
+    const rayonChercheurM = Number.isFinite(rayonDemandeKm)
+      ? Math.min(RAYON_CHERCHEUR_MAX_M, Math.max(RAYON_CHERCHEUR_MIN_M, rayonDemandeKm * 1000))
+      : RAYON_M;
+
     const q = req.query as { lat?: string; lon?: string; sector?: string };
     const lat = Number(q.lat);
     const lon = Number(q.lon);
@@ -168,6 +186,19 @@ const routes: FastifyPluginAsync = async (app) => {
          * C'est pour cela que le test est ecrit dans cet ordre, et non comme une distance
          * infinie — une distance infinie reste une comparaison, et PostGIS la calculerait. */
         AND (portee_m IS NULL OR ST_DWithin(geom, ${moi}, portee_m))
+        /* ET LE RAYON QUE LE CHERCHEUR S'EST FIXE — point E.3 du 18 novembre.
+         *
+         * LES DEUX CONDITIONS SE COMPOSENT, ELLES NE SE REMPLACENT PAS, et la distinction
+         * compte parce qu'elle touche a ce qui a ete paye. portee_m est la PERMISSION de
+         * l'annonce : jusqu'ou l'employeur a achete le droit d'etre vu. Le curseur est la
+         * PREFERENCE du chercheur : jusqu'ou il accepte d'aller travailler. Une annonce doit
+         * passer les deux — l'employeur ne peut pas s'imposer a qui ne veut pas bouger, et le
+         * chercheur ne peut pas voir plus loin que ce qui lui est destine.
+         *
+         * LA VALEUR PAR DEFAUT NE CHANGE RIEN A L'EXISTANT : cinquante kilometres, soit
+         * exactement RAYON_M, le rayon fixe d'avant. Un chercheur qui ne touche pas au curseur
+         * voit donc la meme chose qu'hier. */
+        AND ST_DWithin(geom, ${moi}, ${rayonChercheurM})
         ${filtreSecteur}
       /* LE PREMIUM PASSE DEVANT, c'est ce qu'il achete (<< Top liste >>). A l'interieur de
        * chaque groupe, la distance reprend ses droits : entre deux annonces Premium, la plus
@@ -178,7 +209,10 @@ const routes: FastifyPluginAsync = async (app) => {
     /* `radiusM` reste le rayon de reference affiche a l'ecran (<< offres dans un rayon de
      * 50 km >>). Il ne decrit plus a lui seul ce qui est renvoye, puisque les formules
      * superieures portent plus loin — mais c'est bien la promesse faite au chercheur. */
-    return { items: rows, radiusM: RAYON_M };
+    /* ON REND LE RAYON REELLEMENT APPLIQUE, et non la constante : c'est lui que l'ecran
+     * affiche (<< aucune offre dans un rayon de N km >>), et afficher autre chose que ce
+     * qu'on a cherche serait un mensonge difficile a reperer. */
+    return { items: rows, radiusM: rayonChercheurM };
   });
 
   /**

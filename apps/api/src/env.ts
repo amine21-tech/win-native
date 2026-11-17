@@ -81,6 +81,21 @@ const schema = z.object({
   VIP_CODE: z.string().min(4).default('0000'),
 
   /**
+   * RAYON D'AFFICHAGE DES ADRESSES VIP, en kilometres — point A du 18 novembre.
+   *
+   * << 20 km valide. 30 km trop large en ville, 10 km trop court sur autoroute. Ce parametre
+   * DOIT etre modifiable depuis le serveur sans mise a jour de l'app. >>
+   *
+   * C'EST LA RAISON D'ETRE DE CETTE VARIABLE, et de la route /config qui la sert : un
+   * partenaire VIP paie pour etre vu, et le bon rayon ne se trouve pas au bureau. Le changer
+   * doit couter un redemarrage de l'API, pas une version sur le Play Store.
+   *
+   * LES LIEUX ORDINAIRES GARDENT LEUR RAYON de trois kilometres (voir usePoiLayer) : charger
+   * vingt kilometres de boulangeries remplirait la carte d'une ville entiere.
+   */
+  VIP_RADIUS_KM: z.coerce.number().min(1).max(200).default(20),
+
+  /**
    * Ancien backend du site (« …/api »), interroge en plus de cette base par la recherche de
    * lieux : voir lib/legacyAddresses.ts. Facultatif — sans lui, la recherche ne rend que les
    * lieux de cette base, comme avant.

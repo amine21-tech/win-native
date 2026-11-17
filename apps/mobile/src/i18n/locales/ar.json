@@ -755,7 +755,8 @@
     "photoAdd": "إضافة",
     "photoRemove": "حذف الصورة",
     "photosHint": "حتى {{max}} صور: المحل، الفريق، الورشة.",
-    "photoPermission": "اسمح بالوصول إلى الصور لإضافة واحدة."
+    "photoPermission": "اسمح بالوصول إلى الصور لإضافة واحدة.",
+    "searchRadius": "نطاق البحث: {{km}} كم"
   },
   "share": {
     "title": "موقع WIN DZ",

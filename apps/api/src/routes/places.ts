@@ -279,18 +279,31 @@ const routes: FastifyPluginAsync = async (app) => {
     if ([west, south, east, north].some((n) => !Number.isFinite(n))) {
       return { items: [] };
     }
+    /* `partners=1` NE REND QUE LES PARTENAIRES VIP — point A du 18 novembre.
+     *
+     * L'application appelle cette route DEUX FOIS : une fois sur trois kilometres pour tous
+     * les lieux, une fois sur le rayon VIP — vingt kilometres par defaut — pour les seuls
+     * partenaires. Deux appels plutot qu'un parce que les deux rayons n'ont rien a voir :
+     * charger vingt kilometres de boulangeries remplirait la carte d'une ville entiere, et
+     * limiter les VIP a trois kilometres les rendrait invisibles sur autoroute, ou ils sont
+     * precisement le plus utiles.
+     *
+     * La limite descend a cent pour les VIP : ils sont rares, et une requete qui en
+     * ramenerait trois cents sur vingt kilometres signalerait autre chose. */
+    const partenairesSeuls = q.partners === '1';
     const rows = await db.execute(sql`
       SELECT ${placeColumns}
       FROM places p
       ${photosJoin}
       WHERE p.deleted_at IS NULL
         AND p.status = 'published'
+        ${partenairesSeuls ? sql`AND p.is_partner = true` : sql``}
         AND ST_Intersects(
               p.geom,
               ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326)::geography
             )
       ORDER BY p.is_partner DESC
-      LIMIT 300
+      LIMIT ${partenairesSeuls ? 100 : 300}
     `);
     return { items: rows };
   });

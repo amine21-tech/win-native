@@ -8,6 +8,24 @@ const startedAt = Date.now();
 
 const routes: FastifyPluginAsync = async (app) => {
   /** Sonde simple, utilisee par Nginx et par l'ecran de diagnostic reseau. */
+  /**
+   * REGLAGES QUE L'APPLICATION LIT AU DEMARRAGE — point A du 18 novembre.
+   *
+   * << Ce parametre DOIT etre modifiable depuis le serveur sans mise a jour de l'app. >>
+   *
+   * POURQUOI UNE ROUTE PLUTOT QU'UNE CONSTANTE DANS L'APK. Un rayon d'affichage se regle en
+   * regardant la carte d'une ville reelle, pas au moment d'ecrire le code. Le mettre ici
+   * permet de l'ajuster en changeant une variable et en redemarrant l'API — quelques
+   * secondes — au lieu d'une version a publier, a faire telecharger et a installer.
+   *
+   * ELLE EST PUBLIQUE ET SANS DONNEES : elle ne rend que des nombres de reglage, jamais rien
+   * qui appartienne a quelqu'un. C'est ce qui permet de l'appeler avant meme que l'appareil
+   * ne se soit identifie.
+   */
+  app.get('/config', async () => ({
+    vipRadiusKm: env.VIP_RADIUS_KM,
+  }));
+
   app.get('/status', async (_req, reply) => {
     noStore(reply);
     return { ok: true, service: 'win-api', uptimeS: Math.round((Date.now() - startedAt) / 1000) };
