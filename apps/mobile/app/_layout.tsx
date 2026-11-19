@@ -12,6 +12,7 @@ import { useEffect, useMemo } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../src/i18n';
+import { EcranSur } from '../src/components/EcranSur';
 import { useSession } from '../src/store/session';
 import { useAutoScheme } from '../src/utils/clock';
 import { palette } from '../src/theme';
@@ -85,13 +86,20 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.background },
-            animation: 'fade',
-          }}
-        />
+        {/* LE DERNIER RECOURS, POSE A LA RACINE. Une exception pendant un rendu demontait
+            l'arbre entier et laissait un ecran noir muet — c'est ce qu'a vu le client le
+            19 novembre en cherchant un lieu. Sur une application de navigation, perdre la
+            carte et l'itineraire sans un mot est la pire panne possible. Desormais l'ecran
+            dit ce qui a echoue, ou, et propose de repartir. */}
+        <EcranSur>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.background },
+              animation: 'fade',
+            }}
+          />
+        </EcranSur>
       </SafeAreaProvider>
     </QueryClientProvider>
   );

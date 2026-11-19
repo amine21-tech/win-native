@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { GeocodedResult } from '../search/geocode';
 import { HIT_SIZE, radius, spacing, type Palette } from '../theme';
 import { SearchBar } from './SearchBar';
+import { SectionSure } from './SectionSure';
 import { SearchResults } from './SearchResults';
 
 /**
@@ -154,19 +155,23 @@ export function NavDestinationPicker({
 
           {searching || results.length > 0 ? (
             <View style={styles.results}>
-              <SearchResults
-                visible
-                loading={loading}
-                showBookmarks={false}
-                results={results}
-                favorites={[]}
-                history={[]}
-                onSelectResult={onSelectResult}
-                onSelectBookmark={() => {}}
-                onRemoveHistory={() => {}}
-                onClearHistory={() => {}}
-                colors={colors}
-              />
+              {/* C'est ici qu'on cherche une destination EN ROULANT. Une exception pendant
+                  ce rendu emportait tout l'ecran, carte et itineraire compris. */}
+              <SectionSure nom="Resultats de recherche">
+                <SearchResults
+                  visible
+                  loading={loading}
+                  showBookmarks={false}
+                  results={results}
+                  favorites={[]}
+                  history={[]}
+                  onSelectResult={onSelectResult}
+                  onSelectBookmark={() => {}}
+                  onRemoveHistory={() => {}}
+                  onClearHistory={() => {}}
+                  colors={colors}
+                />
+              </SectionSure>
             </View>
           ) : null}
         </Pressable>

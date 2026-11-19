@@ -391,6 +391,47 @@ verifier(
   'sans lui Postgres refuse la requete entiere, donc TOUTE correction de fiche',
 );
 
+console.log('\n============================================================');
+console.log('L ECRAN NE DOIT PLUS JAMAIS DEVENIR NOIR');
+console.log('============================================================');
+/* LE 19 NOVEMBRE, chercher un lieu a rendu l'ecran entierement noir. Deux causes possibles
+ * etaient ouvertes, et les deux sont fermees ici : un degrade de taille nulle (exception
+ * NATIVE sur Android, qui tue le processus sans laisser de trace rattrapable), et l'absence
+ * de tout filet autour du rendu de l'ecran principal. */
+const racine = readFileSync(join(__dirname, '..', 'app', '_layout.tsx'), 'utf8');
+const ecran = readFileSync(join(__dirname, '..', 'app', 'index.tsx'), 'utf8');
+const ecranSur = lire('src', 'components', 'EcranSur.tsx');
+const picker = lire('src', 'components', 'NavDestinationPicker.tsx');
+
+verifier(
+  'aucun degrade n est rendu avant d avoir ete mesure',
+  /\{largeur > 0 \? \(/.test(lisere) && /\{largeur > 0 \? \(\s*<LinearGradient/.test(badge),
+  'un LinearGradient de largeur nulle peut lever une exception native et tuer le processus',
+);
+verifier(
+  'le badge garde une couleur pleine sous son degrade',
+  /backgroundColor: palette\.light\.gold500/.test(badge),
+  'sinon un degrade qui echoue laisse un rectangle transparent',
+);
+verifier('un filet est pose A LA RACINE', /<EcranSur>/.test(racine));
+verifier(
+  'et il montre le message ET le composant fautif',
+  /componentStack/.test(ecranSur) && /erreur\.message/.test(ecranSur),
+  'le telephone de test n a pas de console : cet encadre EST la console',
+);
+verifier(
+  'il propose de repartir',
+  /reprendre = \(\) =>/.test(ecranSur),
+  'une panne passagere ne doit pas obliger a tuer l application',
+);
+verifier(
+  'la liste de resultats ne peut plus emporter la carte',
+  (ecran.match(/<SectionSure nom="Resultats de recherche">/g) ?? []).length === 2 &&
+    /<SectionSure nom="Resultats de recherche">/.test(picker),
+  'les trois endroits ou l on cherche un lieu : carte, detour, et destination en roulant',
+);
+verifier('ni la fiche du lieu', /<SectionSure nom="Fiche du lieu">/.test(ecran));
+
 console.log('\nLES CINQ LANGUES');
 const clefs = [
   'openNow', 'closedNow', 'closedDay', 'today',

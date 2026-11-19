@@ -63,11 +63,26 @@ export function LisereDore({ hauteur = vip.goldStripeH }: { hauteur?: number }) 
 
   return (
     <View style={[styles.cadre, { height: hauteur }]} onLayout={onLayout} pointerEvents="none">
+      {/* LE DEGRADE N'EST PAS RENDU TANT QU'ON N'A PAS MESURE.
+       *
+       * AU PREMIER RENDU, `largeur` vaut zero : le composant n'a pas encore ete mesure, et
+       * c'est toujours le cas d'un composant qui vient d'apparaitre — donc de CHAQUE ligne de
+       * resultat, a chaque frappe dans la barre de recherche.
+       *
+       * Un `LinearGradient` de largeur nulle construit cote Android un `android.graphics
+       * .LinearGradient` dont les deux points sont confondus. Selon la version d'Android, cela
+       * va du simple non-dessin a une exception NATIVE — qui ne produit pas un cadre rouge
+       * mais la mort du processus, c'est-a-dire un ecran noir puis un redemarrage. C'est
+       * exactement ce que le client a photographie le 19 novembre en cherchant un lieu.
+       *
+       * On ne perd rien a attendre : la mesure arrive au rendu suivant, soit quelques
+       * millisecondes, et le lisere apparait avec la carte. */}
+      {largeur > 0 ? (
       <Animated.View
         style={[
           styles.bande,
           { width: largeur * 2, height: hauteur },
-          largeur > 0 && !mouvementReduit ? { transform: [{ translateX }] } : null,
+          mouvementReduit ? null : { transform: [{ translateX }] },
         ]}
       >
         <LinearGradient
@@ -85,6 +100,7 @@ export function LisereDore({ hauteur = vip.goldStripeH }: { hauteur?: number }) 
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
+      ) : null}
     </View>
   );
 }

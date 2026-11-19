@@ -88,13 +88,20 @@ export function BadgeVipShimmer({ libelle, compact = false }: Props) {
       accessibilityRole="text"
       accessibilityLabel={libelle}
     >
-      {/* Le fond dore du document : bg_badge_gold, du gold500 au gold300. */}
-      <LinearGradient
-        colors={[palette.light.gold500, palette.light.gold300]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      {/* Le fond dore du document : bg_badge_gold, du gold500 au gold300.
+       *
+       * IL N'EST POSE QU'UNE FOIS LE BADGE MESURE — meme raison que dans LisereDore : un
+       * degrade de taille nulle peut lever une exception NATIVE sur Android, qui tue le
+       * processus au lieu de produire une erreur rattrapable. En attendant, le badge porte une
+       * couleur pleine, et personne ne voit la difference sur une frame. */}
+      {largeur > 0 ? (
+        <LinearGradient
+          colors={[palette.light.gold500, palette.light.gold300]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
 
       {largeur > 0 && !mouvementReduit ? (
         <Animated.View
@@ -128,6 +135,9 @@ export function BadgeVipShimmer({ libelle, compact = false }: Props) {
 
 const styles = StyleSheet.create({
   badge: {
+    /* La couleur pleine sous le degrade : elle sert pendant la frame ou le badge n'est pas
+     * encore mesure, et elle evite un rectangle transparent si le degrade echouait. */
+    backgroundColor: palette.light.gold500,
     alignSelf: 'flex-start',
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,

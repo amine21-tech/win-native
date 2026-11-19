@@ -29,6 +29,7 @@ import { avanceDansSegmentM } from '../src/navigation/signalementBlocage';
 import { bearing as geoBearing, blocageConfirme, bloqueLaRoute, countryFromCoords, formatDistance, formatDuration, haversine, NEARBY_RADIUS_M, type Language, type Place, type Report, type ReportKind } from '../src/shared';
 import { api, ApiError } from '../src/api/client';
 import { AddPlaceSheet } from '../src/components/AddPlaceSheet';
+import { SectionSure } from '../src/components/SectionSure';
 import { AssistantPanel } from '../src/components/AssistantPanel';
 import { CategoryChips } from '../src/components/CategoryChips';
 import { JobsSheet } from '../src/components/JobsSheet';
@@ -2874,6 +2875,7 @@ ${t(`report.badge_${report.kind}`)}`,
             >
               <Text style={{ color: colors.text, fontWeight: '700', fontSize: 12.5 }}>✕</Text>
             </Pressable>
+            <SectionSure nom="Resultats de recherche">
             <SearchResults
               visible
               loading={search.loading}
@@ -2889,6 +2891,7 @@ ${t(`report.badge_${report.kind}`)}`,
               onClearHistory={places.clearHistory}
               colors={colors}
             />
+            </SectionSure>
           </View>
         ) : null}
         </>
@@ -2925,22 +2928,29 @@ ${t(`report.badge_${report.kind}`)}`,
           onMicPressIn={() => void voice.start()}
           onMicPressOut={voice.stop}
         />
-        <SearchResults
-          visible={resultsVisible}
-          loading={search.loading}
-          showBookmarks={showBookmarks}
-          results={search.results}
-          favorites={places.favorites}
-          history={places.history}
-          onSelectResult={openPlace}
-          onSelectBookmark={openBookmark}
-          onRemoveHistory={places.removeFromHistory}
-          onClearHistory={places.clearHistory}
-          /* La croix du client (C7) : elle referme le panneau ET rend le clavier, ce que
-             `closeSearchPanel` faisait deja — il ne manquait qu'un endroit ou appuyer. */
-          onClose={closeSearchPanel}
-          colors={colors}
-        />
+        {/* LA LISTE DE RESULTATS NE PEUT PLUS EMPORTER LA CARTE.
+            Le 19 novembre, une recherche a rendu l'ecran entierement noir : une exception
+            pendant ce rendu-la demontait l'arbre entier. Enveloppee, elle devient un cadre
+            rouge qui NOMME la panne, pendant que la carte, la position et le reste de
+            l'ecran continuent de fonctionner. */}
+        <SectionSure nom="Resultats de recherche">
+          <SearchResults
+            visible={resultsVisible}
+            loading={search.loading}
+            showBookmarks={showBookmarks}
+            results={search.results}
+            favorites={places.favorites}
+            history={places.history}
+            onSelectResult={openPlace}
+            onSelectBookmark={openBookmark}
+            onRemoveHistory={places.removeFromHistory}
+            onClearHistory={places.clearHistory}
+            /* La croix du client (C7) : elle referme le panneau ET rend le clavier, ce que
+               `closeSearchPanel` faisait deja — il ne manquait qu'un endroit ou appuyer. */
+            onClose={closeSearchPanel}
+            colors={colors}
+          />
+        </SectionSure>
         {!resultsVisible ? (
           <CategoryChips
             colors={colors}
@@ -3198,6 +3208,9 @@ ${t(`report.badge_${report.kind}`)}`,
       />
 
       {!navigating ? (
+        /* MEME RAISON POUR LA FICHE. C'est l'autre moitie du geste << chercher un lieu >> :
+           on tape, puis on ouvre. Une fiche qui echoue doit laisser la carte debout. */
+        <SectionSure nom="Fiche du lieu">
         <PlaceSheet
           place={selectedPlace}
           isFavorite={selectedPlace ? places.isFavorite(toBookmark(selectedPlace)) : false}
@@ -3221,6 +3234,7 @@ ${t(`report.badge_${report.kind}`)}`,
           onSelectRoute={setSelectedRouteIndex}
           onStartNavigation={startNavigation}
         />
+        </SectionSure>
       ) : null}
       <ConsentGate colors={colors} />
     </View>
