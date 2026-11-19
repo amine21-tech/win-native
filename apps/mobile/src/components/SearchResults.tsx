@@ -4,7 +4,9 @@ import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import type { GeocodedResult } from '../search/geocode';
 import type { Bookmark } from '../store/places';
 import { formatDistance } from '../shared';
-import { radius, spacing, typography, type Palette } from '../theme';
+import { BadgeVipShimmer } from './vip/BadgeVipShimmer';
+import { LisereDore } from './vip/LisereDore';
+import { radius, spacing, typography, vip, type Palette } from '../theme';
 import { photoSource } from '../place/placePhoto';
 import { ConfirmDeleteSheet } from './ConfirmDeleteSheet';
 
@@ -170,33 +172,55 @@ export function SearchResults({
  *  designe le statut VIP — l'anneau des signalements, la fleche de position, le badge NOUVEAU. */
 const OR_VIP = '#D4A017';
 
+/**
+ * LA LIGNE D'UN PARTENAIRE, DANS SON CADRE DORE — amelioration 1 de la synthese du 19 novembre.
+ *
+ * C'est l'endroit exact que le client designe : << identification instantanee dans la liste de
+ * resultats >>. Trois choses la distinguent desormais d'une ligne ordinaire, et aucune ne
+ * demande de lire quoi que ce soit — une bordure doree de deux points, des coins a seize, et un
+ * lisere qui glisse en haut de la carte.
+ *
+ * ON NE TOUCHE PAS A SON RANG. Les partenaires ne sont PAS remontes en tete de liste : c'est
+ * une regle etablie le 2 novembre, parce que les faire passer avant la ville cherchee defaisait
+ * le classement que le client avait lui-meme demande. La carte doree se voit a sa place.
+ */
 function PartnerRow({ place, onPress, colors }: { place: GeocodedResult; onPress: () => void; colors: Palette }) {
   const { t } = useTranslation();
   return (
-    <Pressable style={({ pressed }) => [styles.row, pressed && styles.rowPressed]} onPress={onPress}>
-      {thumbnailOf(place) ? (
-        <ResultThumb uri={thumbnailOf(place)!} colors={colors} />
-      ) : (
-        <ResultPin kind="partner" colors={colors} />
-      )}
-      <View style={styles.rowText}>
-        <Text style={[typography.heading, { color: colors.text }]} numberOfLines={1}>
-          {place.name}
-        </Text>
-        <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={1}>
-          {place.displayName}
-          {place.distanceM != null ? ` · ${formatDistance(place.distanceM)}` : ''}
-        </Text>
-        {/* LE BADGE << WIN VIP >>, EN OR #D4A017 — point 12 du 9 novembre.
-            Il disait << Partenaire >> dans le brun dore du theme (#B8860B). Le document demande
-            l'or des marqueurs WIN et le mot VIP : c'est ce que les abonnes paient, et un mot
-            generique ne le dit pas. Le nom reste en anglais dans les cinq langues — << WIN VIP >>
-            est le nom de l'offre commerciale, pas une phrase a traduire. */}
-        <Text style={[styles.partnerTag, { color: OR_VIP, backgroundColor: OR_VIP + '1f' }]}>
-          ⭐ {t('place.vipBadge')}
-        </Text>
-      </View>
-    </Pressable>
+    <View
+      style={[
+        styles.carteVip,
+        { borderColor: colors.gold300, backgroundColor: colors.surface },
+      ]}
+    >
+      {/* Le lisere anime, cale en haut de la carte et sous ses coins arrondis — d'ou
+          l'`overflow: hidden` du cadre : sans lui, la bande doree depasserait en carre aux
+          deux coins superieurs. */}
+      <LisereDore />
+      <Pressable style={({ pressed }) => [styles.row, pressed && styles.rowPressed]} onPress={onPress}>
+        {thumbnailOf(place) ? (
+          <ResultThumb uri={thumbnailOf(place)!} colors={colors} />
+        ) : (
+          <ResultPin kind="partner" colors={colors} />
+        )}
+        <View style={styles.rowText}>
+          <Text style={[typography.heading, { color: colors.text }]} numberOfLines={1}>
+            {place.name}
+          </Text>
+          <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={1}>
+            {place.displayName}
+            {place.distanceM != null ? ` · ${formatDistance(place.distanceM)}` : ''}
+          </Text>
+          {/* LE BADGE << WIN VIP >> PASSE A LA BRILLANCE — amelioration 3. Le mot et l'or ne
+              changent pas : ils viennent du point 12 du 9 novembre, et << WIN VIP >> est le nom
+              de l'offre commerciale, pas une phrase a traduire. Seul le reflet s'ajoute, en
+              version compacte pour tenir sur une ligne de resultat. */}
+          <View style={styles.badgeLigne}>
+            <BadgeVipShimmer libelle={`⭐ ${t('place.vipBadge')}`} compact />
+          </View>
+        </View>
+      </Pressable>
+    </View>
   );
 }
 
@@ -332,6 +356,23 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 0 },
   status: { ...typography.body, textAlign: 'center', padding: spacing.xl },
   row: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start', padding: spacing.md },
+  /* LE CADRE DORE D'UN PARTENAIRE — les valeurs du dimens.xml de la synthese : coins a 16,
+   * bordure a 2. L'ombre est celle du `cardElevation="6dp"` du document : sans elle, la carte
+   * est encadree mais reste a plat, et le client la decrit comme << une carte Gold >>, ce qui
+   * suppose qu'elle se detache de la page. */
+  carteVip: {
+    borderRadius: vip.cardCorner,
+    borderWidth: vip.strokeWidth,
+    overflow: 'hidden',
+    marginHorizontal: spacing.sm,
+    marginVertical: spacing.xs,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  badgeLigne: { marginTop: 4 },
   rowPressed: { opacity: 0.6 },
   rowText: { flex: 1, gap: 2 },
   pin: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },

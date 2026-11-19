@@ -145,6 +145,13 @@ function mapPlace(p: Place, lang: Language): GeocodedResult {
     viber: p.viber,
     email: p.email,
     promo: p.promo,
+    /* Les trois champs de la fiche VIP Premium. `?? null` plutot que de les laisser absents :
+     * une fiche enregistree avant la migration 0014 renvoie `undefined`, et un `undefined` qui
+     * traverse trois composants finit toujours par etre lu comme « pas encore charge » quelque
+     * part, alors qu'il veut dire « il n'y en a pas ». */
+    horaires: p.horaires ?? null,
+    avisNote: p.avisNote ?? null,
+    avisCount: p.avisCount ?? null,
   };
 }
 

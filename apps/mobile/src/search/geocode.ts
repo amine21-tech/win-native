@@ -1,5 +1,5 @@
 import { api } from '../api/client';
-import type { Language, PlaceCategory } from '../shared';
+import type { Horaire, Language, PlaceCategory } from '../shared';
 import { countryLabel, normalizeCity, WILAYA_POSTCODE, type RankableResult } from '../shared';
 
 export type Coords = { lat: number; lon: number };
@@ -30,6 +30,14 @@ export type GeocodedResult = RankableResult & {
   viber?: string | null;
   email?: string | null;
   promo?: string | null;
+  /* LES TROIS AJOUTS DE LA FICHE VIP PREMIUM (synthese du 19 novembre). Tous optionnels : un
+   * resultat Photon ou Nominatim n'en porte aucun, et une fiche WIN enregistree avant la
+   * migration 0014 non plus. */
+  horaires?: Horaire[] | null;
+  /** Moyenne des avis, calculee par le serveur. Null tant qu'il n'y en a aucun. */
+  avisNote?: number | null;
+  /** Nombre d'avis. L'affichage exige trois minimum — voir src/place/avis.ts. */
+  avisCount?: number | null;
 };
 
 /**

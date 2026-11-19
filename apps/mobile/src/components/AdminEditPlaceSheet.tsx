@@ -333,6 +333,15 @@ const ADMIN_COLORS: Palette = {
   goldDeep: '#D4AF6A',
   alert: '#B8860B',
   danger: '#C8102E',
+  /* Les cinq jetons de la fiche VIP Premium (19 novembre). Ce panneau garde sa palette fixe,
+   * en mode jour : ce sont donc les valeurs claires du document. Il ne les utilise pas
+   * aujourd'hui, mais `Palette` les exige — et le jour ou l'on y montrera l'etat << Ouvert >>
+   * d'une fiche, les couleurs seront celles du reste de l'application. */
+  gold500: '#C8880E',
+  gold300: '#F0B429',
+  goldBg: '#FFFAED',
+  openGreen: '#1A7A40',
+  openBg: '#E5F5EC',
 };
 
 function Field({ label, colors, children, style }: { label: string; colors: Palette; children: ReactNode; style?: object }) {

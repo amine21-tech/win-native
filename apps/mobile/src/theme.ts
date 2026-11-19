@@ -26,6 +26,19 @@ export const palette = {
     goldDeep: '#D4AF6A',
     alert: '#B8860B',
     danger: '#C8102E',
+    /* LES CINQ JETONS DE LA FICHE VIP PREMIUM — synthese du 19 novembre, valeurs exactes du
+     * document. Ils s'AJOUTENT a `gold` et `goldDeep` sans les remplacer : ces deux-la portent
+     * depuis la v83 les badges partenaire et admin partout dans l'application, et les redefinir
+     * aurait repeint une dizaine d'ecrans que personne n'avait demande de changer.
+     *
+     * Le dore de la synthese est plus sature que le notre (#C8880E contre #E9B949), et c'est
+     * precisement ce que le client cherche : « une carte Gold vs une carte standard ». Le
+     * distinguer demandait un or qui ne ressemble pas a celui des badges ordinaires. */
+    gold500: '#C8880E',
+    gold300: '#F0B429',
+    goldBg: '#FFFAED',
+    openGreen: '#1A7A40',
+    openBg: '#E5F5EC',
   },
   /* LA NUIT GARDE SON VERT PLUS CLAIR, et ce n'est pas un oubli : les maquettes du client sont
    * dessinees de jour, et un vert plus sombre encore sur un fond sombre perd le contraste dont
@@ -45,6 +58,19 @@ export const palette = {
     goldDeep: '#D4AF6A',
     alert: '#B8860B',
     danger: '#C8102E',
+    /* L'OR NE CHANGE PAS LA NUIT — comme `gold` et l'accent depuis la v83 : un dore assombri
+     * cesse de se lire comme de l'or et devient du brun.
+     *
+     * LES DEUX FONDS, EUX, SONT RETOURNES, et il fallait le faire. #FFFAED et #E5F5EC sont des
+     * blancs casses : poses sur le fond nocturne (#0E1512), ils auraient fait deux rectangles
+     * eblouissants au milieu d'une fiche sombre — exactement ce que le client avait signale sur
+     * le trace de l'itineraire, qu'il ne voyait plus la nuit. On garde donc la TEINTE (un soupcon
+     * d'or, un soupcon de vert) en inversant la luminosite. */
+    gold500: '#C8880E',
+    gold300: '#F0B429',
+    goldBg: '#2A2416',
+    openGreen: '#4FD188',
+    openBg: '#13301F',
   },
 } as const;
 
@@ -88,6 +114,24 @@ export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as cons
 
 /** Rayons repris de la v83 : searchbox/resultats 15px, sheet/tripcard 22px, fab 13px. */
 export const radius = { sm: 10, md: 15, lg: 22, pill: 999 } as const;
+
+/**
+ * DIMENSIONS DE LA FICHE VIP PREMIUM — les quatre valeurs du dimens.xml de la synthese.
+ *
+ * Elles sont ici, nommees, et non recopiees a la main dans chaque composant : le client les a
+ * chiffrees une par une, et c'est le genre de nombre qu'on finit par ecrire 16 ici et 15 la.
+ * Le verificateur les relit a cette seule adresse.
+ */
+export const vip = {
+  /** `vip_card_corner` : rayon des coins de la carte VIP. */
+  cardCorner: 16,
+  /** `vip_stroke_width` : epaisseur de la bordure doree. */
+  strokeWidth: 2,
+  /** `vip_gold_stripe_h` : hauteur du lisere anime en haut de la carte. */
+  goldStripeH: 3,
+  /** `carousel_height` : hauteur du carousel de photos. */
+  carouselHeight: 175,
+} as const;
 
 /**
  * Taille minimale des zones tactiles. En navigation, l'utilisateur vise mal :

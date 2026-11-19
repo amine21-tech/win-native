@@ -9,6 +9,7 @@ import {
   contributorCheckInput,
   vipActionInput,
   vipCheckInput,
+  avisInput,
 } from '@win/shared';
 import { timingSafeEqual } from 'node:crypto';
 import { db } from '../db/client.js';
@@ -37,10 +38,33 @@ const placeColumns = sql`
   p.email,
   p.enseigne,
   p.promo,
+  p.horaires,
   p.is_partner                    AS "isPartner",
   p.created_at                    AS "createdAt",
   p.updated_at                    AS "updatedAt",
-  COALESCE(ph.photos, '[]'::json) AS photos
+  COALESCE(ph.photos, '[]'::json) AS photos,
+  av.note                         AS "avisNote",
+  COALESCE(av.nombre, 0)          AS "avisCount"
+`;
+
+/**
+ * MOYENNE ET NOMBRE D'AVIS — amelioration 5 de la synthese « Fiche VIP Premium ».
+ *
+ * Le calcul est fait par la base, comme le demande le document (« côté serveur ») : le telephone
+ * recoit deux nombres et jamais la liste des avis. Cela evite de transporter cent avis pour en
+ * afficher la moyenne, et surtout cela empeche l'application de calculer la note elle-meme — ce
+ * qui, le jour ou deux versions du telephone coexistent, donnerait deux notes differentes pour
+ * le meme commerce.
+ *
+ * `ROUND(..., 2)` plutot que la moyenne brute : la fiche n'affiche qu'une decimale, et une
+ * moyenne a quinze chiffres dans la reponse JSON ne sert qu'a la grossir.
+ */
+const avisJoin = sql`
+  LEFT JOIN LATERAL (
+    SELECT ROUND(AVG(r.note)::numeric, 2)::float8 AS note, COUNT(*)::int AS nombre
+    FROM place_reviews r
+    WHERE r.place_id = p.id
+  ) av ON true
 `;
 
 /**
@@ -210,6 +234,7 @@ const routes: FastifyPluginAsync = async (app) => {
              END                                                          AS "distanceM"
       FROM places p
       ${photosJoin}
+      ${avisJoin}
       WHERE p.deleted_at IS NULL
         AND p.status = 'published'
         AND (${category ?? null}::text IS NULL OR p.category = ${category ?? null})
@@ -265,6 +290,7 @@ const routes: FastifyPluginAsync = async (app) => {
       SELECT ${placeColumns}
       FROM places p
       ${photosJoin}
+      ${avisJoin}
       WHERE p.id = ${req.params.id} AND p.deleted_at IS NULL
       LIMIT 1
     `)) as unknown as unknown[];
@@ -296,6 +322,7 @@ const routes: FastifyPluginAsync = async (app) => {
       SELECT ${placeColumns}
       FROM places p
       ${photosJoin}
+      ${avisJoin}
       WHERE p.deleted_at IS NULL
         AND p.status = 'published'
         ${partenairesSeuls ? sql`AND p.is_partner = true` : sql``}
@@ -375,6 +402,62 @@ const routes: FastifyPluginAsync = async (app) => {
                 ${JSON.stringify(avant)}::jsonb)
       `);
       return { ok: true, action };
+    },
+  );
+
+  /**
+   * DEPOSER UN AVIS SUR UN LIEU — amelioration 5 de la synthese « Fiche VIP Premium ».
+   *
+   * POURQUOI CETTE ROUTE EXISTE ALORS QUE LE DOCUMENT NE LA DEMANDE PAS. La synthese decrit
+   * l'affichage de la note et fixe le seuil a trois avis, en supposant la table deja remplie.
+   * Sans aucun moyen d'en deposer un, aucune fiche n'atteindrait jamais trois avis : les etoiles
+   * auraient ete ecrites, testees, et invisibles partout. C'est exactement le defaut trouve le
+   * 18 novembre sur le rayon VIP — une fonction correcte, et sans effet dans la situation pour
+   * laquelle on l'avait demandee.
+   *
+   * UN AVIS PAR APPAREIL, ET IL SE REMPLACE. `requireDevice` donne l'identifiant du telephone,
+   * et l'index unique de la migration 0014 fait le reste : deposer une seconde fois CORRIGE la
+   * note au lieu d'en ajouter une. On change d'avis sur un commerce ; on ne vote pas dix fois.
+   * Sans cela, le seuil de trois avis ne protegerait rien — un seul appareil l'atteindrait en
+   * trois secondes, et la note moyenne appartiendrait a qui appuie le plus.
+   *
+   * La limite de debit est celle du code VIP : c'est une ecriture declenchee par un doigt sur un
+   * ecran, jamais en rafale.
+   */
+  app.post<{ Params: { id: string } }>(
+    '/places/:id/avis',
+    { preHandler: [app.requireDevice], config: VIP_RATE_LIMIT },
+    async (req) => {
+      const { note, commentaire } = parse(avisInput, req.body);
+
+      /* On verifie que le lieu existe AVANT d'ecrire : la cle etrangere le ferait aussi, mais
+       * elle renverrait une erreur de base de donnees opaque la ou le telephone a besoin d'un
+       * 404 qu'il sait afficher. */
+      const lieu = (await db.execute(sql`
+        SELECT p.id FROM places p
+        WHERE p.id = ${req.params.id} AND p.deleted_at IS NULL AND p.status = 'published'
+        LIMIT 1
+      `)) as unknown as { id: string }[];
+      if (lieu.length === 0) throw notFound();
+
+      await db.execute(sql`
+        INSERT INTO place_reviews (place_id, device_id, note, commentaire)
+        VALUES (${req.params.id}, ${req.deviceId!}, ${note}, ${commentaire ?? null})
+        ON CONFLICT (place_id, device_id)
+        DO UPDATE SET note = EXCLUDED.note,
+                      commentaire = EXCLUDED.commentaire,
+                      created_at = now()
+      `);
+
+      /* On renvoie la moyenne recalculee, et non un simple `ok`. Le telephone peut alors
+       * rafraichir les etoiles sans redemander la fiche entiere — et surtout, celui qui vient
+       * de noter VOIT son avis compte, ce qui est la seule confirmation qui vaille. */
+      const agg = (await db.execute(sql`
+        SELECT ROUND(AVG(note)::numeric, 2)::float8 AS note, COUNT(*)::int AS nombre
+        FROM place_reviews WHERE place_id = ${req.params.id}
+      `)) as unknown as { note: number | null; nombre: number }[];
+
+      return { ok: true, avisNote: agg[0]?.note ?? null, avisCount: agg[0]?.nombre ?? 0 };
     },
   );
 
@@ -478,14 +561,16 @@ const routes: FastifyPluginAsync = async (app) => {
     const rows = (await db.execute(sql`
       INSERT INTO places (name, category, geom, house_number, street, city, postal_code,
                           wilaya, country, phone_fixe, phone_mobile, whatsapp, viber, email,
-                          enseigne, promo, is_partner, created_by)
+                          enseigne, promo, horaires, is_partner, created_by)
       VALUES (${input.name}, ${input.category},
               ST_SetSRID(ST_MakePoint(${input.lon}, ${input.lat}), 4326)::geography,
               ${input.houseNumber ?? null}, ${input.street ?? null}, ${input.city ?? null},
               ${input.postalCode ?? null}, ${input.wilaya ?? null}, ${input.country},
               ${input.phoneFixe ?? null}, ${input.phoneMobile ?? null},
               ${input.whatsapp ?? null}, ${input.viber ?? null}, ${input.email ?? null},
-              ${input.enseigne ?? null}, ${input.promo ?? null}, ${isVip}, ${deviceId})
+              ${input.enseigne ?? null}, ${input.promo ?? null},
+              ${input.horaires ? JSON.stringify(input.horaires) : null}::jsonb,
+              ${isVip}, ${deviceId})
       RETURNING id
     `)) as unknown as { id: string }[];
 
@@ -546,6 +631,7 @@ const routes: FastifyPluginAsync = async (app) => {
       SELECT ${placeColumns}
       FROM places p
       ${photosJoin}
+      ${avisJoin}
       WHERE p.created_by = ${req.deviceId!}
         AND p.deleted_at IS NULL
       ORDER BY p.created_at DESC
@@ -600,6 +686,7 @@ const routes: FastifyPluginAsync = async (app) => {
           viber        = COALESCE(${input.viber ?? null}, viber),
           email        = COALESCE(${input.email ?? null}, email),
           enseigne     = COALESCE(${input.enseigne ?? null}, enseigne),
+          horaires     = COALESCE(${input.horaires ? JSON.stringify(input.horaires) : null}::jsonb, horaires),
           geom         = CASE WHEN ${input.lat ?? null}::double precision IS NOT NULL
                               THEN ST_SetSRID(ST_MakePoint(${input.lon ?? null}, ${input.lat ?? null}), 4326)::geography
                               ELSE geom END,
@@ -737,6 +824,7 @@ const routes: FastifyPluginAsync = async (app) => {
           viber        = COALESCE(${input.viber ?? null}, viber),
           email        = COALESCE(${input.email ?? null}, email),
           enseigne     = COALESCE(${input.enseigne ?? null}, enseigne),
+          horaires     = COALESCE(${input.horaires ? JSON.stringify(input.horaires) : null}::jsonb, horaires),
           promo        = COALESCE(${input.promo ?? null}, promo),
           is_partner   = COALESCE(${input.isPartner ?? null}, is_partner),
           geom         = CASE WHEN ${input.lat ?? null}::double precision IS NOT NULL

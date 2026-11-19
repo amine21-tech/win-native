@@ -88,6 +88,24 @@ export const placePhoto = z.object({
 });
 export type PlacePhoto = z.infer<typeof placePhoto>;
 
+/**
+ * UNE PLAGE D'OUVERTURE — amelioration 4 de la synthese « Fiche VIP Premium ».
+ *
+ * `jour` suit `Date.prototype.getDay()` : 0 = dimanche … 6 = samedi. Plusieurs plages peuvent
+ * porter le meme jour, et c'est voulu : c'est ainsi qu'on ecrit la coupure de midi, que la
+ * synthese ne prevoyait pas et qui aurait fait afficher « Ouvert » a treize heures devant une
+ * porte close. Voir apps/mobile/src/place/horaires.ts pour la regle complete.
+ *
+ * L'heure est acceptee en « 08h00 » comme en « 08:00 » : refuser l'une des deux ecritures ne
+ * protege rien et fait perdre une saisie.
+ */
+export const horaire = z.object({
+  jour: z.number().int().min(0).max(6),
+  ouv: z.string().trim().regex(/^\d{1,2}\s*[h:]\s*\d{0,2}$/),
+  ferm: z.string().trim().regex(/^\d{1,2}\s*[h:]\s*\d{0,2}$/),
+});
+export type Horaire = z.infer<typeof horaire>;
+
 export const place = z.object({
   id: uuid,
   name: z.string(),
@@ -109,10 +127,37 @@ export const place = z.object({
   promo: z.string().nullable(),
   isPartner: z.boolean(),
   photos: z.array(placePhoto),
+  /* Les trois ajouts de la synthese « Fiche VIP Premium ». Ils sont NULLABLES et absents par
+   * defaut : une fiche ordinaire n'en porte aucun, et le principe pose par le fondateur —
+   * « ne rien casser » — veut qu'un client plus ancien qui ignore ces champs continue de
+   * fonctionner a l'identique. */
+  horaires: z.array(horaire).nullable().optional(),
+  /** Moyenne des avis, calculee par le serveur. Null tant qu'il n'y a aucun avis. */
+  avisNote: z.number().nullable().optional(),
+  /** Nombre d'avis. L'affichage exige trois minimum — voir apps/mobile/src/place/avis.ts. */
+  avisCount: z.number().int().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
 export type Place = z.infer<typeof place>;
+
+/**
+ * DEPOSER UN AVIS sur une fiche VIP.
+ *
+ * POURQUOI CETTE ROUTE EXISTE ALORS QUE LA SYNTHESE NE LA DEMANDE PAS. Le document decrit
+ * l'affichage de la note et fixe le seuil a trois avis, en supposant la table remplie. Sans
+ * aucun moyen d'en deposer un, AUCUNE fiche n'atteindrait jamais trois avis : les etoiles
+ * seraient ecrites, testees, et invisibles partout — exactement le defaut trouve le 18 novembre
+ * sur le rayon VIP, qui agissait dans une situation que l'application n'atteignait pas.
+ *
+ * Le commentaire est optionnel : la synthese n'affiche que la note et le compte, et demander un
+ * texte ferait abandonner la plupart des gens avant d'avoir note.
+ */
+export const avisInput = z.object({
+  note: z.number().int().min(1).max(5),
+  commentaire: z.string().trim().max(400).optional(),
+});
+export type AvisInput = z.infer<typeof avisInput>;
 
 export const createPlaceInput = z.object({
   name: z.string().trim().min(2).max(160),
@@ -132,6 +177,9 @@ export const createPlaceInput = z.object({
   email: z.string().email().optional(),
   enseigne: z.string().trim().max(160).optional(),
   promo: z.string().trim().max(280).optional(),
+  /* Au plus deux plages par jour, soit quatorze : c'est ce qu'il faut pour sept jours avec
+   * coupure de midi, et cela borne la saisie sans jamais gener un commerce reel. */
+  horaires: z.array(horaire).max(14).optional(),
   photoIds: z.array(uuid).max(6).optional(),
   /** Code du service VIP. Present et exact : le lieu est enregistre comme partenaire VIP.
    * Verifie UNIQUEMENT par le serveur — l'application ne le connait pas. */

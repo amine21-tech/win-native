@@ -7,6 +7,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -73,6 +74,8 @@ export const places = pgTable('places', {
   email: text('email'),
   enseigne: text('enseigne'),
   promo: text('promo'),
+  /** Plages d'ouverture — voir 0014_fiche_vip_premium.sql et le schema partage `horaire`. */
+  horaires: jsonb('horaires'),
   isPartner: boolean('is_partner').notNull().default(false),
   partnerId: uuid('partner_id'),
   status: text('status').notNull().default('published'),
@@ -94,6 +97,22 @@ export const placePhotos = pgTable('place_photos', {
   credit: text('credit'),
   position: integer('position').notNull().default(0),
   uploadedBy: uuid('uploaded_by'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * AVIS SUR UN LIEU — amelioration 5 de la synthese « Fiche VIP Premium ».
+ *
+ * Les avis sont enregistres pour tous les lieux, mais la note n'est AFFICHEE que sur les fiches
+ * partenaires et a partir de trois avis. Une fiche qui devient VIP garde ainsi ce qui a deja ete
+ * depose, plutot que de repartir de zero le jour de l'abonnement.
+ */
+export const placeReviews = pgTable('place_reviews', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  placeId: uuid('place_id').notNull(),
+  deviceId: uuid('device_id'),
+  note: smallint('note').notNull(),
+  commentaire: text('commentaire'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

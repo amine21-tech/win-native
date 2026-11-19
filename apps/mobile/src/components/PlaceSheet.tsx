@@ -18,10 +18,16 @@ import { clearSearchCache } from '../search/usePlaceSearch';
 import { ConfirmDeleteSheet } from './ConfirmDeleteSheet';
 import { GererFiche } from './GererFiche';
 import { usePlaces } from '../store/places';
-import { fonts, radius, spacing, typography, type Palette } from '../theme';
+import { fonts, radius, spacing, typography, vip, type Palette } from '../theme';
 import { AdminEditPlaceSheet } from './AdminEditPlaceSheet';
 import { CorrectionSheet } from './CorrectionSheet';
 import { VipActionSheet } from './VipActionSheet';
+import { AvisVip } from './vip/AvisVip';
+import { BadgeVipShimmer } from './vip/BadgeVipShimmer';
+import { CarouselPhotos } from './vip/CarouselPhotos';
+import { HorairesVip } from './vip/HorairesVip';
+import { LisereDore } from './vip/LisereDore';
+import { aDesHoraires } from '../place/horaires';
 import { TripCard } from './TripCard';
 import { WinPlaceActions, WinPlaceCard } from './WinPlaceCard';
 
@@ -305,6 +311,10 @@ export function PlaceSheet({
       ]}
     >
       <View style={[styles.grip, { backgroundColor: colors.border }]} />
+      {/* LE LISERE DORE ANIME — amelioration 1. Hors du defilement, pleine largeur : il marque
+          la fiche et ne remonte pas avec le texte. Les fiches ordinaires n'en ont pas, et c'est
+          tout l'interet : la difference se voit avant d'avoir lu un mot. */}
+      {place.isPartner ? <LisereDore /> : null}
       {/* `flexShrink` EST INDISPENSABLE, et son absence est un piege connu de React Native :
           il vaut zero par defaut, la liste garde alors la hauteur de son contenu, et les
           boutons epingles en dessous sont simplement pousses hors du cadre. C'est exactement
@@ -342,10 +352,13 @@ export function PlaceSheet({
           </Pressable>
         ) : null}
 
+        {/* LE BADGE A BRILLANCE remplace le texte dore statique — amelioration 3. La synthese
+            le compare dans son tableau : << I texte statique >> contre << Badge dore shimmer >>.
+            C'est le meme libelle traduit, dans un badge qui capte la lumiere. */}
         {place.isPartner ? (
-          <Text style={[styles.badge, { color: colors.alert, backgroundColor: colors.gold + '2a' }]}>
-            {t('place.partner')}
-          </Text>
+          <View style={styles.badgeVipLigne}>
+            <BadgeVipShimmer libelle={`⭐  ${t('place.partner')}`} />
+          </View>
         ) : null}
 
         {/* Une photo trouvee mais impossible a charger le DIT, au lieu de disparaitre sans
@@ -358,7 +371,17 @@ export function PlaceSheet({
           </Text>
         ) : null}
 
-        {mainPhoto && photoState !== 'failed' ? (
+        {/* LE CAROUSEL, RESERVE AUX FICHES PARTENAIRES — amelioration 2. Le tableau comparatif
+            de la synthese est explicite : << 1 vignette >> pour une fiche standard, << Carousel
+            3 photos >> pour une fiche VIP.
+            
+            Le signalement de photo (le drapeau ⚑) n'est pas repris ici : il vise une photo
+            precise, et il faudrait suivre la page affichee pour savoir laquelle. Sur une fiche
+            partenaire les photos sont celles du commerce lui-meme, et << Gerer cette fiche >> —
+            ouvert a tout le monde, plus bas — mene au meme signalement. */}
+        {place.isPartner && gallery.length > 0 ? (
+          <CarouselPhotos photos={gallery} colors={colors} credit={t('place.photoByWin')} />
+        ) : mainPhoto && photoState !== 'failed' ? (
           <View style={[styles.photoBox, { backgroundColor: colors.surfaceAlt }]}>
             {/* `key` lie l'image a son adresse : changer de lieu detruit et recree la vue au
                 lieu de la reutiliser avec l'etat de la recherche precedente. */}
@@ -476,6 +499,25 @@ export function PlaceSheet({
             {place.isPartner ? `⭐ ${t('place.addedByWinVip')}` : t('place.addedByWin')}
           </Text>
         ) : null}
+
+        {/* HORAIRES EN TEMPS REEL — amelioration 4. Reserve aux fiches partenaires, comme le
+            dit le tableau comparatif : << — >> pour une fiche standard. Le cadre n'apparait
+            pas du tout si aucun horaire n'a ete saisi : un bloc vide intitule << Horaires >>
+            est pire que pas de bloc, il se lit comme une panne. */}
+        {place.isPartner && aDesHoraires(place.horaires) ? (
+          <HorairesVip horaires={place.horaires!} colors={colors} />
+        ) : null}
+
+        {/* ETOILES ET AVIS — amelioration 5. Le composant decide lui-meme de s'afficher ou
+            non : fiche partenaire, et trois avis au minimum pour montrer une note. */}
+        <AvisVip
+          placeId={place.placeId}
+          estPartenaire={Boolean(place.isPartner)}
+          categorie={place.category}
+          note={place.avisNote}
+          nombre={place.avisCount}
+          colors={colors}
+        />
 
         {isAirport(place) ? (
           <TransportLink
@@ -816,6 +858,9 @@ const styles = StyleSheet.create({
    * au-dessous d'elle — assez pour que l'oeil comme le pouce les separent. */
   sousLaCroix: { paddingTop: 26 },
   defilant: { flexShrink: 1 },
+  /* Le badge a brillance porte son fond dore lui-meme (c'est un degrade, pas une couleur) :
+   * cette ligne ne lui donne donc que la marge basse que portait l'ancien texte. */
+  badgeVipLigne: { marginBottom: spacing.sm },
   badge: {
     ...typography.caption,
     alignSelf: 'flex-start',
