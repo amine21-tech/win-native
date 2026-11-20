@@ -35,53 +35,66 @@ stop()  { printf '   \033[0;31mNON\033[0m  %s\n' "$1"; exit 1; }
 cd "$RACINE"
 
 # ------------------------------------------------------------------ quels fichiers
+#
+# TOUT apps/api ET TOUT packages/shared, A CHAQUE PASSAGE.
+#
+# POURQUOI, ET CE QUE L'ANCIENNE REGLE A COUTE. Ce script ne copiait que les fichiers DU DERNIER
+# COMMIT touchant l'API. Un correctif ecrit dans un commit, puis suivi d'un autre commit touchant
+# l'API, n'etait donc PLUS JAMAIS copie : le second effaçait le premier de la liste. Rien ne le
+# signalait. Le serveur restait en arriere sur des fichiers entiers, et l'application recevait
+# des reponses d'une version ancienne.
+#
+# Releve le 20 novembre, en interrogeant le serveur reel :
+#
+#   - GET /v2/config -> << route inconnue >>. Le rayon VIP ne pouvait donc PAS etre ajuste
+#     depuis le serveur, alors que c'etait la demande meme du point A (<< modifiable depuis le
+#     serveur sans mise a jour de l'app >>). routes/health.ts n'avait jamais ete copie.
+#
+#   - GET /v2/jobs?radiusKm=2000 depuis Constantine -> zero offre, alors que quatre existent a
+#     320 km. Le serveur ignorait le parametre et retombait sur ses cinquante kilometres : le
+#     CURSEUR EMPLOI, valide de 0 a 2000 km au point E.3, ne servait a rien. routes/jobs.ts
+#     n'avait jamais ete copie.
+#
+# Les deux correctifs etaient dans le depot depuis le 18 novembre, verificateurs au vert. Le code
+# etait juste ; il n'etait pas sur la machine. C'est la pire categorie de panne : tout le monde
+# la croit reglee.
+#
+# Le raisonnement est celui que ce script appliquait DEJA a packages/shared, et pour la meme
+# raison. Il manquait seulement de l'appliquer a l'API : cinquante fichiers, deux cent soixante-
+# dix kilo-octets, qui n'ont aucune raison de differer entre le depot et le serveur. On les remet
+# a l'identique a chaque passage, ce qui rend ce retard impossible.
+#
+# Une liste explicite reste acceptee en argument pour les cas particuliers ; elle declenche alors
+# la recopie du code partage, comme avant.
 if [ "$#" -gt 0 ]; then
   FICHIERS=("$@")
-else
-  bleu "Fichiers du dernier commit touchant l'API"
-  # LE DERNIER COMMIT TOUT COURT NE CONVIENT PAS : chaque livraison se termine par un commit
-  # << Version NN >> qui ne modifie que app.json, cote mobile. Interroger l'historique FILTRE
-  # par chemin donne le dernier commit qui concerne reellement le serveur.
-  SHA=$(curl -fsSL "$DEPOT_API/commits?path=apps/api&per_page=1" \
-        | grep -oE '"sha": *"[0-9a-f]{40}"' | head -n 1 | sed 's/.*": *"//; s/"$//')
-  [ -n "$SHA" ] || stop "impossible de lire l'historique du depot."
-  echo "   commit $SHA"
-  # On ne garde que les chemins sous apps/api et packages/shared : le reste (application
-  # mobile, scripts, documentation) n'a rien a faire dans le conteneur.
-  mapfile -t FICHIERS < <(
-    curl -fsSL "$DEPOT_API/commits/$SHA" \
-      | grep -oE '"filename": *"[^"]+"' \
-      | sed 's/.*": *"//; s/"$//' \
-      | grep -E '^(apps/api|packages/shared)/' || true
-  )
-  [ "${#FICHIERS[@]}" -gt 0 ] || stop "ce commit ne touche aucun fichier de l'API — rien a faire."
+  bleu "Fichiers demandes explicitement"
   printf '   %s\n' "${FICHIERS[@]}"
-fi
 
-# ------------------------------------------------------------------ le code partage, TOUJOURS
-#
-# POURQUOI packages/shared EST RECOPIE EN ENTIER A CHAQUE FOIS, meme quand le commit n'y touche
-# pas. Ce script copie les fichiers d'UN commit ; or le code partage s'enrichit par petites
-# touches reparties sur des dizaines de commits, dont beaucoup ne concernent que l'application
-# mobile et ne sont donc jamais deployes. Le dossier du serveur prend du retard sans que rien
-# ne le signale — jusqu'au jour ou un fichier neuf importe un fichier ancien.
-#
-# C'est exactement ce qui s'est produit le 2 novembre : la construction a echoue avec
-# « Cannot find module './dates.js' » et « no exported member DZ_WILAYA_NAMES ». Deux fichiers
-# manquaient depuis des semaines et quatre autres etaient perimes, sans qu'aucune livraison
-# precedente ne s'en plaigne.
-#
-# Le dossier est petit — neuf fichiers, quelques dizaines de kilo-octets — et il n'a aucune
-# raison de differer entre le depot et le serveur. On le remet donc a l'identique a chaque
-# passage, ce qui rend ce retard impossible.
-bleu "Code partage (recopie integrale)"
-PARTAGES=$(curl -fsSL "$DEPOT_API/contents/packages/shared/src" \
-           | grep -oE '"path": *"[^"]+\.ts"' | sed 's/.*": *"//; s/"$//')
-[ -n "$PARTAGES" ] || stop "impossible de lister packages/shared/src."
-for f in $PARTAGES; do
-  case " ${FICHIERS[*]} " in *" $f "*) ;; *) FICHIERS+=("$f") ;; esac
-done
-printf '   %s\n' $PARTAGES
+  # Le code partage suit toujours : voir le 2 novembre, ou deux fichiers manquaient depuis des
+  # semaines et quatre autres etaient perimes sans qu'aucune livraison ne s'en plaigne.
+  bleu "Code partage (recopie integrale)"
+  PARTAGES=$(curl -fsSL "$DEPOT_API/contents/packages/shared/src" \
+             | grep -oE '"path": *"[^"]+\.ts"' | sed 's/.*": *"//; s/"$//')
+  [ -n "$PARTAGES" ] || stop "impossible de lister packages/shared/src."
+  for f in $PARTAGES; do
+    case " ${FICHIERS[*]} " in *" $f "*) ;; *) FICHIERS+=("$f") ;; esac
+  done
+  printf '   %s\n' $PARTAGES
+else
+  bleu "Tout l'API et tout le code partage"
+  # UNE SEULE REQUETE donne l'arbre complet du depot ; on n'en garde que les fichiers (type
+  # << blob >>) des deux dossiers. Les dossiers eux-memes sont ecartes : un curl sur un dossier
+  # echouerait et arreterait le deploiement.
+  mapfile -t FICHIERS < <(
+    curl -fsSL "$DEPOT_API/git/trees/main?recursive=1" \
+      | tr -d ' \n' \
+      | grep -oE '"path":"(apps/api|packages/shared)/[^"]+","mode":"[0-9]+","type":"blob"' \
+      | sed 's/.*"path":"//; s/","mode.*//'
+  )
+  [ "${#FICHIERS[@]}" -gt 0 ] || stop "impossible de lister les fichiers du depot."
+  echo "   ${#FICHIERS[@]} fichiers"
+fi
 
 bleu "Recuperation"
 for f in "${FICHIERS[@]}"; do
