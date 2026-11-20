@@ -106,19 +106,20 @@ export function PanneauDirection({
 }: Props) {
   const { t } = useTranslation();
 
-  if (arrived || !maneuver) {
-    return (
-      <View style={styles.bloc} pointerEvents="none">
-        <Text style={styles.arrivee}>🏁  {t('nav.arrived')}</Text>
-      </View>
-    );
-  }
-
   /* L'ANIMATION TOURNE EN PERMANENCE ET SON OPACITE EST APPLIQUEE OU NON.
    *
-   * Un hook ne peut pas etre appele apres un retour conditionnel, et ce composant en a un
-   * plus haut (l'arrivee). L'animation est donc declaree avant, et elle ne coute rien : elle
-   * tourne sur le fil natif, sans traverser le pont JavaScript. */
+   * CES DEUX HOOKS SONT DECLARES AVANT LE RETOUR DE L'ARRIVEE, ET C'EST LA TOUT LE SUJET.
+   * Ils etaient apres, sous le commentaire qui disait qu'ils etaient avant. A l'arrivee le
+   * composant executait deux hooks, puis a la manoeuvre suivante il en executait quatre :
+   * React compte les hooks, en trouvait plus qu'au rendu precedent, et levait
+   * << Rendered more hooks than during the previous render >>. L'exception demontait l'arbre
+   * entier — ecran noir au volant, au moment ou le conducteur avait le plus besoin de sa
+   * carte. Le 20 novembre, c'est ce qui est arrive sur le telephone de test.
+   *
+   * L'animation ne coute rien la ou elle est : elle tourne sur le fil natif, sans traverser
+   * le pont JavaScript, et son opacite n'est appliquee que dans les cinq cents derniers
+   * metres. La declarer toujours est donc gratuit ; la declarer conditionnellement etait
+   * fatal. */
   const clignote = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     const boucle = Animated.loop(
@@ -140,6 +141,15 @@ export function PanneauDirection({
     boucle.start();
     return () => boucle.stop();
   }, [clignote]);
+
+  /* L'ARRIVEE : le retour anticipe, pose APRES les hooks, jamais avant. */
+  if (arrived || !maneuver) {
+    return (
+      <View style={styles.bloc} pointerEvents="none">
+        <Text style={styles.arrivee}>🏁  {t('nav.arrived')}</Text>
+      </View>
+    );
+  }
 
   const montrerSuivante =
     suivante != null && ecartSuivanteM != null && ecartSuivanteM <= SUIVANTE_PROCHE_M;

@@ -41,6 +41,19 @@ jobs:
           cache: npm
           cache-dependency-path: apps/mobile/package-lock.json
 
+      # AUCUN APK NE PART AVEC UN HOOK APPELE APRES UN RETOUR ANTICIPE.
+      #
+      # Ce defaut a produit les deux ecrans noirs des 19 et 20 novembre : React compte les
+      # hooks, et en executer un de plus qu'au rendu precedent leve une exception qui demonte
+      # l'arbre entier. Ni TypeScript ni la compilation ne le voient — il ne se declenche qu'au
+      # moment ou la condition change, c'est-a-dire chez l'utilisateur. Un APK qui le contient
+      # ne vaut pas la peine d'etre fabrique : la construction s'arrete ici.
+      #
+      # Le script commence par se prouver sur des cas connus. Il s'est tu trois fois sur un
+      # fichier fautif, et une garantie fausse est pire qu'aucune garantie.
+      - name: Aucun hook apres un retour anticipe
+        run: python3 -I apps/mobile/scripts/verifier-hooks.py
+
       # Java 17 : version exigee par Gradle 8 et le greffon Android.
       - uses: actions/setup-java@v4
         with:
