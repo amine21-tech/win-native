@@ -11,9 +11,11 @@ DEPOT. Sur le serveur, deux fichiers n'avaient jamais ete copies :
   - routes/health.ts : GET /v2/config repondait << route inconnue >>. Le rayon VIP ne pouvait
     donc pas etre ajuste depuis le serveur, alors que c'etait la demande meme du point A.
 
-  - routes/jobs.ts : GET /v2/jobs?radiusKm=2000 ignorait le parametre. Le CURSEUR EMPLOI,
-    valide de 0 a 2000 km au point E.3, ne servait a rien : le serveur rendait toujours ses
-    cinquante kilometres.
+Un seul fichier manquait donc reellement. J'avais accuse routes/jobs.ts du meme retard, sur la
+foi d'un test de ce script qui mesurait la mauvaise chose : il interrogeait de tres loin, ou les
+offres sont hors de la portee que l'employeur a payee, et prenait ce vide pour un parametre
+ignore. Le curseur emploi fonctionnait. Le test est refait plus bas, et le raisonnement est
+explique a l'endroit ou il sert.
 
 Le script de deploiement ne copiait que les fichiers du DERNIER commit touchant l'API ; un
 correctif suivi d'un autre commit disparaissait de la liste pour toujours. Cela est corrige dans
@@ -123,27 +125,45 @@ print('        %d lieux dans la boite, dont %d partenaires' % (len(lignes_tous),
 
 print('')
 print('POINT E.3 - LE CURSEUR DE L EMPLOI AGIT SUR LE SERVEUR')
-# ON INTERROGE DE LOIN, A DESSEIN. Depuis Alger, toutes les offres sont a moins d'un kilometre :
-# un rayon de 5 km et un rayon de 2000 km y rendent la meme liste, et le test ne prouverait RIEN.
-# Depuis Constantine, le rayon par defaut (50 km) n'en atteint aucune : seul un rayon reellement
-# transmis peut les ramener.
-LOIN = 'lat=36.365&lon=6.614'
-_, defaut = demander('/jobs?' + LOIN)
-_, large = demander('/jobs?' + LOIN + '&radiusKm=2000')
-n_defaut = len((defaut or {}).get('items', []))
-n_large = len((large or {}).get('items', []))
-_, partout = demander('/jobs?lat=36.75&lon=3.06&radiusKm=2000')
-n_partout = len((partout or {}).get('items', []))
-if n_partout == 0:
+# LE PREMIER TEST ECRIT ICI MESURAIT LA MAUVAISE CHOSE, ET IL A PRODUIT UNE FAUSSE ACCUSATION.
+#
+# Il interrogeait depuis Constantine avec un rayon de 2000 km, et concluait d'un resultat vide
+# que le serveur ignorait le parametre. C'etait faux. La requete compose DEUX conditions qui ne
+# se remplacent pas :
+#
+#   - portee_m, la PERMISSION de l'annonce : jusqu'ou l'employeur a paye pour etre vu ;
+#   - le rayon du curseur, la PREFERENCE du chercheur : jusqu'ou il accepte d'aller travailler.
+#
+# Depuis Constantine, les offres d'Alger sont hors de LEUR PROPRE portee : zero resultat est le
+# comportement correct, et aucun curseur au monde ne doit les faire apparaitre. Un chercheur ne
+# peut pas voir plus loin que ce qui lui est destine.
+#
+# LE TEST JUSTE ISOLE LE CURSEUR : on se place a une dizaine de kilometres d'une offre reelle —
+# assez loin pour qu'un petit rayon l'exclue, assez pres pour rester dans la portee payee — et on
+# compare un rayon serre a un rayon large. Si le curseur agit, le premier ne la voit pas et le
+# second la voit.
+_, toutes = demander('/jobs?lat=36.75&lon=3.06&radiusKm=2000')
+offres = (toutes or {}).get('items', [])
+if not offres:
     print('  --    aucune offre dans la base : le curseur ne peut pas etre mis a l epreuve')
 else:
-    verifier(
-        'un rayon de 2000 km atteint des offres que 50 km n atteint pas',
-        n_large > n_defaut,
-        'le curseur est valide de 0 a 2000 km : un rayon ignore le rend decoratif',
-    )
-    print('        depuis Constantine : %d offre(s) par defaut, %d a 2000 km'
-          % (n_defaut, n_large))
+    # Un dixieme de degre de latitude fait environ onze kilometres, partout.
+    cible = offres[0]
+    sonde = 'lat=%.5f&lon=%.5f' % (cible['lat'] + 0.09, cible['lon'])
+    _, serre = demander('/jobs?' + sonde + '&radiusKm=1')
+    _, large = demander('/jobs?' + sonde + '&radiusKm=50')
+    n_serre = len((serre or {}).get('items', []))
+    n_large = len((large or {}).get('items', []))
+    if n_large == 0:
+        print('  --    aucune offre ne porte jusqu a dix kilometres : rien a mettre a l epreuve')
+    else:
+        verifier(
+            'un rayon de 1 km exclut une offre situee a dix kilometres',
+            n_serre < n_large,
+            'le curseur est valide de 0 a 2000 km : un rayon ignore le rend decoratif',
+        )
+        print('        a dix kilometres de l offre : %d a 1 km, %d a 50 km'
+              % (n_serre, n_large))
 
 print('')
 print('FICHE VIP PREMIUM - LES DEUX CHAMPS ARRIVENT JUSQU AU TELEPHONE')
@@ -161,7 +181,7 @@ else:
 
 print('')
 if all(resultats):
-    print('Le serveur en ligne est a jour : tout ce que les synthese demandent y repond.')
+    print('Le serveur en ligne est a jour : tout ce que les syntheses demandent y repond.')
     print('')
     sys.exit(0)
 
