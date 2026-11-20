@@ -430,7 +430,7 @@ verifier(
     /<SectionSure nom="Resultats de recherche">/.test(picker),
   'les trois endroits ou l on cherche un lieu : carte, detour, et destination en roulant',
 );
-verifier('ni la fiche du lieu', /<SectionSure nom="Fiche du lieu">/.test(ecran));
+verifier('ni la fiche du lieu', /<SectionSure nom="Fiche du lieu"/.test(ecran));
 
 console.log('\nLES CINQ LANGUES');
 const clefs = [

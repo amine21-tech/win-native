@@ -3210,7 +3210,7 @@ ${t(`report.badge_${report.kind}`)}`,
       {!navigating ? (
         /* MEME RAISON POUR LA FICHE. C'est l'autre moitie du geste << chercher un lieu >> :
            on tape, puis on ouvre. Une fiche qui echoue doit laisser la carte debout. */
-        <SectionSure nom="Fiche du lieu">
+        <SectionSure nom="Fiche du lieu" style={styles.erreurFiche}>
         <PlaceSheet
           place={selectedPlace}
           isFavorite={selectedPlace ? places.isFavorite(toBookmark(selectedPlace)) : false}
@@ -3242,6 +3242,10 @@ ${t(`report.badge_${report.kind}`)}`,
 }
 
 const styles = StyleSheet.create({
+  /* LE CADRE D'ERREUR DE LA FICHE PREND LA PLACE DE LA FICHE : en bas, pas en haut.
+   * Sans cela il se posait par-dessus le logo et la barre des langues, et le message — la
+   * seule chose qui rende la panne rapportable — etait illisible. */
+  erreurFiche: { position: 'absolute', left: 12, right: 12, bottom: 24 },
   root: { flex: 1 },
   top: {
     position: 'absolute',

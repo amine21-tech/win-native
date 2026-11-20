@@ -156,6 +156,22 @@ export function PlaceSheet({
   const [photoReportOpen, setPhotoReportOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  /* LA PORTE DU CODE VIP — point B du 18 novembre. Elle remplace le mur : voir la note de
+   * `expliquerDroit` et le composant VipActionSheet.
+   *
+   * ELLE ETAIT DECLAREE TRENTE LIGNES PLUS BAS, c'est-a-dire APRES le `return null` qui suit.
+   * C'est la cause de l'ecran noir du 19 novembre, et elle est invisible a la lecture : la
+   * ligne est parfaitement ordinaire, et rien ne la relie au `return` qui la condamne.
+   *
+   * Tant qu'aucun lieu n'est choisi, la fiche execute les hooks ci-dessus et sort. Des qu'on
+   * en ouvre un, elle en execute UN DE PLUS. React les compte, constate qu'il en est venu plus
+   * qu'au rendu precedent, et leve « Rendered more hooks than during the previous render ».
+   * Personne ne rattrapait l'exception : elle demontait l'arbre entier, et l'utilisateur
+   * voyait un ecran noir sans un mot — exactement au moment d'ouvrir un lieu cherche.
+   *
+   * verifier-hooks.py relit desormais tout le projet pour qu'aucun hook ne repasse sous un
+   * retour anticipe. */
+  const [vipActionOpen, setVipActionOpen] = useState(false);
   if (!place) return null;
 
   const isContributed = place.source === 'win';
@@ -178,9 +194,6 @@ export function PlaceSheet({
   /* La seule exception qui subsiste : une fiche PARTENAIRE a ete payee. Son auteur et l'equipe
    * peuvent la retirer, un passant non. Le serveur refuse aussi, avec le meme motif. */
   const peutSupprimer = peutGerer && (isMine || !place.isPartner);
-  /* LA PORTE DU CODE VIP — point B du 18 novembre. Elle remplace le mur : voir la note de
-   * `expliquerDroit` et le composant VipActionSheet. */
-  const [vipActionOpen, setVipActionOpen] = useState(false);
   /**
    * FICHE COMPACTE pour une adresse enregistree par un utilisateur WIN (point 12 du client).
    *

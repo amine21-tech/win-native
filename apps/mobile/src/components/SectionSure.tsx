@@ -1,5 +1,5 @@
 import { Component, type ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 /**
  * UNE SECTION QUI TOMBE NE DOIT PAS EMPORTER L'ECRAN.
@@ -27,7 +27,15 @@ import { StyleSheet, Text, View } from 'react-native';
  * `componentDidCatch`, et c'est le seul endroit de l'application ou cela se justifie.
  */
 
-type Props = { nom: string; children: ReactNode };
+/**
+ * `style` POSITIONNE LE CADRE D'ERREUR, jamais le contenu normal.
+ *
+ * Il a fallu l'ajouter apres coup : la fiche du lieu est posee en bas de l'ecran, en position
+ * absolue, et son cadre d'erreur — une vue ordinaire — s'est retrouve EN HAUT, par-dessus le
+ * logo et la barre des langues, en texte rouge sur fond clair deja occupe. Le message etait
+ * la, et illisible ; or ce cadre n'existe que pour etre lu et photographie.
+ */
+type Props = { nom: string; children: ReactNode; style?: StyleProp<ViewStyle> };
 type State = { erreur: Error | null };
 
 export class SectionSure extends Component<Props, State> {
@@ -47,7 +55,7 @@ export class SectionSure extends Component<Props, State> {
     if (!erreur) return this.props.children;
 
     return (
-      <View style={styles.cadre}>
+      <View style={[styles.cadre, this.props.style]}>
         <Text style={styles.titre}>⚠  {this.props.nom}</Text>
         <Text style={styles.texte}>
           Cette section n&apos;a pas pu s&apos;afficher. Le reste de l&apos;écran fonctionne.
@@ -69,7 +77,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#C0392B',
     borderRadius: 12,
-    backgroundColor: 'rgba(192,57,43,0.08)',
+    /* OPAQUE, et non translucide comme avant : pose sur la carte, un fond a 8 % laissait les
+     * rues et les etiquettes transparaitre a travers le message. */
+    backgroundColor: '#FFF1EE',
     padding: 12,
     gap: 4,
   },
