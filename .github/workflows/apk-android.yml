@@ -54,6 +54,14 @@ jobs:
       - name: Aucun hook apres un retour anticipe
         run: python3 -I apps/mobile/scripts/verifier-hooks.py
 
+      # ET RIEN NE RECOUVRE RIEN. Meme famille de defaut que ci-dessus : aucune erreur, aucun
+      # ralentissement, et on ne voit simplement plus la moitie de ce qu'on a mis a l'ecran. Il
+      # s'est decouvert deux fois sur une capture d'ecran du client, trois versions plus tard.
+      # Le script refait l'arithmetique de la colonne de navigation depuis les tailles reelles
+      # lues dans les sources — il ne verifie donc pas que le code est celui qu'on a ecrit.
+      - name: Rien ne recouvre rien dans la navigation
+        run: python3 -I apps/mobile/scripts/verifier-chevauchements.py
+
       # Java 17 : version exigee par Gradle 8 et le greffon Android.
       - uses: actions/setup-java@v4
         with:

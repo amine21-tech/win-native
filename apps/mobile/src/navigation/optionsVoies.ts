@@ -1,4 +1,4 @@
-import type { Lane } from './voies';
+import { LANE, type Lane } from './voies';
 import { gesteDeVoie, type GesteVoie } from './voiesRegles';
 
 /**
@@ -180,6 +180,49 @@ const GESTE_PAR_MANOEUVRE: Record<number, GesteVoie> = {
   25: 'rabattement',
 };
 
+/**
+ * LE MASQUE DE VOIE QUI CORRESPOND A CHAQUE GESTE — correctif du 21 novembre, point 1.
+ *
+ * LE DEFAUT QUE CETTE TABLE CORRIGE, ET IL ETAIT VISIBLE AU VOLANT.
+ *
+ * << Les petites fleches recapitulatives affichent toujours la fleche tout droit, quelle que
+ * soit la manoeuvre reelle. >> Constate sur la RN68, la grande fleche indiquant correctement
+ * un virage a droite.
+ *
+ * La cause tient en deux lignes. `optionsDeManoeuvre` calculait le bon geste depuis
+ * `maneuver.type`, puis fabriquait une voie fictive avec `directions: 0, valid: 1, active: 1`
+ * pour la porter. Or le composant ne lit PAS le geste : il le recalcule avec `gesteDeVoie`, qui
+ * lit le MASQUE DE LA VOIE. Et `LANE.none` vaut 1 — donc `active: 1` ne disait pas << cette
+ * voie est la bonne >>, il disait << aucune direction peinte >>. La table de priorite y
+ * repondait par << tout droit >>, pour les DEUX tuiles.
+ *
+ * Le mot sous la tuile, lui, venait du geste et restait juste. La rangee affichait donc une
+ * fleche tout droit au-dessus du mot << Droite >>. C'est pire qu'une fleche absente : deux
+ * indications cote a cote qui se contredisent, au moment de choisir sa file.
+ *
+ * POURQUOI CORRIGER ICI PLUTOT QUE DANS LE COMPOSANT. On pouvait passer le geste au composant
+ * et lui faire confiance. Mais alors la voie fictive resterait MENSONGERE pour tout autre
+ * lecteur — `rabattementAGauche` la lit aussi, et le prochain usage la lira encore. Une voie
+ * deduite d'une manoeuvre doit porter le meme masque qu'une voie venue de Valhalla ; a cette
+ * condition seulement, les deux chemins se comportent pareil partout, et le composant n'a
+ * aucune regle a connaitre.
+ *
+ * `rabattement` prend le masque de DROITE : c'est le dessin que la rangee montrait deja pour
+ * l'insertion (`rabattementAGauche` rendait `false` sur la voie fictive), et la manoeuvre
+ * << Inserez-vous >> de Valhalla ne dit pas de quel cote. Rien ne change donc a l'ecran.
+ */
+const MASQUE_PAR_GESTE: Record<GesteVoie, number> = {
+  'demi-tour': LANE.reverse,
+  'serree-gauche': LANE.sharpLeft,
+  gauche: LANE.left,
+  'legere-gauche': LANE.slightLeft,
+  'tout-droit': LANE.through,
+  'legere-droite': LANE.slightRight,
+  droite: LANE.right,
+  'serree-droite': LANE.sharpRight,
+  rabattement: LANE.mergeToRight,
+};
+
 /** Ce geste part-il vers la gauche ? Sert a ranger la rangee dans l'ordre de la chaussee. */
 function versLaGauche(geste: GesteVoie): boolean {
   return geste.endsWith('gauche');
@@ -207,15 +250,21 @@ export function optionsDeManoeuvre(type: number): OptionVoie[] | null {
   const geste = GESTE_PAR_MANOEUVRE[type];
   if (!geste) return null;
 
+  /* LES DEUX VOIES PORTENT LE MASQUE DE LEUR GESTE, et non un 1 qui voulait dire << oui >>.
+   * `active` est le masque de la direction A SUIVRE, `directions` celui de ce qui est peint au
+   * sol : pour une voie deduite, c'est la meme chose. Voir MASQUE_PAR_GESTE. */
+  const masque = MASQUE_PAR_GESTE[geste];
   const direction: OptionVoie = {
     geste,
-    lane: { directions: 0, valid: 1, active: 1 },
+    lane: { directions: masque, valid: masque, active: masque },
     aPrendre: true,
     voies: 1,
   };
   const toutDroit: OptionVoie = {
     geste: 'tout-droit',
-    lane: { directions: 0, valid: 0, active: 0 },
+    /* `valid` et `active` a zero : cette tuile est un REPERE, pas une voie a prendre. C'est
+     * `directions` seul qui la fait dessiner tout droit. */
+    lane: { directions: LANE.through, valid: 0, active: 0 },
     aPrendre: false,
     voies: 1,
   };

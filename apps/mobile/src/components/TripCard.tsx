@@ -39,11 +39,25 @@ type Props = {
   colors: Palette;
 };
 
+/**
+ * LES TROIS PROFILS DANS L'ORDRE OU ILS S'AFFICHENT.
+ *
+ * Une table plutot que trois blocs recopies : les deux boutons precedents etaient identiques
+ * a la couleur et au libelle pres, et chacun repetait neuf lignes de style. Un troisieme en
+ * aurait fait vingt-sept, ou une faute de copie se cache sans se voir - typiquement un
+ * `prefs.profil` oublie qui laisse deux boutons allumes en meme temps.
+ */
+const PROFILS = [
+  { profil: 'court' as const, glyphe: '📏', cle: 'trip.shortest' },
+  { profil: 'autoroute' as const, glyphe: '🛣️', cle: 'trip.motorway' },
+  { profil: 'sansAutoroute' as const, glyphe: '🚫', cle: 'trip.noMotorway' },
+];
+
 /** Carte "resume de trajet" : reprise de `.tripcard` en v83 — distance/duree, bascule voiture/pied,
  * itineraires alternatifs, bouton demarrer. */
 export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode, onModeChange, onStart, colors }: Props) {
   const prefs = useSession((s) => s.routePrefs);
-  const setAutoroute = useSession((s) => s.setAutoroute);
+  const setProfil = useSession((s) => s.setProfil);
   const { t } = useTranslation();
   const selected = routes[selectedIndex];
 
@@ -120,38 +134,40 @@ export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode
             </Pressable>
           </View>
 
-          {/* AUTOROUTE OU PAS : la seule question que se pose vraiment un conducteur algerien.
-              Elle remplace les trois pastilles precedentes — voir RoutePrefs dans store/session
-              pour ce qu'elles recouvraient et pourquoi deux choix valent mieux que trois
-              reglages. A pied, elle ne s'affiche pas : elle n'a aucun sens. */}
+          {/* LES TROIS CHOIX D'ITINERAIRE - point 5A du 21 novembre.
+           *
+           * << Les 3 boutons UI existants (avec autoroute / sans autoroute / plus court)
+           * continuent de fonctionner exactement comme avant. >> Il n'y en avait que DEUX : le
+           * troisieme avait ete fondu dans les autres en octobre, quand le reglage est devenu un
+           * simple booleen. On le remet, et c'est lui le defaut.
+           *
+           * POURQUOI LE PREMIER DE LA RANGEE EST << PLUS COURT >>. C'est le reglage par defaut,
+           * et un conducteur lit une rangee de gauche a droite : le premier bouton allume doit
+           * etre celui qui est actif quand on n'a rien choisi. Le trajet de l'aeroport d'Alger -
+           * 10 km annonces pour 2 km reels - venait de ce que ce choix n'existait pas.
+           *
+           * A pied, la rangee ne s'affiche pas : elle n'a aucun sens. */}
           {mode === 'auto' ? (
             <View style={[styles.modes, { backgroundColor: colors.background }]}>
-              <Pressable
-                onPress={() => setAutoroute(true)}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: prefs.autoroute }}
-                style={[styles.modeBtn, prefs.autoroute && { backgroundColor: colors.accent }]}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={[styles.modeLabel, { color: prefs.autoroute ? colors.accentText : colors.text }]}
-                >
-                  🛣️ {t('trip.motorway')}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setAutoroute(false)}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: !prefs.autoroute }}
-                style={[styles.modeBtn, !prefs.autoroute && { backgroundColor: colors.accent }]}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={[styles.modeLabel, { color: !prefs.autoroute ? colors.accentText : colors.text }]}
-                >
-                  🚫 {t('trip.noMotorway')}
-                </Text>
-              </Pressable>
+              {PROFILS.map(({ profil, glyphe, cle }) => {
+                const actif = prefs.profil === profil;
+                return (
+                  <Pressable
+                    key={profil}
+                    onPress={() => setProfil(profil)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: actif }}
+                    style={[styles.modeBtn, actif && { backgroundColor: colors.accent }]}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.modeLabel, { color: actif ? colors.accentText : colors.text }]}
+                    >
+                      {glyphe} {t(cle)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           ) : null}
 

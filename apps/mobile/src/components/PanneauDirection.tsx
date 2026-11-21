@@ -154,18 +154,25 @@ export function PanneauDirection({
   const montrerSuivante =
     suivante != null && ecartSuivanteM != null && ecartSuivanteM <= SUIVANTE_PROCHE_M;
 
+  /**
+   * LES DEUX FLECHES CLIGNOTENT ENSEMBLE — point 1 du 21 novembre.
+   *
+   * << Les petites fleches clignotent EN MEME TEMPS que la grande. >>
+   *
+   * La condition est donc calculee UNE FOIS et partagee, au lieu d'etre recopiee. Deux copies
+   * de la meme condition finissent par differer d'un chiffre — et deux fleches qui clignotent a
+   * contretemps dans le meme bandeau se disputent le regard exactement quand il faut le poser
+   * sur la route.
+   */
+  const clignoter =
+    distanceM != null && distanceM <= CLIGNOTEMENT_M && surGrandAxe(surAutoroute, nomVoie);
+
   return (
     <View style={styles.bloc} pointerEvents="none">
       <View style={styles.ligne}>
         {/* ELLE NE CLIGNOTE QUE DANS LES CINQ CENTS DERNIERS METRES, ET SUR GRAND AXE.
             Ailleurs, l'opacite reste a 1 : la meme vue, sans animation visible. */}
-        <Animated.View
-          style={
-            distanceM != null && distanceM <= CLIGNOTEMENT_M && surGrandAxe(surAutoroute, nomVoie)
-              ? { opacity: clignote }
-              : undefined
-          }
-        >
+        <Animated.View style={clignoter ? { opacity: clignote } : undefined}>
           <FlecheManoeuvre type={maneuver.type} size={TAILLE_FLECHE} />
         </Animated.View>
 
@@ -199,7 +206,11 @@ export function PanneauDirection({
 
       {montrerSuivante ? (
         <View style={styles.suivante}>
-          <FlecheManoeuvre type={suivante!.type} size={22} couleur="rgba(255,255,255,0.85)" />
+          {/* LA MEME VALEUR D'ANIMATION que la grande fleche, et non une seconde boucle : c'est
+              ce qui garantit qu'elles s'eteignent et se rallument sur le meme temps. */}
+          <Animated.View style={clignoter ? { opacity: clignote } : undefined}>
+            <FlecheManoeuvre type={suivante!.type} size={22} couleur="rgba(255,255,255,0.85)" />
+          </Animated.View>
           <Text style={styles.suivanteTexte} numberOfLines={1}>
             {t('nav.then')} {localizedInstruction(suivante!, lang)}
           </Text>

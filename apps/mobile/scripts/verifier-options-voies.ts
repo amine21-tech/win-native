@@ -18,6 +18,7 @@
  */
 import { MAX_OPTIONS, optionsDeManoeuvre, optionsDeVoies } from '../src/navigation/optionsVoies';
 import { LANE, type Lane } from '../src/navigation/voies';
+import { gesteDeVoie } from '../src/navigation/voiesRegles';
 
 let fautes = 0;
 function verifier(nom: string, ok: boolean, detail = ''): void {
@@ -211,6 +212,33 @@ console.log("\nUNE MANOEUVRE TOUT DROIT NE MONTRE RIEN");
  * le marquage au sol dit. L'inventer reviendrait a dessiner une route qu'on ne connait pas. */
 for (const type of [0, 7, 8, 22]) {
   verifier(`type ${type} : aucune rangee`, optionsDeManoeuvre(type) === null);
+}
+
+console.log("\nLA FLECHE DESSINEE EST CELLE QU'ON ANNONCE — point 1 du 21 novembre");
+/* LE DEFAUT QUE CE CHAPITRE EXISTE POUR INTERDIRE, ET IL A ROULE SUR LA RN68.
+ *
+ * << Les petites fleches recapitulatives affichent toujours la fleche tout droit, quelle que
+ * soit la manoeuvre reelle >>, pendant que la grande fleche indiquait correctement un virage a
+ * droite.
+ *
+ * La rangee tirait le MOT d'une tuile de son geste, et son DESSIN du masque de la voie. Les deux
+ * venaient de la meme fonction mais pas par le meme chemin, et la voie deduite d'une manoeuvre
+ * portait un masque qui ne voulait rien dire : `active: 1`, soit exactement `LANE.none`. La
+ * rangee montrait donc une fleche tout droit sous le mot << Droite >> — deux indications
+ * contradictoires au moment de choisir sa file.
+ *
+ * ON NE VERIFIE PAS QUE LE CODE EST CELUI QU'ON A ECRIT, on verifie que les deux chemins
+ * CONCORDENT : pour chaque manoeuvre, le geste annonce et le geste dessine doivent etre le meme
+ * mot. C'est la seule formulation qui resisterait a une troisieme facon de choisir la fleche. */
+for (const [type] of SORTIES) {
+  const options = optionsDeManoeuvre(type) ?? [];
+  verifier(
+    `type ${type} : chaque tuile dessine son propre geste`,
+    options.length > 0 && options.every((o) => gesteDeVoie(o.lane) === o.geste),
+    options.length > 0 && options.some((o) => gesteDeVoie(o.lane) !== o.geste)
+      ? `annonce « ${options.map((o) => o.geste).join(' | ')} », dessine « ${options.map((o) => gesteDeVoie(o.lane)).join(' | ')} »`
+      : '',
+  );
 }
 
 console.log(

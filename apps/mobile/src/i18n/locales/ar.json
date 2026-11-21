@@ -98,6 +98,10 @@
     "badge_misAJour": "مُحدَّث"
   },
   "nav": {
+    "audioCoupe": "تم كتم الصوت",
+    "audioRetabli": "تم تشغيل الصوت",
+    "langueRaccourci": "اللغة: الأمازيغية أو الدارجة",
+    "langueRaccourciAide": "ضغطة: تغيير اللغة. ضغطة طويلة: كتم الصوت أو إعادته.",
     "start": "انطلق",
     "stop": "إيقاف",
     "recalculating": "إعادة حساب المسار...",
@@ -468,6 +472,7 @@
     "late": "{{minutes}} دقيقة أكثر من المتوقع.",
     "early": "{{minutes}} دقيقة أقل من المتوقع.",
     "close": "إنهاء",
+    "shortest": "الأقصر",
     "motorway": "الطريق السيار",
     "noMotorway": "بدون طريق سيار",
     "status": "الحالة",

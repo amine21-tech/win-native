@@ -1,4 +1,5 @@
 import { api } from '../api/client';
+import type { ProfilItineraire } from '../store/session';
 import { decodePolyline } from '../shared';
 
 export type RouteMode = 'auto' | 'pedestrian';
@@ -155,8 +156,8 @@ export async function fetchRoute(opts: {
   alternates?: number;
   /** Cap du vehicule au depart : evite qu'un recalcul ne commence par un demi-tour. */
   heading?: number;
-  /** Preference du conducteur : passer par l'autoroute, ou l'eviter (voir store/session). */
-  prefs?: { autoroute: boolean };
+  /** Profil choisi par le conducteur : le plus court, avec ou sans autoroute (store/session). */
+  prefs?: { profil: ProfilItineraire };
   /** Recalcul en roulant : attente courte et une reprise, plutot qu'une longue attente. */
   quick?: boolean;
   /** Barrages et routes coupees signales par les utilisateurs, a contourner. */
@@ -188,7 +189,18 @@ export async function fetchRoute(opts: {
       language: opts.narrationLanguage,
       alternates: opts.alternates ?? 2,
       heading: opts.heading,
-      autoroute: opts.prefs?.autoroute ?? true,
+      /**
+       * ON ENVOIE LE PROFIL, ET AUSSI L'ANCIEN BOOLEEN - point 5A du 21 novembre.
+       *
+       * Les deux, parce que l'application et le serveur ne sont pas mis a jour au meme moment :
+       * un telephone a jour peut interroger un serveur qui ne connait pas encore `profil`, et il
+       * doit alors obtenir un itineraire raisonnable plutot qu'une erreur. Le booleen lui dit
+       * << avec >> ou << sans >> autoroute ; << le plus court >> se traduit par << avec >>, parce
+       * qu'il accepte l'autoroute quand elle raccourcit. Le serveur a jour, lui, ignore le
+       * booleen des que le profil est la (voir profilDe cote API).
+       */
+      profil: opts.prefs?.profil ?? 'court',
+      autoroute: (opts.prefs?.profil ?? 'court') !== 'sansAutoroute',
       quick: opts.quick ?? false,
       avoid: opts.avoid ?? [],
       blocage: opts.blocage ?? false,

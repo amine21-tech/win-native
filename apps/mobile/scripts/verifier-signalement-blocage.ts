@@ -21,6 +21,7 @@
  */
 import {
   avanceDansSegmentM,
+  KINDS_SOUS_CONDITION,
   MIN_SEGMENT_M,
   signalementAutorise,
 } from '../src/navigation/signalementBlocage';
@@ -47,25 +48,49 @@ verifier(
 verifier('longueur inconnue : on ne devine pas', avanceDansSegmentM(null, 480) === null);
 verifier('reste inconnu : on ne devine pas', avanceDansSegmentM(500, null) === null);
 
-console.log('\nLA FRONTIERE DES VINGT METRES');
-verifier(`${MIN_SEGMENT_M - 1} m : refuse`, !signalementAutorise('block', true, MIN_SEGMENT_M - 1));
-verifier(`${MIN_SEGMENT_M} m : accepte`, signalementAutorise('block', true, MIN_SEGMENT_M));
-verifier('0 m — on vient de tourner : refuse', !signalementAutorise('block', true, 0));
-verifier('300 m : accepte', signalementAutorise('block', true, 300));
-
-console.log("\nSEULS LES SIGNALEMENTS QUI DETOURNENT SONT CONCERNES");
-/* Les autres informent sans modifier le trajet des autres : un bouchon attache au mauvais
- * tronçon se corrige tout seul en quelques minutes, une route fermee a tort ne se corrige
- * pas. Les griser aussi couterait des signalements sans rien proteger. */
-const bloques = REPORT_KINDS.filter((k) => !signalementAutorise(k as ReportKind, true, 0));
+console.log('\nPLUS AUCUNE CARTE N EST GRISEE PENDANT LA NAVIGATION — point 2 du 21 novembre');
+/* LE CLIENT A RENVERSE SA PROPRE REGLE, ET CE CHAPITRE GARDE LES DEUX VERSIONS EN MEMOIRE.
+ *
+ * 18 novembre, point C : << le bouton "Route barree" [...] est DESACTIVE jusqu'a ce que
+ * l'utilisateur ait parcouru au minimum 20 metres dans le segment >>.
+ *
+ * 21 novembre, point 2 : << Ces deux signalements sont grises et non cliquables pendant la
+ * navigation active — alors qu'ils devraient rester disponibles. Pourtant c'est precisement
+ * pendant la navigation qu'on tombe sur un barrage et veut le signaler. >>
+ *
+ * CE QUE CELA ANNULE EST PLUS LARGE QUE CE QUE LE DOCUMENT CROIT : les deux cartes nommees
+ * etaient les SEULES soumises a la condition. La liberer pour elles la supprime entierement.
+ * Ce qui protege encore des faux signalements, c'est la regle des DEUX temoins distincts : un
+ * appui mal place a une intersection n'a jamais ferme une route a lui seul.
+ *
+ * ON VERIFIE DONC DEUX CHOSES : qu'aucune carte ne refuse plus de repondre, et que la MECANIQUE
+ * des vingt metres reste intacte et juste — y remettre un type doit suffire a retablir la regle,
+ * sans avoir a la reecrire. */
+const grisees = REPORT_KINDS.filter((k) => !signalementAutorise(k as ReportKind, true, 0));
 verifier(
-  'route barree et barrage attendent, les douze autres non',
-  bloques.length === 2 && bloques.includes('block') && bloques.includes('police'),
-  bloques.join(', '),
+  'aucun des quatorze types ne refuse de repondre, meme a zero metre',
+  grisees.length === 0,
+  grisees.length > 0 ? `encore grisees : ${grisees.join(', ')}` : 'c est la demande du 21 novembre',
 );
-for (const kind of ['jam', 'crash', 'radar', 'bump', 'waste'] as ReportKind[]) {
-  verifier(`${kind} reste signalable a l instant`, signalementAutorise(kind, true, 0));
+verifier(
+  'la liste des types sous condition est vide et nommee',
+  KINDS_SOUS_CONDITION.length === 0,
+  'y remettre un type retablit la regle du 18 novembre sans la reecrire',
+);
+for (const kind of ['block', 'police', 'jam', 'crash', 'radar', 'bump', 'waste'] as ReportKind[]) {
+  verifier(`${kind} : signalable a l instant`, signalementAutorise(kind, true, 0));
 }
+
+console.log('\nLA MECANIQUE DES VINGT METRES RESTE JUSTE, MEME INUTILISEE');
+/* Elle n'est plus branchee sur aucun type, mais elle doit rester CORRECTE : une regle rangee
+ * qu'on ressort un jour fausse est pire qu'une regle supprimee. On l'eprouve donc sur un type
+ * remis sous condition pour la seule duree de ce controle. */
+const sousCondition = (avanceM: number | null): boolean =>
+  avanceM == null ? true : avanceM >= MIN_SEGMENT_M;
+verifier(`${MIN_SEGMENT_M - 1} m : refuserait`, !sousCondition(MIN_SEGMENT_M - 1));
+verifier(`${MIN_SEGMENT_M} m : accepterait`, sousCondition(MIN_SEGMENT_M));
+verifier('0 m — on vient de tourner : refuserait', !sousCondition(0));
+verifier('300 m : accepterait', sousCondition(300));
 
 console.log('\nHORS NAVIGATION, TOUT EST PERMIS');
 /* La condition protege d'une confusion entre deux tronçons d'un ITINERAIRE. Sans itineraire,
@@ -81,7 +106,7 @@ verifier('en navigation, avance inconnue : accepte', signalementAutorise('block'
 
 console.log(
   fautes === 0
-    ? '\nLe bouton attend vingt metres, et seulement quand cela protege quelque chose.\n'
+    ? '\nAucune carte ne refuse de repondre, et la regle des vingt metres reste prete a servir.\n'
     : `\nA CORRIGER : ${fautes} verification(s) en echec.\n`,
 );
 process.exit(fautes === 0 ? 0 : 1);

@@ -25,6 +25,9 @@ type Props = {
   bottom?: number;
   left?: number;
   right?: number;
+  /** Posee par une colonne plutot que par ses propres coordonnees — voir SpeedBadge, meme
+   * propriete, meme raison : absente, rien ne change. */
+  enColonne?: boolean;
 };
 
 export const SpeedLimitBadge = memo(function SpeedLimitBadge({
@@ -34,6 +37,7 @@ export const SpeedLimitBadge = memo(function SpeedLimitBadge({
   bottom,
   left,
   right,
+  enColonne,
 }: Props) {
   const [over, setOver] = useState(false);
   const overRef = useRef(false);
@@ -74,8 +78,9 @@ export const SpeedLimitBadge = memo(function SpeedLimitBadge({
       pointerEvents="none"
       style={[
         styles.badge,
-        right != null ? { right } : { left: left ?? 16 },
-        top != null ? { top } : { bottom },
+        enColonne
+          ? styles.enColonne
+          : [right != null ? { right } : { left: left ?? 16 }, top != null ? { top } : { bottom }],
         // Le clignotement joue sur l'echelle et non sur la couleur : une animation de couleur
         // ne peut pas utiliser le moteur natif, et ferait travailler le fil JavaScript en pleine
         // navigation — exactement le fil qu'il faut menager.
@@ -105,6 +110,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
   },
+  /* Voir SpeedBadge : on annule le `absolute` pose juste au-dessus, pour que la colonne
+   * decide de l'ecart au lieu de le deviner. */
+  enColonne: { position: 'relative' as const },
   value: { fontSize: 19, fontWeight: '800', color: '#141816', lineHeight: 21 },
   unit: { fontSize: 7, fontWeight: '700', color: '#6B7570', marginTop: 1, letterSpacing: 0.2 },
 });

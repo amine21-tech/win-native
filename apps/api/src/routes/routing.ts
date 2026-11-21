@@ -3,6 +3,13 @@ import { z } from 'zod';
 import { latitude, longitude } from '@win/shared';
 import { env } from '../env.js';
 import { HttpError, parse } from '../lib/http.js';
+import {
+  optionsAuto,
+  optionsBlocage,
+  optionsPieton,
+  profilDe,
+  type ProfilItineraire,
+} from '../lib/profilsItineraire.js';
 
 const routeRequest = z.object({
   from: z.object({ lat: latitude, lon: longitude }),
@@ -28,6 +35,28 @@ const routeRequest = z.object({
    * deja.
    */
   autoroute: z.boolean().default(true),
+
+  /**
+   * LE PROFIL D'ITINERAIRE — trois choix, et « le plus court » par defaut (point 5A, 21 nov.).
+   *
+   * CE QUE LE CLIENT A CONSTATE : << sur un trajet vers l'aeroport d'Alger, le GPS affichait
+   * 10-11 km alors que le conducteur etait a 2 km. Cause : use_highways trop eleve -> Valhalla
+   * evite les secondaires meme si plus courtes. >> Le diagnostic est juste : a `use_highways: 1`
+   * le moteur va chercher un grand axe, et en Alger cela veut dire faire le tour.
+   *
+   * POURQUOI UN CHAMP NOUVEAU PLUTOT QU'UN TROISIEME SENS DONNE A `autoroute`. Le booleen ne
+   * sait dire que oui ou non ; << le plus court >> n'est ni l'un ni l'autre — il accepte
+   * l'autoroute quand elle raccourcit vraiment. Un booleen a trois valeurs n'existe pas, et le
+   * surcharger (true = autoroute, false = sans, absent = court) aurait fait dependre le
+   * comportement de l'ABSENCE d'un champ : indiscernable d'une requete mal formee.
+   *
+   * ET SURTOUT, `optional()` SANS DEFAUT, POUR NE RIEN CASSER. Une application deja installee
+   * n'envoie que `autoroute` : elle obtient alors EXACTEMENT ce qu'elle obtenait avant, parce
+   * que le profil est deduit de ce booleen (voir `profilDe`). Le nouveau defaut ne s'applique
+   * qu'aux applications qui connaissent ce champ et le disent. Un defaut cote serveur aurait,
+   * lui, change l'itineraire de tous les telephones deja en service sans prevenir personne.
+   */
+  profil: z.enum(['court', 'autoroute', 'sansAutoroute']).optional(),
 
   /**
    * Recalcul en roulant : le conducteur attend, la voiture avance. On raccourcit l'attente et
@@ -63,111 +92,23 @@ const routeRequest = z.object({
 /**
  * Reglages de cout transmis a Valhalla.
  *
- * DEUX ITINERAIRES EN VOITURE, PAS TROIS REGLAGES. `use_highways` est le curseur de Valhalla
- * pour les grands axes : 1 les privilegie, 0 les fuit. Le peage suit le meme choix, et ce n'est
- * pas un raccourci — le seul peage d'Algerie est sur l'autoroute Est-Ouest. Choisir
- * l'autoroute, c'est accepter son peage ; la refuser, c'est l'eviter aussi.
- *
- * (Ne pas revenir a 0,3 pour `use_tolls` : ce n'est pas << un peu moins de peages >> mais
- * << evite-les autant que possible >>. Mesure sur notre propre moteur, un Paris-Lyon passe de
- * 4 h a 5 h 40 entre 1 et 0, et 0,3 donne exactement le meme resultat que 0.)
- *
- * A PIED, LE CHEMIN LE PLUS COURT, SANS RESTRICTION (point 17 du client). Les reglages par
- * defaut de Valhalla sont ceux d'un promeneur prudent : il paie une penalite pour emprunter une
- * ruelle (`alley_factor` 2) et surtout une allee privee (`driveway_factor` 5), evite les
- * marches, et optimise le TEMPS. Un pieton algerien qui coupe par une ruelle ne fait rien
- * d'autre que marcher droit : on ramene ces facteurs a 1, on retire la penalite de marche et on
- * demande explicitement la plus courte distance. Les sens interdits, eux, n'ont jamais concerne
- * le pieton — Valhalla ne les lui applique deja pas.
+ * LES VALEURS ELLES-MEMES ONT DEMENAGE dans `lib/profilsItineraire.ts`, et ce n'est pas un
+ * rangement : ce sont des nombres qui decident de la route que prend une voiture, et un 1 laisse
+ * a la place d'un 0,5 ne provoque aucune erreur — il se voit en kilometres inutiles, chez un
+ * conducteur qui n'a aucun moyen de savoir que le reglage est en cause. Isoles dans un module
+ * qui n'importe ni Fastify ni la configuration, les trois profils s'eprouvent par
+ * `verifier-profils-itineraire.ts` sans serveur et sans moteur. Il ne reste ici que le CHOIX du
+ * profil, qui est la seule chose propre a cette requete.
  */
-function costingOptions(input: { mode: 'auto' | 'pedestrian'; autoroute: boolean; blocage?: boolean }) {
-  if (input.mode === 'pedestrian') {
-    return {
-      pedestrian: {
-        // 4,5 km/h : la vitesse du site, un peu en dessous des 5,1 de Valhalla.
-        walking_speed: 4.5,
-        // `shortest` : on classe par DISTANCE et non par duree. A pied, c'est la meme chose
-        // pour le marcheur, et cela ecarte les grands contournements bien plats.
-        shortest: true,
-        // Ruelles, allees et voies de desserte : plus aucune penalite. Ce sont precisement les
-        // raccourcis que le client demande, en ville comme en dehors.
-        alley_factor: 1,
-        driveway_factor: 1,
-        service_penalty: 0,
-        service_factor: 1,
-        // Un trottoir ou un sentier plutot que le bord d'une route a voitures.
-        walkway_factor: 0.9,
-        step_penalty: 0,
-      },
-    };
-  }
-  /**
-   * CONTOURNEMENT D'UNE ROUTE BLOQUEE : LA HIERARCHIE DU CLIENT (point 12, 28 octobre).
-   *
-   * << 1er choix Route Nationale, 2e l'autoroute si la RN y mene naturellement, 3e la route de
-   * wilaya, JAMAIS un chemin secondaire, une piste ou une voie non classee. >>
-   *
-   * Valhalla ne prend pas une liste de classes de routes : il prend des curseurs. Les voici,
-   * et pourquoi ceux-la.
-   *
-   * `use_highways: 0.8` — la valeur du client. Elle dit exactement ce qu'il decrit : les grands
-   * axes sont preferes, mais pas au point de faire quarante kilometres pour rejoindre une
-   * autoroute. A 1 le moteur va chercher l'autoroute presque toujours ; a 0,8 il la prend quand
-   * elle est dans la continuite du trajet, ce qui est le << 2e choix >> demande.
-   *
-   * `use_tracks: 0` et `use_living_streets: 0` — c'est ici que se joue le << JAMAIS >>. Chez
-   * Valhalla, 0 ne signifie pas interdit mais << evite autant que possible >> : le moteur
-   * n'empruntera une piste que s'il n'existe AUCUN autre moyen d'atteindre la destination. Et
-   * c'est la bonne lecture du cahier des charges : si la maison du conducteur est au bout d'un
-   * chemin de terre, il faut bien l'y conduire. Ce qu'il ne faut jamais, c'est proposer la
-   * piste comme DETOUR — et cela, 0 l'empeche.
-   *
-   * `service_penalty: 600` et `service_factor: 3` — dix minutes de detour fictif par voie de
-   * desserte. Un parking ou une allee de ferme ne sont pas un contournement de nationale.
-   *
-   * `shortest: false` est implicite : on classe par temps, et c'est ce qu'il faut. Un
-   * contournement par la nationale est plus long en kilometres et plus court en minutes qu'un
-   * raccourci de terre — le temps est ici le meilleur juge de la praticabilite.
-   *
-   * Le peage suit `autoroute`, comme toujours : accepter l'autoroute, c'est accepter son peage.
-   */
-  if (input.blocage) {
-    return {
-      auto: {
-        use_highways: 0.8,
-        use_tolls: input.autoroute ? 0.5 : 0,
-        use_tracks: 0,
-        use_living_streets: 0,
-        service_penalty: 600,
-        service_factor: 3,
-      },
-    };
-  }
-
-  return {
-    auto: {
-      use_highways: input.autoroute ? 1 : 0,
-      use_tolls: input.autoroute ? 0.5 : 0,
-
-      /* « Routes carrossables uniquement » — desormais une regle, plus une case a cocher.
-       *
-       * Valhalla ne propose jamais de chemin pietonnier a une voiture : ce point-la est acquis.
-       * En revanche il accepte volontiers les PISTES (`track` : chemins agricoles, forestiers)
-       * et les voies de desserte (`service` : parkings, allees) pour gagner quelques minutes.
-       * En Algerie, le raccourci ainsi propose est souvent une piste de terre qu'une berline ne
-       * passe pas — et le conducteur, lui, decouvre le probleme sur place. Le client le redemande
-       * au point 9 pour le recalcul : ce n'est donc plus un choix, c'est le comportement.
-       *
-       * 0,1 et non 0 : a zero, Valhalla s'interdirait aussi d'ARRIVER chez quelqu'un dont la
-       * maison est au bout d'une piste. Le penaliser fortement laisse le moteur l'emprunter
-       * quand il n'existe aucune autre facon d'atteindre la destination, et jamais pour gagner
-       * du temps. Meme raisonnement pour la penalite de desserte, en secondes de detour fictif.
-       */
-      use_tracks: 0.1,
-      service_penalty: 120,
-      service_factor: 1.3,
-    },
-  };
+function costingOptions(input: {
+  mode: 'auto' | 'pedestrian';
+  autoroute: boolean;
+  profil?: ProfilItineraire;
+  blocage?: boolean;
+}) {
+  if (input.mode === 'pedestrian') return { pedestrian: optionsPieton() };
+  const profil = profilDe(input);
+  return { auto: input.blocage ? optionsBlocage(profil) : optionsAuto(profil) };
 }
 
 /**
@@ -237,7 +178,20 @@ const routes: FastifyPluginAsync = async (app) => {
          * n'affiche alors simplement aucune fleche de voie.
          */
         turn_lanes: true,
-        ...(input.avoid.length > 0
+        /**
+         * LES ROUTES BARREES PAR VOTE NE S'APPLIQUENT PLUS AU PIETON — point 5B du 21 novembre.
+         *
+         * << Ne concerne QUE le costing 'auto' (voiture). Le costing 'pedestrian' n'est PAS
+         * affecte. [...] NE PAS appliquer applyReportedClosures() quand costing = 'pedestrian'. >>
+         *
+         * ET C'EST JUSTE, SUR LE FOND : un barrage de police, une route coupee a la circulation
+         * ou un chantier se traversent a pied. Faire faire au marcheur le detour calcule pour une
+         * voiture, c'est lui faire contourner a pied un obstacle qu'il franchit en trois pas — et
+         * `exclude_locations` est une exclusion DURE chez Valhalla : elle ne rallonge pas le
+         * trajet, elle peut le rendre introuvable et renvoyer << aucun itineraire >> a quelqu'un
+         * qui voulait traverser la rue.
+         */
+        ...(input.avoid.length > 0 && input.mode !== 'pedestrian'
           ? { exclude_locations: input.avoid.map((p) => ({ lat: p.lat, lon: p.lon })) }
           : {}),
         directions_options: { units: 'kilometers', language: input.language },

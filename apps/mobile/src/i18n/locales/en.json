@@ -98,6 +98,10 @@
     "badge_misAJour": "Updated"
   },
   "nav": {
+    "audioCoupe": "Audio off",
+    "audioRetabli": "Audio on",
+    "langueRaccourci": "Language: Tamazight or Derija",
+    "langueRaccourciAide": "Tap: change language. Long press: mute or unmute the voice.",
     "start": "Start",
     "stop": "Stop",
     "recalculating": "Recalculating the route…",
@@ -468,6 +472,7 @@
     "late": "{{minutes}} min longer than expected.",
     "early": "{{minutes}} min shorter than expected.",
     "close": "Done",
+    "shortest": "Shortest",
     "motorway": "Motorway",
     "noMotorway": "No motorway",
     "status": "Status",

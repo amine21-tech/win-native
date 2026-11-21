@@ -98,6 +98,10 @@
     "badge_misAJour": "Yettwaleqqem"
   },
   "nav": {
+    "audioCoupe": "Ṣṣut yensa",
+    "audioRetabli": "Ṣṣut yerra",
+    "langueRaccourci": "Tutlayt: Tamaziɣt neɣ Taderǝa",
+    "langueRaccourciAide": "Asiti: beddel tutlayt. Asiti aɣezfan: sgunfu neɣ err ṣṣut.",
     "start": "Ad nruḥ",
     "stop": "Ḥbes",
     "recalculating": "Aḥseb n ubrid i tikkelt-nniḍen…",
@@ -468,6 +472,7 @@
     "late": "{{minutes}} n tesdidin ugar n wayen yettwaḥesben.",
     "early": "{{minutes}} n tesdidin drus ɣef wayen yettwaḥesben.",
     "close": "Fak",
+    "shortest": "Awezlan",
     "motorway": "Azrug ameqqran",
     "noMotorway": "War azrug ameqqran",
     "status": "Addad",

@@ -98,6 +98,10 @@
     "badge_misAJour": "مُحدَّث"
   },
   "nav": {
+    "audioCoupe": "الصوت مطفي",
+    "audioRetabli": "الصوت رجع",
+    "langueRaccourci": "اللغة: تامازيغت ولا الدارجة",
+    "langueRaccourciAide": "ضغطة: بدّل اللغة. ضغطة طويلة: طفّي ولا رجّع الصوت.",
     "start": "يالله نروحو",
     "stop": "وقّف",
     "recalculating": "راني نحسب طريق جديد...",
@@ -468,6 +472,7 @@
     "late": "{{minutes}} دقيقة زيادة على لي كان متوقع.",
     "early": "{{minutes}} دقيقة أقل من لي كان متوقع.",
     "close": "سالي",
+    "shortest": "الأقصر",
     "motorway": "لوتوروت",
     "noMotorway": "بلا لوتوروت",
     "status": "الحالة",

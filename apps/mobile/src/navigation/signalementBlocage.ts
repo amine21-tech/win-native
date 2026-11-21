@@ -1,5 +1,4 @@
 import type { ReportKind } from '../shared';
-import { bloqueLaRoute } from '../shared';
 
 /**
  * QUAND PEUT-ON SIGNALER UNE ROUTE BARREE ? — point C du 18 novembre.
@@ -50,6 +49,41 @@ export function avanceDansSegmentM(
 }
 
 /**
+ * LES TYPES ENCORE SOUMIS A LA CONDITION DES VINGT METRES — vide depuis le 21 novembre.
+ *
+ * LE CLIENT A RETIRE LES DEUX SEULS QUI Y ETAIENT, ET IL FAUT DIRE LAQUELLE DE SES DEUX
+ * DEMANDES L'EMPORTE.
+ *
+ * Le 18 novembre, point C : << le bouton "Route barree" et "Chemin sans issue" est DESACTIVE
+ * jusqu'a ce que l'utilisateur ait parcouru au minimum 20 metres dans le segment >>.
+ *
+ * Le 21 novembre, point 2 : << Ces deux signalements sont grises et non cliquables pendant la
+ * navigation active — alors qu'ils devraient rester disponibles. [...] Pourtant c'est
+ * precisement pendant la navigation qu'on tombe sur un barrage et veut le signaler. >> Et la
+ * consigne est nominative : << On retire uniquement Barrage et Route barree de cette
+ * exclusion. >>
+ *
+ * CE QUE CELA ANNULE EXACTEMENT, ET C'EST PLUS QUE CE QUE LE DOCUMENT CROIT. Le document
+ * suppose que d'autres cartes sont grisees et demande de n'en liberer que deux. Dans cette
+ * application, les types qui attendaient vingt metres etaient EXACTEMENT ceux-la — `block`
+ * (route barree) et `police` (barrage) : voir KINDS_BLOQUANTS. Il n'existe pas de carte
+ * << chemin sans issue >>. Liberer ces deux-la supprime donc la condition ENTIEREMENT.
+ *
+ * CE QUI PROTEGE ENCORE DES FAUX SIGNALEMENTS. La condition des vingt metres n'etait pas la
+ * seule garde, et ce n'etait meme pas la principale : un blocage ne sort un tronçon des
+ * itineraires qu'apres DEUX signalements d'appareils DIFFERENTS. Un appui mal place a une
+ * intersection n'a donc jamais ferme une route a lui seul — il attendait un second temoin au
+ * meme endroit, ce qui est improbable pour une route ouverte. Le client arbitre entre une
+ * protection partielle et un bouton qui refuse de repondre au moment ou le conducteur en a
+ * besoin ; sa demande est coherente avec la facon dont le reste du dispositif est construit.
+ *
+ * LA LISTE RESTE, VIDE ET NOMMEE. Y remettre `'block'` suffirait a retablir la regle du
+ * 18 novembre, et le reste du module — la mesure de l'avance, les tests — n'a pas bouge. C'est
+ * ce qui permet de revenir sur la decision sans la reconstruire.
+ */
+export const KINDS_SOUS_CONDITION: readonly ReportKind[] = [];
+
+/**
  * Ce type de signalement peut-il etre pose maintenant ?
  *
  * HORS NAVIGATION, TOUT EST PERMIS, et ce n'est pas un oubli : la condition protege d'une
@@ -61,7 +95,7 @@ export function signalementAutorise(
   enNavigation: boolean,
   avanceM: number | null,
 ): boolean {
-  if (!bloqueLaRoute(kind)) return true;
+  if (!KINDS_SOUS_CONDITION.includes(kind)) return true;
   if (!enNavigation) return true;
   /* AVANCE INCONNUE : on autorise. Un bouton grise sans raison visible, sur une donnee qu'on
    * n'a pas su lire, est pire qu'un signalement douteux — le conducteur croit l'application

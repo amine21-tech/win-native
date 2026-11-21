@@ -7,8 +7,9 @@ type Coords = { lat: number; lon: number };
 
 /** Apercu d'itineraire affiche dans la fiche du lieu, avant de demarrer la navigation. */
 export function useRoutePreview(from: Coords | null, to: Coords | null, mode: RouteMode, lang: Language) {
-  // La preference entre dans la CLE : basculer « Autoroute » / « Sans autoroute » doit
-  // relancer le calcul, sans quoi la fiche continuerait d'afficher l'itineraire precedent.
+  // Le profil entre dans la CLE : basculer entre « Plus court », « Autoroute » et « Sans
+  // autoroute » doit relancer le calcul, sans quoi la fiche continuerait d'afficher
+  // l'itineraire precedent - un bouton qui s'allume sans rien changer a l'ecran.
   const prefs = useSession((s) => s.routePrefs);
   return useQuery({
     queryKey: [
@@ -19,7 +20,7 @@ export function useRoutePreview(from: Coords | null, to: Coords | null, mode: Ro
       to?.lon,
       mode,
       lang,
-      prefs.autoroute,
+      prefs.profil,
     ],
     enabled: !!from && !!to,
     staleTime: 60_000,

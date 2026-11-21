@@ -98,6 +98,10 @@
     "badge_misAJour": "Mis à jour"
   },
   "nav": {
+    "audioCoupe": "Audio désactivé",
+    "audioRetabli": "Audio réactivé",
+    "langueRaccourci": "Langue : tamazight ou derija",
+    "langueRaccourciAide": "Appui court : changer de langue. Appui long : couper ou rétablir la voix.",
     "start": "C'est parti",
     "stop": "Arrêter",
     "recalculating": "Recalcul de l'itinéraire…",
@@ -468,6 +472,7 @@
     "late": "{{minutes}} min de plus que prévu.",
     "early": "{{minutes}} min de moins que prévu.",
     "close": "Terminer",
+    "shortest": "Plus court",
     "motorway": "Autoroute",
     "noMotorway": "Sans autoroute",
     "status": "Statut",

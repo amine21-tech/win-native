@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Maneuver } from '../navigation/routing';
+import { BoutonLangueNav } from './BoutonLangueNav';
 import { LaneGuidance } from './LaneGuidance';
 import { PanneauDirection } from './PanneauDirection';
 import { RecalcToast } from './RecalcToast';
@@ -14,7 +15,14 @@ import { formatClock24, useClock } from '../utils/clock';
 
 /** Ecart entre les cartes flottantes et le bord de l'ecran, en paysage. */
 const CARD_MARGIN = spacing.sm;
-/** Ecart entre le bas du bandeau et le compteur de vitesse. */
+/**
+ * Ecart entre le bas du bandeau et le HAUT de la colonne de gauche.
+ *
+ * Il reste a 48 et non a 8 — voir la colonne elle-meme, plus bas : la languette « puis » pend
+ * sous le bandeau a gauche et fait environ 36 points de haut. C'est le seul ecart de cette
+ * colonne qui ne vaut pas 8 points, et le seul qui mesure autre chose qu'un espace entre deux
+ * pastilles.
+ */
 const BADGE_GAP = 48;
 
 
@@ -285,35 +293,54 @@ export const NavigationOverlay = memo(function NavigationOverlay({
           />
         </>
       ) : (
-        <>
-          {/* Nettement DETACHEES du bandeau vert (point 19) : la pastille le touchait. L'ecart
-              de 48 points laisse aussi passer la languette « puis », accrochee sous le bandeau
-              a gauche, qui fait environ 36 points de haut. */}
-          <SpeedBadge
-            subscribe={subscribeFix}
-            colors={colors}
-            top={bannerTop + bannerHeight + BADGE_GAP}
-            left={spacing.md}
-          />
-          <SpeedLimitBadge
-            limitKmh={limitKmh}
-            subscribe={subscribeFix}
-            top={bannerTop + bannerHeight + BADGE_GAP + 66}
-            left={spacing.md + 4}
-          />
+        /**
+         * LA COLONNE DE GAUCHE EST DEVENUE UNE VRAIE COLONNE — point 3 du 21 novembre.
+         *
+         * CE QUE DEMANDE LE DOCUMENT : << colonne gauche propre — cadre vert / 8dp / bouton /
+         * 8dp / 0 km/h / 8dp / 50 >>, parce qu'un bouton y chevauchait le compteur.
+         *
+         * CE QU'IL Y AVAIT ICI, ET POURQUOI C'ETAIT LE VRAI DEFAUT. Les trois elements etaient
+         * poses un par un, chacun a une distance CALCULEE A LA MAIN depuis le bandeau : 48,
+         * puis 48 + 66, puis 48 + 66 + 62. Ces nombres ne disaient pas << huit points d'ecart >>,
+         * ils disaient << huit points PLUS la hauteur de la pastille d'au-dessus >>, et ils ne
+         * valaient donc que tant que personne ne touchait a cette hauteur. Changer un rayon,
+         * une bordure, une taille de police, et deux pastilles se superposaient sans qu'aucun
+         * fichier ne l'annonce — c'est exactement l'accident que le client a photographie.
+         *
+         * MAINTENANT, LE CHEVAUCHEMENT EST IMPOSSIBLE, et pas seulement repare : les elements
+         * sont dans une colonne qui les empile elle-meme, a huit points les uns des autres.
+         * Plus personne n'a besoin de connaitre la hauteur du voisin. Et un element ABSENT —
+         * la limite reglementaire est inconnue sur la plupart des routes algeriennes, le
+         * compteur se tait avant le premier point GPS — ne laisse plus un trou au milieu de la
+         * colonne : les autres remontent.
+         *
+         * LE SEUL ECART AVEC LE DOCUMENT EST UN ECART VOULU : le premier ecart, sous le bandeau,
+         * reste a 48 points et non a 8. La languette << puis >> pend sous le bandeau a gauche et
+         * fait environ 36 points de haut (point 19 du 18 novembre). A 8 points, le nouveau
+         * bouton de langue passerait dessous — on corrigerait un chevauchement en en creant un
+         * autre. Le document demande de ne pas toucher le cadre vert ; 48 points y repondent
+         * mieux que 8.
+         */
+        <View
+          style={[styles.colonneGauche, { top: bannerTop + bannerHeight + BADGE_GAP, left: spacing.md }]}
+          pointerEvents="box-none"
+        >
+          {/* Raccourci tamazight / derija, et appui long pour couper la voix — point 6. Il est
+              en TETE de colonne, a la place meme que le document reserve au bouton dans son
+              schema du point 3. */}
+          <BoutonLangueNav colors={colors} />
+          <SpeedBadge subscribe={subscribeFix} colors={colors} enColonne />
+          <SpeedLimitBadge limitKmh={limitKmh} subscribe={subscribeFix} enColonne />
           {/* Vue d'ensemble du trajet, sous les deux pastilles, comme sur le site. */}
           <Pressable
             onPress={onOverview}
             accessibilityRole="button"
             accessibilityLabel={t('nav.overview')}
-            style={[
-              styles.overviewBtn,
-              { top: bannerTop + bannerHeight + BADGE_GAP + 66 + 62, backgroundColor: colors.surface, borderColor: colors.goldDeep },
-            ]}
+            style={[styles.overviewBtn, { backgroundColor: colors.surface, borderColor: colors.goldDeep }]}
           >
             <Text style={{ fontSize: 17, color: colors.accentDark }}>⛶</Text>
           </Pressable>
-        </>
+        </View>
       )}
 
       {/* Il n'y a plus de colonne de boutons propre a cet ecran : la colonne des DIX boutons
@@ -641,9 +668,17 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
   },
   resumeText: { fontSize: 14, fontWeight: '800' as const },
+  /**
+   * LA COLONNE DE GAUCHE EN PORTRAIT : un seul cadre absolu, et quatre enfants dans le flux.
+   *
+   * `gap: 8` est la valeur exacte du document, et c'est maintenant le SEUL endroit ou l'ecart
+   * entre deux elements de cette colonne est ecrit. `alignItems: 'center'` remplace les
+   * decalages de 4 et 5 points qui recentraient a la main des pastilles de largeurs
+   * differentes (58, 50, 48) — un calcul de plus qui ne survivait pas a un changement de
+   * taille. La colonne n'a pas de largeur imposee : elle prend celle de son plus large enfant.
+   */
+  colonneGauche: { position: 'absolute', alignItems: 'center', gap: 8 },
   overviewBtn: {
-    position: 'absolute',
-    left: spacing.md + 5,
     width: 48,
     height: 48,
     borderRadius: 12,

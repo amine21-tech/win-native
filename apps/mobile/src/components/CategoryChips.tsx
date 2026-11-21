@@ -97,7 +97,7 @@ export function CategoryChips({ onPick, onEmploi, colors }: Props) {
       </ScrollView>
 
       {active ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rowSous}>
           {active.items.map((item) => (
             <Pressable
               key={item.dataQ}
@@ -118,6 +118,32 @@ export function CategoryChips({ onPick, onEmploi, colors }: Props) {
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
   row: { gap: spacing.sm, paddingRight: spacing.lg },
+
+  /**
+   * LA RANGEE DES SOUS-CATEGORIES DEGAGE LA COLONNE DE BOUTONS — point 4 du 21 novembre.
+   *
+   * << Les puces de sous-categories (Gendarmerie, Pompiers, Protection civile...) s'etendent
+   * sous le bouton microphone et deviennent invisibles ou inatteignables. >>
+   *
+   * POURQUOI CELA ARRIVE ICI ET PAS AILLEURS. La colonne des dix boutons est ancree EN BAS et
+   * grandit vers le HAUT. Sur un ecran court, son premier bouton — le micro de l'assistant —
+   * monte jusqu'a la hauteur des rubriques. Le code le disait deja, mot pour mot, a propos d'un
+   * defaut precedent : << le micro de l'assistant remontait dans la rangee des rubriques,
+   * exactement comme le client l'a vu >>. On avait alors resserre la colonne ; la rangee, elle,
+   * continuait de passer dessous.
+   *
+   * SOIXANTE-DOUZE POINTS, ET C'EST LA VALEUR DU DOCUMENT. Elle tombe juste pour nous aussi :
+   * la colonne est posee a `spacing.lg` du bord (16) et ses boutons font au plus HIT_SIZE (52),
+   * soit 68 points occupes. Soixante-douze les degagent avec quatre points de marge.
+   *
+   * UN REMBOURRAGE PLUTOT QU'UNE LARGEUR REDUITE : les puces continuent de defiler jusqu'a la
+   * derniere — c'est tout l'interet de le poser sur le CONTENU et non sur la vue. Le document
+   * demande `clipToPadding=false` pour la meme raison ; sur un ScrollView de React Native, un
+   * rembourrage de contenu se comporte deja ainsi.
+   *
+   * LA RANGEE PRINCIPALE N'Y TOUCHE PAS : elle est plus haute que le sommet de la colonne.
+   */
+  rowSous: { gap: spacing.sm, paddingRight: 72 },
   grp: {
     flexDirection: 'row',
     alignItems: 'center',

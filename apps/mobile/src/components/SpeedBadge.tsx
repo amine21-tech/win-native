@@ -13,6 +13,16 @@ type Props = {
   bottom?: number;
   left?: number;
   right?: number;
+  /**
+   * POSEE PAR UNE COLONNE, ET NON PLUS PAR SES PROPRES COORDONNEES — point 3 du 21 novembre.
+   *
+   * Par defaut cette propriete est absente et RIEN NE CHANGE : la pastille reste
+   * `position: 'absolute'` et obeit a `top`/`bottom`/`left`/`right`, comme le mode paysage
+   * continue de le faire. Quand elle vaut `true`, la pastille rentre dans le flux et laisse
+   * son parent decider de l'ecart — c'est a cette condition seulement qu'un chevauchement
+   * devient impossible, parce que plus personne n'a besoin de connaitre sa hauteur.
+   */
+  enColonne?: boolean;
 };
 
 /**
@@ -27,7 +37,15 @@ type Props = {
  * la vitesse maximale par troncon dans notre integration — et afficher un chiffre invente
  * serait dangereux au volant.
  */
-export const SpeedBadge = memo(function SpeedBadge({ subscribe, colors, top, bottom, left, right }: Props) {
+export const SpeedBadge = memo(function SpeedBadge({
+  subscribe,
+  colors,
+  top,
+  bottom,
+  left,
+  right,
+  enColonne,
+}: Props) {
   const [kmh, setKmh] = useState<number | null>(null);
   const shownRef = useRef<number | null>(null);
 
@@ -48,8 +66,9 @@ export const SpeedBadge = memo(function SpeedBadge({ subscribe, colors, top, bot
     <View
       style={[
         styles.badge,
-        right != null ? { right } : { left: left ?? spacing.md },
-        top != null ? { top } : { bottom },
+        enColonne
+          ? styles.enColonne
+          : [right != null ? { right } : { left: left ?? spacing.md }, top != null ? { top } : { bottom }],
         { backgroundColor: colors.surface, borderColor: colors.border },
       ]}
       pointerEvents="none"
@@ -75,6 +94,9 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
+  /* `relative` est la valeur par defaut de React Native : on la REECRIT ici parce que
+   * `styles.badge` vient de poser `absolute` juste avant, et qu'un style plus tardif gagne. */
+  enColonne: { position: 'relative' as const },
   value: { fontSize: 19, fontWeight: '800' as const, lineHeight: 22 },
   unit: { fontSize: 9, fontWeight: '700' as const, marginTop: -2 },
 });

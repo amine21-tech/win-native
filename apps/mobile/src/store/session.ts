@@ -27,35 +27,65 @@ export type ThemeOverride = 'auto' | 'light' | 'dark';
  * peut pas le deviner. Conservees d'une session a l'autre, contrairement au mode nuit : c'est
  * un choix lie au vehicule, pas a l'heure.
  */
+/**
+ * LE CHOIX D'ITINERAIRE : TROIS PROFILS, ET << LE PLUS COURT >> PAR DEFAUT - point 5A du
+ * 21 novembre.
+ *
+ * L'HISTOIRE DE CE REGLAGE EN TROIS TEMPS, parce qu'elle explique pourquoi il revient a trois.
+ *
+ *   - Au depart, TROIS boutons : << Sans peage >>, << Sans piste >>, << Grands axes >>. Ils se
+ *     recouvraient a moitie et aucun ne posait la question que se pose un conducteur algerien.
+ *   - En octobre, UN booleen : l'autoroute, oui ou non. Le seul peage du pays etant sur
+ *     l'Est-Ouest, le choix l'englobait ; et les pistes sont devenues une regle permanente,
+ *     plus une preference.
+ *   - Le 21 novembre, le client redemande TROIS choix - << avec autoroute / sans autoroute /
+ *     plus court >> - et il dit pourquoi : << sur un trajet vers l'aeroport d'Alger, le GPS
+ *     affichait 10-11 km alors que le conducteur etait a 2 km >>.
+ *
+ * ET LE TROISIEME N'EST PAS UN RETOUR EN ARRIERE. Les anciens boutons etaient trois facons de
+ * dire la meme chose ; ceux-ci sont trois INTENTIONS distinctes, dont une que le booleen ne
+ * pouvait pas exprimer. << Le plus court >> n'est ni << avec >> ni << sans >> autoroute : il
+ * l'accepte quand elle raccourcit vraiment, et c'est precisement ce qui manquait pour que le
+ * trajet de l'aeroport fasse 2 km au lieu de 10. Les valeurs elles-memes vivent cote serveur,
+ * dans apps/api/src/lib/profilsItineraire.ts, avec le detail de chaque reglage.
+ */
+export type ProfilItineraire = 'court' | 'autoroute' | 'sansAutoroute';
+
 export type RoutePrefs = {
-  /**
-   * Passer par l'autoroute, ou l'eviter. UN seul reglage la ou il y en avait trois.
-   *
-   * Il y avait << Sans peage >>, << Sans piste >> et << Grands axes >>. Trois boutons qui se
-   * recouvraient a moitie et dont aucun ne posait la question que se pose vraiment un
-   * conducteur algerien : est-ce que je prends l'Est-Ouest, oui ou non.
-   *
-   * Les deux autres n'avaient plus lieu d'etre : le seul peage du pays est sur cette autoroute
-   * — le choix l'englobe donc —, et les pistes ne sont pas une preference mais une regle. Elles
-   * sont desormais ecartees en permanence (voir costingOptions cote API), parce que personne ne
-   * demande a etre envoye sur un chemin de terre.
-   */
-  autoroute: boolean;
+  profil: ProfilItineraire;
 };
 
-/* Par defaut, l'autoroute. C'est l'itineraire le plus rapide entre deux grandes villes
- * algeriennes, et celui que choisit quelqu'un qui ne choisit rien. */
-const DEFAULT_ROUTE_PREFS: RoutePrefs = { autoroute: true };
+/* Par defaut, LE PLUS COURT - c'est la demande du 21 novembre, et c'est le reglage qui corrige
+ * le detour constate. Le defaut precedent etait l'autoroute : le plus rapide entre deux grandes
+ * villes, mais un detour de huit kilometres pour aller a l'aeroport d'Alger. */
+const DEFAULT_ROUTE_PREFS: RoutePrefs = { profil: 'court' };
 
 /**
- * Reglage relu depuis le telephone, en se mefiant de ce qu'on y trouve : les appareils deja
- * installes portent l'ANCIEN enregistrement, celui des trois boutons. Sans ce controle,
- * `routePrefs.autoroute` y vaudrait `undefined` — ni vrai ni faux — et le calcul d'itineraire
- * partirait sur une valeur qui n'en est pas une.
+ * Reglage relu depuis le telephone, en se mefiant de ce qu'on y trouve.
+ *
+ * TROIS GENERATIONS D'ENREGISTREMENT COHABITENT sur les telephones en service, et ce sont de
+ * VRAIS appareils : celui des trois anciens boutons, celui du booleen d'octobre, et le nouveau.
+ * Sans cette relecture, un appareil mis a jour depuis octobre trouverait `profil` a `undefined`
+ * et le calcul d'itineraire partirait sur une valeur qui n'en est pas une.
+ *
+ * LE BOOLEEN EST TRADUIT, PAS JETE. Quelqu'un qui avait choisi << sans autoroute >> l'a choisi
+ * pour une raison - il evite le peage, ou il n'aime pas l'Est-Ouest - et la mise a jour ne doit
+ * pas le remettre dessus en silence. On ne lui applique donc PAS le nouveau defaut : son choix
+ * est conserve tel quel. Seul un appareil qui n'avait jamais rien choisi recoit << le plus
+ * court >>.
  */
 function lireRoutePrefs(): RoutePrefs {
-  const brut = readJson<Partial<RoutePrefs>>(StorageKeys.routePrefs, DEFAULT_ROUTE_PREFS);
-  return { autoroute: typeof brut.autoroute === 'boolean' ? brut.autoroute : true };
+  const brut = readJson<{ profil?: unknown; autoroute?: unknown }>(
+    StorageKeys.routePrefs,
+    DEFAULT_ROUTE_PREFS,
+  );
+  if (brut.profil === 'court' || brut.profil === 'autoroute' || brut.profil === 'sansAutoroute') {
+    return { profil: brut.profil };
+  }
+  if (typeof brut.autoroute === 'boolean') {
+    return { profil: brut.autoroute ? 'autoroute' : 'sansAutoroute' };
+  }
+  return DEFAULT_ROUTE_PREFS;
 }
 
 type Session = {
@@ -88,7 +118,8 @@ type Session = {
   toggleVoiceGuidance: () => void;
   /** « OUI, desactiver » / « NON, garder » depuis la carte d'alerte, ou le panneau de reglages. */
   setApproachAlerts: (on: boolean) => void;
-  setAutoroute: (on: boolean) => void;
+  /** Le profil d itineraire choisi dans la carte de trajet (voir ProfilItineraire). */
+  setProfil: (profil: ProfilItineraire) => void;
 };
 
 export const useSession = create<Session>((set, get) => ({
@@ -152,8 +183,8 @@ export const useSession = create<Session>((set, get) => ({
     set({ approachAlertsEnabled: on });
   },
 
-  setAutoroute: (on) => {
-    const next: RoutePrefs = { autoroute: on };
+  setProfil: (profil) => {
+    const next: RoutePrefs = { profil };
     writeJson(StorageKeys.routePrefs, next);
     set({ routePrefs: next });
   },
