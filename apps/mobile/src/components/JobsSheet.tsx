@@ -340,9 +340,16 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
             <View style={{ height: 88 + insets.bottom }} />
           </ScrollView>
 
-          {/* FAB OR — « Publier une offre », l'acces employeur. Pose PAR-DESSUS la liste et non
+          {/* FAB OR — « Deposer une annonce », l'acces employeur. Pose PAR-DESSUS la liste et non
               a la suite : c'est le geste qu'un employeur vient chercher, et il ne doit pas avoir
-              a faire defiler cinquante annonces pour le trouver. */}
+              a faire defiler cinquante annonces pour le trouver.
+
+              LE MEME MOT QUE LE BOUTON DU BANDEAU, ET LE SIGNE EN MOINS (21 novembre). Les deux
+              boutons appellent `onPublish` : ils font exactement la meme chose, et ils le
+              disaient de deux facons differentes — « Publier une offre » en bas, « ✚ » en haut.
+              Deux libelles pour une action, c'est une question de plus a se poser, et la seule
+              reponse possible est « essayons pour voir ». La barre est large : le libelle y
+              tient sur une ligne sans rien serrer. */}
           <Pressable
             onPress={onPublish}
             accessibilityRole="button"
@@ -353,7 +360,7 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
               { bottom: spacing.lg + insets.bottom, opacity: pressed ? 0.88 : 1 },
             ]}
           >
-            <Text style={styles.fabTexte}>＋  {t('jobs.publish')}</Text>
+            <Text style={styles.fabTexte}>{t('jobs.post')}</Text>
           </Pressable>
         </View>
       </View>
@@ -662,7 +669,7 @@ const styles = StyleSheet.create({
   /* BORDURE OR DE 2 POINTS, RAYON 12 — correctif du 8 novembre, point 8.
    *
    * Elle etait d'un point, dans le gris des puces (PUCE). L'or est la couleur de l'employeur
-   * dans ce module : le badge << Mis en avant >>, le bouton << Publier une offre >>, et
+   * dans ce module : le badge << Mis en avant >>, le bouton << Deposer une annonce >>, et
    * maintenant le cadre de l'annonce. Les trois boutons de contact demandes par le document —
    * Tel, WhatsApp, Y aller — et la distance GPS en temps reel etaient deja en place depuis le
    * 27 octobre ; c'est la seule chose qui manquait au point 8. */
