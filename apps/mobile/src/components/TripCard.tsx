@@ -159,8 +159,14 @@ export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode
                     accessibilityState={{ checked: actif }}
                     style={[styles.modeBtn, actif && { backgroundColor: colors.accent }]}
                   >
+                    {/* DEUX LIGNES AUTORISEES, ET C'EST LE PASSAGE DE DEUX BOUTONS A TROIS QUI
+                        L'IMPOSE. A trois, chaque bouton fait environ 98 points de large sur un
+                        telephone de 360 : << Sans autoroute >> en demande 120 avec son glyphe.
+                        Sur une seule ligne, le libelle se serait coupe en << Sans autor... >> —
+                        un bouton qu'on ne peut plus lire. Le repli sur deux lignes garde les
+                        glyphes et les mots entiers, et la rangee grandit d'une ligne. */}
                     <Text
-                      numberOfLines={1}
+                      numberOfLines={2}
                       style={[styles.modeLabel, { color: actif ? colors.accentText : colors.text }]}
                     >
                       {glyphe} {t(cle)}
@@ -269,7 +275,9 @@ const styles = StyleSheet.create({
   modes: { flexDirection: 'row', borderRadius: radius.md, padding: 4, marginTop: spacing.md, gap: 4 },
   modeBtn: { flex: 1, borderRadius: radius.sm, paddingVertical: spacing.sm, alignItems: 'center' },
   modeContenu: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  modeLabel: { fontSize: 12.5, fontWeight: '700' as const },
+  /* `textAlign` compte des que le libelle passe sur deux lignes : `alignItems` centre le BLOC
+   * de texte, pas ses lignes entre elles, et la seconde ligne resterait collee a gauche. */
+  modeLabel: { fontSize: 12.5, fontWeight: '700' as const, textAlign: 'center' as const },
   altRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   altChip: { flex: 1, borderWidth: 1.5, borderRadius: radius.sm, padding: spacing.sm, alignItems: 'center' },
   altChipTitle: { fontSize: 12, fontWeight: '800' as const },
