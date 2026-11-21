@@ -679,6 +679,7 @@
     "renew": "Renew"
   },
   "jobs": {
+    "post": "Post an ad",
     "title": "Jobs near you",
     "radius": "Offers within 50 km",
     "all": "All",

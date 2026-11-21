@@ -679,6 +679,7 @@
     "renew": "Renouveler"
   },
   "jobs": {
+    "post": "Déposer une annonce",
     "title": "Emploi près de vous",
     "radius": "Offres dans un rayon de 50 km",
     "all": "Tous",

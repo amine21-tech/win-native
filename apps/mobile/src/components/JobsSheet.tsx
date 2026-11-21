@@ -205,9 +205,24 @@ export function JobsSheet({ visible, onClose, position, onNavigate, onPublish }:
               <Text style={styles.bandeauTitre}>{t('jobs.headerTitle')}</Text>
               <Text style={styles.bandeauSousTitre}>{t('jobs.headerSub')}</Text>
             </View>
-            {/* Le carre or de la maquette : l'acces employeur, atteignable sans faire defiler. */}
-            <Pressable onPress={onPublish} accessibilityRole="button" style={styles.carreOr}>
-              <Text style={styles.carreOrTexte}>✚</Text>
+            {/* L'ACCES EMPLOYEUR DIT CE QU'IL FAIT — demande du 21 novembre.
+             *
+             * C'etait le carre or de la maquette, avec un « ✚ » dedans. Un plus dans un bandeau
+             * ne dit pas ce qu'il ajoute : sur cet ecran, il pouvait aussi bien vouloir dire
+             * « ajouter un filtre » ou « agrandir le rayon ». Le client demande le mot a la
+             * place du signe.
+             *
+             * SUR DEUX LIGNES, ET C'EST LA LARGEUR QUI LE DECIDE. En une ligne, « Deposer une
+             * annonce » prendrait environ 130 points et mangerait la place du titre, qui en
+             * demande 143 pour « Emploi - WIN DZ » et 162 pour sa seconde ligne. Replie, le
+             * bouton tient dans 88 et laisse les deux lignes du titre entieres. */}
+            <Pressable
+              onPress={onPublish}
+              accessibilityRole="button"
+              accessibilityLabel={t('jobs.post')}
+              style={styles.boutonOr}
+            >
+              <Text style={styles.boutonOrTexte}>{t('jobs.post')}</Text>
             </Pressable>
           </View>
 
@@ -591,8 +606,26 @@ const styles = StyleSheet.create({
   retour: { color: '#FFFFFF', fontSize: 22, fontWeight: '800' as const },
   bandeauTitre: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' as const },
   bandeauSousTitre: { color: 'rgba(255,255,255,0.78)', fontSize: 12, marginTop: 1 },
-  carreOr: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: OR, alignItems: 'center', justifyContent: 'center' },
-  carreOrTexte: { color: '#2A1F00', fontSize: 20, fontWeight: '800' as const },
+  /* Meme or et meme coin arrondi que le carre qu'il remplace : seul le contenu change, pour que
+   * le bandeau reste celui de la maquette. `maxWidth` est ce qui force le repli sur deux lignes
+   * plutot que de laisser le bouton pousser le titre hors du bandeau. */
+  boutonOr: {
+    maxWidth: 104,
+    minHeight: 36,
+    borderRadius: radius.sm,
+    backgroundColor: OR,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  boutonOrTexte: {
+    color: '#2A1F00',
+    fontSize: 11.5,
+    lineHeight: 14,
+    fontWeight: '800' as const,
+    textAlign: 'center' as const,
+  },
 
   sousBandeau: {
     flexDirection: 'row',
