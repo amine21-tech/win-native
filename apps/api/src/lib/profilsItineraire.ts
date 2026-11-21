@@ -97,6 +97,30 @@ export function optionsAuto(profil: ProfilItineraire) {
     case 'court':
       return { ...SANS_FERRY, ...CARROSSABLE, shortest: true, use_highways: 0.5, use_tolls: 0.5 };
 
+    /* CE QUE `shortest: true` FAIT AUX AUTRES REGLAGES, ET C'EST A SAVOIR AVANT D'Y TOUCHER.
+     *
+     * La documentation de Valhalla est explicite sur cette option : << Note, this will disable
+     * all other costings & penalties >>, et plus bas << will solely use distance as cost and
+     * disregard all other costs, penalties and factors >>.
+     *
+     * Donc, dans CE profil et dans celui-la seulement :
+     *   - `use_highways: 0.5` et `use_tolls: 0.5` sont tres probablement IGNORES. Ils restent
+     *     ecrits parce que le document les nomme, et parce qu'ils redeviendraient actifs si
+     *     `shortest` partait un jour — mais il ne faut pas compter sur eux ici. Ce n'est pas
+     *     grave : a distance egale, le plus court passe de toute facon par l'autoroute quand
+     *     elle est le chemin direct, ce qui est exactement l'intention du client.
+     *   - `use_tracks` et les penalites de desserte sont IGNORES eux aussi. Une voie de
+     *     desserte goudronnee peut donc servir de raccourci dans ce profil.
+     *   - `exclude_unpaved` n'est PAS un cout mais une AUTORISATION (<< not allowed to have them
+     *     in the middle of the route path >>), et devrait donc survivre. La documentation ne le
+     *     dit pas noir sur blanc : c'est la seule incertitude de ce fichier, et elle se mesure
+     *     sur le moteur en service plutot que de se deviner ici.
+     *
+     * POURQUOI ON GARDE QUAND MEME `shortest`. Le client le demande par ecrit, et c'est la ligne
+     * qui repare le trajet de l'aeroport : `use_highways: 0.5` seul classerait encore par DUREE,
+     * et la route de 10 km par l'autoroute resterait la plus rapide. Sans `shortest`, le defaut
+     * ne corrige pas ce qu'il est cense corriger. */
+
     /** AVEC AUTOROUTE — le plus rapide, inchange par rapport a ce que faisait le bouton. */
     case 'autoroute':
       return { ...SANS_FERRY, ...CARROSSABLE, shortest: false, use_highways: 1, use_tolls: 0.5 };
