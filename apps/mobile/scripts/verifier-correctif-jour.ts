@@ -123,14 +123,19 @@ verifier(
   posGrille < posResultats,
   "l'ordre du reste du panneau ne bouge pas",
 );
+/* LE GESTE A CHANGE LE 22 NOVEMBRE (point 8) : un appui simple remplace l'appui maintenu.
+ * CE QUE CE CONTROLE SURVEILLE N'A PAS CHANGE POUR AUTANT — c'est toujours que le micro de la
+ * carte de navigation soit BRANCHE, et branche sur la MEME dictee que celui de l'accueil. Ses
+ * deux rappels etaient vides le 18 novembre : un bouton qui ne faisait rien. Seul le nom du
+ * rappel est different, parce qu'il n'y en a plus qu'un. */
 verifier(
   'le micro est branche sur la dictee de la carte',
-  /onMicPressIn={onMicPressIn}/.test(panneau) && /onMicPressOut={onMicPressOut}/.test(panneau),
-  'ses deux rappels etaient vides : un bouton qui ne faisait rien',
+  /onMicPress={onMicPress}/.test(panneau),
+  'ses rappels etaient vides le 18 novembre : un bouton qui ne faisait rien',
 );
 verifier(
-  "l'ecran lui passe les memes rappels que le micro de la carte",
-  /listening={voice\.listening}[\s\S]{0,160}onMicPressIn={\(\) => void voice\.start\(\)}/.test(ecran),
+  "l'ecran lui passe le meme rappel que le micro de la carte",
+  /listening={voice\.listening}[\s\S]{0,160}onMicPress={voice\.appuyer}/.test(ecran),
   '« reutiliser exactement le meme code »',
 );
 

@@ -2771,6 +2771,30 @@ ${t(`report.badge_${report.kind}`)}`,
           onBack={exitNavigationToHome}
           onLayoutBounds={onNavLayoutBounds}
           limitKmh={speedLimit}
+          /* LA PASTILLE D'ALERTE REDUITE ENTRE DANS LA COLONNE — point 2 du 22 novembre.
+           *
+           * Elle se posait toute seule a `spacing.md`, huit points sous le bandeau, et faisait
+           * trente-huit points de haut : elle finissait donc six points PLUS BAS que le haut
+           * de la colonne, sur le compteur de vitesse. C'est le chevauchement que le client a
+           * photographie. Aucun des deux fichiers ne pouvait le voir — chacun calculait sa
+           * position sans connaitre l'autre.
+           *
+           * CE N'EST PAS UN SECOND COMPOSANT : c'est le MEME, en mode `'pastille'`. Il lit le
+           * meme signalement et le meme reglage, et son appui appelle le meme `onBasculer`.
+           * L'instance plus bas, elle, passe en mode `'barre'` pendant le trajet pour ne pas
+           * dessiner la pastille deux fois. */
+          pastilleAlerte={
+            <BandeauInfoSignalement
+              report={infoSignalement?.report ?? null}
+              distanceM={infoSignalement?.distanceM ?? 0}
+              mode="pastille"
+              actif={approachAlertsEnabled}
+              onBasculer={(on) => {
+                setApproachAlerts(on);
+                setToast(t(on ? 'approach.alertsOn' : 'approach.alertsOff'));
+              }}
+            />
+          }
           onSearch={() => setNavSearchMenuOpen(true)}
           following={followMode}
           colors={colors}
@@ -2846,8 +2870,7 @@ ${t(`report.badge_${report.kind}`)}`,
           /* LES MEMES RAPPELS QUE LE MICRO DE LA CARTE (C2 du 11 novembre). Le micro du
              panneau etait un bouton inerte ; il partage desormais la dictee de l'ecran. */
           listening={voice.listening}
-          onMicPressIn={() => void voice.start()}
-          onMicPressOut={voice.stop}
+          onMicPress={voice.appuyer}
           colors={colors}
         />
 
@@ -2925,8 +2948,7 @@ ${t(`report.badge_${report.kind}`)}`,
           placeholder={voice.listening ? t('map.listening') : t('map.searchPlaceholder')}
           colors={colors}
           listening={voice.listening}
-          onMicPressIn={() => void voice.start()}
-          onMicPressOut={voice.stop}
+          onMicPress={voice.appuyer}
         />
         {/* LA LISTE DE RESULTATS NE PEUT PLUS EMPORTER LA CARTE.
             Le 19 novembre, une recherche a rendu l'ecran entierement noir : une exception
@@ -3032,6 +3054,14 @@ ${t(`report.badge_${report.kind}`)}`,
          * est pose a `spacing.md` par NavigationOverlay ; la pastille prend la meme marge, et
          * sa hauteur la place juste au-dessus de lui. */
         leftReduit={spacing.md}
+        /* PENDANT LE TRAJET, LA PASTILLE N'EST PLUS DESSINEE ICI mais dans la colonne de
+         * navigation (point 2 du 22 novembre, voir `pastilleAlerte` plus haut). Cette instance
+         * garde la BARRE, qui reste large et en haut.
+         *
+         * HORS TRAJET, ELLE GARDE LES DEUX : la colonne de navigation n'existe pas, et une
+         * pastille qu'on ne dessine plus serait un reglage coupe sans aucune trace a l'ecran —
+         * exactement ce que l'etat reduit existe pour eviter depuis le 17 novembre. */
+        mode={navigating ? 'barre' : 'tout'}
         /* UN SEUL REGLAGE, AFFICHE A DEUX ENDROITS. Cet interrupteur et la ligne << Alertes
          * actives >> du panneau de signalement lisent et ecrivent `approachAlertsEnabled` :
          * il n'y a pas deux etats a tenir d'accord, donc rien qui puisse se desynchroniser. */

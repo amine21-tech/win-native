@@ -16,14 +16,22 @@ import { formatClock24, useClock } from '../utils/clock';
 /** Ecart entre les cartes flottantes et le bord de l'ecran, en paysage. */
 const CARD_MARGIN = spacing.sm;
 /**
- * Ecart entre le bas du bandeau et le HAUT de la colonne de gauche.
+ * Ecart entre le bas du bandeau et le HAUT de la colonne de gauche — 6 points, la valeur du
+ * document du 22 novembre (<< android:layout_marginTop="6dp" >>, point 2).
  *
- * Il reste a 48 et non a 8 — voir la colonne elle-meme, plus bas : la languette « puis » pend
- * sous le bandeau a gauche et fait environ 36 points de haut. C'est le seul ecart de cette
- * colonne qui ne vaut pas 8 points, et le seul qui mesure autre chose qu'un espace entre deux
- * pastilles.
+ * IL VALAIT 48, ET LA RAISON ECRITE ICI ETAIT FAUSSE. Le commentaire de la veille disait que
+ * la languette << puis >> pendait SOUS le bandeau et qu'il fallait 36 points pour la laisser
+ * passer. Verification faite : `bannerHeight` est mesure par le `onLayout` du Pressable QUI
+ * CONTIENT PanneauDirection, et `styles.suivante` — la languette — est une simple rangee dans
+ * le flux de ce composant, sans position absolue. La languette est donc DEJA COMPTEE dans
+ * `bannerHeight`. Les 48 points ne protegeaient de rien : ils ne faisaient que descendre la
+ * colonne de quarante points dans la carte.
+ *
+ * C'EST POURQUOI JE L'ECRIS ICI PLUTOT QUE DE CORRIGER LE CHIFFRE EN SILENCE. Une valeur
+ * justifiee par une mesure qui n'existe pas est plus dangereuse qu'une valeur sans
+ * commentaire : elle decourage de la verifier.
  */
-const BADGE_GAP = 48;
+const BADGE_GAP = 6;
 
 
 
@@ -63,6 +71,19 @@ type Props = {
   /** Limite reglementaire du troncon, affichee sous le compteur de vitesse. `null` = inconnue,
    * la pastille disparait alors (voir useSpeedLimit). */
   limitKmh: number | null;
+  /**
+   * LA PASTILLE D'ALERTE REDUITE, DEJA CONSTRUITE — point 2 du 22 novembre.
+   *
+   * ELLE ARRIVE EN BLOC PLUTOT QU'EN DONNEES, et c'est volontaire. Pour la fabriquer ici il
+   * faudrait recevoir le signalement en vue, sa distance, le reglage des alertes et la
+   * fonction qui le bascule : quatre proprietes de plus, dont aucune ne regarde la
+   * navigation. L'ecran d'accueil les a toutes sous la main — il tient deja le composant qui
+   * dessine la barre. Il nous passe donc le rendu, et la colonne ne decide que du placement.
+   *
+   * `undefined` est le cas normal : il n'y a presque jamais de signalement en vue, et les
+   * autres elements remontent d'eux-memes (voir la note de la colonne).
+   */
+  pastilleAlerte?: React.ReactNode;
   /** Hauteurs reelles du bandeau (bas du bandeau, depuis le haut de l'ecran) et du cadre du bas
    * (0 quand il est ferme). L'ecran de carte en a besoin pour caler la colonne des dix boutons
    * ENTRE les deux : le dernier bouton chevauchait « Fin » (point 20 du client). */
@@ -107,6 +128,7 @@ export const NavigationOverlay = memo(function NavigationOverlay({
   onRecenter,
   onBack,
   limitKmh,
+  pastilleAlerte,
   onLayoutBounds,
   onSearch,
   following,
@@ -221,6 +243,10 @@ export const NavigationOverlay = memo(function NavigationOverlay({
            * nationale — les memes conditions que la rangee de voies. */
           nomVoie={nextManeuver?.streetName ?? null}
           surAutoroute={nextManeuver?.surAutoroute ?? false}
+          /* LE SEUIL DEPEND DE LA LIMITE REGLEMENTAIRE — point 6 du 22 novembre : 50 m en
+           * agglomeration, 500 m ailleurs. C'est le meme chiffre que la pastille rouge de la
+           * colonne de gauche affiche deja ; il ne servait qu'a etre lu. */
+          limiteKmh={limitKmh}
         />
 
         {/* Heure d'arrivee estimee et distance restante, EN HAUT comme EN BAS : le client les
@@ -240,6 +266,9 @@ export const NavigationOverlay = memo(function NavigationOverlay({
             distanceM={distanceToUpcoming}
             surAutoroute={nextManeuver?.surAutoroute ?? false}
             nomVoie={nextManeuver?.streetName ?? null}
+            /* Le MEME seuil que la grande fleche : les deux rangees doivent apparaitre et
+             * clignoter ensemble. Voir LANE_GUIDANCE_VISIBLE_M. */
+            limiteKmh={limitKmh}
           />
         ) : null}
 
@@ -247,8 +276,20 @@ export const NavigationOverlay = memo(function NavigationOverlay({
             renoncait en silence, la pastille disparaissait, et le conducteur restait avec
             l'ancien trace sans savoir qu'il ne menait plus nulle part. Rouge, parce que c'est
             le seul cas des trois ou il y a vraiment quelque chose a faire. */}
+        {/* IL COMMENCE APRES LA COLONNE EN PORTRAIT, et c'est une consequence directe du
+            point 2 : la colonne est remontee a six points sous le bandeau, la ou ce message
+            commence. A gauche, il passait derriere la pastille d'alerte et le compteur — le
+            message d'erreur est justement celui qu'il ne faut pas masquer. En paysage il n'y
+            a pas de colonne a cet endroit : il garde toute la largeur. */}
         {erreurItineraire && !recalculating ? (
-          <View style={[styles.echec, { top: bannerHeight + spacing.sm }]} pointerEvents="none">
+          <View
+            style={[
+              styles.echec,
+              { top: bannerHeight + spacing.sm },
+              landscape ? null : { left: spacing.md + 64 },
+            ]}
+            pointerEvents="none"
+          >
             <Text style={styles.echecTexte} numberOfLines={2}>
               {t('nav.noRoute')}
             </Text>
@@ -314,21 +355,37 @@ export const NavigationOverlay = memo(function NavigationOverlay({
          * compteur se tait avant le premier point GPS — ne laisse plus un trou au milieu de la
          * colonne : les autres remontent.
          *
-         * LE SEUL ECART AVEC LE DOCUMENT EST UN ECART VOULU : le premier ecart, sous le bandeau,
-         * reste a 48 points et non a 8. La languette << puis >> pend sous le bandeau a gauche et
-         * fait environ 36 points de haut (point 19 du 18 novembre). A 8 points, le nouveau
-         * bouton de langue passerait dessous — on corrigerait un chevauchement en en creant un
-         * autre. Le document demande de ne pas toucher le cadre vert ; 48 points y repondent
-         * mieux que 8.
+         * L'ORDRE EST CELUI DU DOCUMENT DU 22 NOVEMBRE — point 5, << ORDRE FINAL >> :
+         *
+         *   1. pastille d'alerte (26)   premiere, 6 points sous le cadre vert
+         *   2. vitesse actuelle
+         *   3. limitation
+         *   4. vue d'ensemble
+         *   5. bouton de langue (44)    DERNIER
+         *
+         * LE BOUTON DE LANGUE ETAIT EN TETE LA VEILLE, et c'est le meme client qui l'avait
+         * demande ainsi — le schema du point 3 du 21 novembre le montrait juste sous le cadre
+         * vert. Il explique son changement d'avis au point 5 : le bouton le plus gros de la
+         * colonne, celui qui porte un mot, n'a pas a etre le plus haut. En bas il tombe sous
+         * le pouce, et la pastille d'alerte — qui ne fait que 26 points — prend la place ou
+         * elle ne touche plus le cadre vert.
+         *
+         * LES TAILLES, ELLES, NE SUIVENT PAS LE DOCUMENT, ET C'EST ASSUME. Il ecrit << 34dp >>
+         * pour la vitesse, la limitation et la vue d'ensemble ; les nôtres font 58, 50 et 48.
+         * Ce sont les tailles essayees au volant depuis le 17 novembre : nos pastilles portent
+         * DEUX lignes (le nombre et << km/h >>), la ou une vignette Android de 34 points n'en
+         * porte qu'une. Les reduire rendrait le chiffre illisible a la vitesse ou l'on en a
+         * besoin. C'est a signaler a M. Mansour, pas a trancher seul.
          */
         <View
           style={[styles.colonneGauche, { top: bannerTop + bannerHeight + BADGE_GAP, left: spacing.md }]}
           pointerEvents="box-none"
         >
-          {/* Raccourci tamazight / derija, et appui long pour couper la voix — point 6. Il est
-              en TETE de colonne, a la place meme que le document reserve au bouton dans son
-              schema du point 3. */}
-          <BoutonLangueNav colors={colors} />
+          {/* LA PASTILLE D'ALERTE, PREMIERE — point 2. Elle n'est pas construite ici : l'ecran
+              d'accueil la fabrique et nous la passe deja faite, parce que c'est lui qui tient
+              le signalement en vue et le reglage des alertes. La colonne, elle, n'a besoin de
+              savoir qu'une chose : ou elle se place. */}
+          {pastilleAlerte}
           <SpeedBadge subscribe={subscribeFix} colors={colors} enColonne />
           <SpeedLimitBadge limitKmh={limitKmh} subscribe={subscribeFix} enColonne />
           {/* Vue d'ensemble du trajet, sous les deux pastilles, comme sur le site. */}
@@ -340,6 +397,9 @@ export const NavigationOverlay = memo(function NavigationOverlay({
           >
             <Text style={{ fontSize: 17, color: colors.accentDark }}>⛶</Text>
           </Pressable>
+          {/* Raccourci tamazight / derija, et appui long pour couper la voix — point 6 du 21,
+              DERNIER depuis le point 5 du 22. */}
+          <BoutonLangueNav colors={colors} />
         </View>
       )}
 

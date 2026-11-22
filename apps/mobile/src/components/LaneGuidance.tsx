@@ -3,7 +3,7 @@ import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { FlecheVoie } from './FlecheVoie';
 import { libelleOption, optionsDeManoeuvre, optionsDeVoies } from '../navigation/optionsVoies';
-import { surGrandAxe } from '../navigation/grandAxe';
+import { distanceAnticipation, surGrandAxe } from '../navigation/grandAxe';
 import type { Lane } from '../navigation/routing';
 
 /**
@@ -32,7 +32,19 @@ import type { Lane } from '../navigation/routing';
  * declenchement suivent le nouveau document.
  */
 
-/** Distance d'apparition : au-dela, le conducteur ne peut encore rien faire de l'information. */
+/**
+ * Distance d'apparition : au-dela, le conducteur ne peut encore rien faire de l'information.
+ *
+ * ELLE N'EST PLUS FIXE A 500 — point 6 du 22 novembre. Le client ecrit << LES FLECHES >>, au
+ * pluriel, et son reproche vise les deux rangees : << les fleches clignotent 500 m avant meme
+ * sur une RN en ville, avec des rues adjacentes >>. Si la grande fleche attendait cinquante
+ * metres pendant que cette rangee s'affichait et clignotait depuis cinq cents, les deux
+ * seraient a contretemps — exactement ce que la consigne du 18 novembre interdit (<< les
+ * petites fleches clignotent EN MEME TEMPS que la grande >>).
+ *
+ * Cette constante reste le PLAFOND : hors agglomeration, ou quand la limite est inconnue, la
+ * rangee apparait toujours a cinq cents metres.
+ */
 export const LANE_GUIDANCE_VISIBLE_M = 500;
 
 /**
@@ -128,6 +140,7 @@ export function LaneGuidance({
   surAutoroute,
   nomVoie,
   typeManoeuvre,
+  limiteKmh,
 }: {
   lanes: Lane[];
   /** Distance restante jusqu'a la bifurcation, ou `null` si elle est inconnue. */
@@ -139,6 +152,9 @@ export function LaneGuidance({
   /** Type de manoeuvre Valhalla. Il suffit a dessiner la fleche recommandee quand le
    *  marquage au sol manque — voir optionsDeManoeuvre. */
   typeManoeuvre: number | null;
+  /** Limite reglementaire du troncon, pour distinguer la ville de la rase campagne. Voir
+   *  `distanceAnticipation` et la note de LANE_GUIDANCE_VISIBLE_M. */
+  limiteKmh?: number | null;
 }) {
   /* LE CLIGNOTEMENT TOURNE MEME QUAND RIEN N'EST AFFICHE, et c'est une contrainte de React et
    * non un choix : un hook ne peut pas etre appele apres un `return`. L'animation est native
@@ -180,7 +196,9 @@ export function LaneGuidance({
    * nationales taguees `primary` : on les reconnait a leur nom — << RN 12 >>, << N5 >>. Voir
    * grandAxe.ts. */
   if (!surGrandAxe(surAutoroute, nomVoie)) return null;
-  if (distanceM == null || distanceM > LANE_GUIDANCE_VISIBLE_M) return null;
+  /* CINQUANTE METRES EN AGGLOMERATION, CINQ CENTS AILLEURS — le meme seuil que la grande
+   * fleche, calcule par la meme fonction, pour que les deux ne puissent pas differer. */
+  if (distanceM == null || distanceM > distanceAnticipation(limiteKmh)) return null;
 
   /* LA RANGEE N'EXIGE PLUS LE MARQUAGE AU SOL — correction du client, 17 novembre.
    *

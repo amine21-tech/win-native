@@ -21,7 +21,14 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { gesteDeVoie, rabattementAGauche, type GesteVoie } from '../src/navigation/voiesRegles';
-import { estNationale, surGrandAxe } from '../src/navigation/grandAxe';
+import {
+  ANTICIPATION_AGGLO_M,
+  ANTICIPATION_RASE_M,
+  distanceAnticipation,
+  estNationale,
+  LIMITE_AGGLO_KMH,
+  surGrandAxe,
+} from '../src/navigation/grandAxe';
 import { LANE, type Lane } from '../src/navigation/voies';
 
 let fautes = 0;
@@ -195,9 +202,108 @@ verifier(
   'en ville les voies changent a chaque carrefour : l affichage clignoterait sans rien apprendre',
 );
 
+console.log('\nLA DISTANCE D ANTICIPATION : 50 M EN VILLE, 500 M AILLEURS — point 6 du 22 novembre');
+/* << Les fleches clignotent 500 m avant meme sur une RN en ville, avec des rues adjacentes.
+ * Anticipation trop precoce en ville, confusion avec les autres carrefours. >>
+ *
+ * CE CONTROLE PORTE SUR LES DEUX BORDS DU SEUIL, et c'est la qu'une regle ecrite avec `<` au
+ * lieu de `<=` se tromperait : cinquante kilometres-heure est la limite d'agglomeration
+ * algerienne EXACTE, donc le cas le plus frequent de tous, et non un cas limite. */
+verifier(
+  'les trois valeurs sont celles du document',
+  LIMITE_AGGLO_KMH === 50 && ANTICIPATION_AGGLO_M === 50 && ANTICIPATION_RASE_M === 500,
+  `${LIMITE_AGGLO_KMH} km/h, ${ANTICIPATION_AGGLO_M} m, ${ANTICIPATION_RASE_M} m`,
+);
+verifier(
+  'RN 12 traversant Draa El Mizan (50 km/h) : 50 m',
+  distanceAnticipation(50) === ANTICIPATION_AGGLO_M,
+  `${distanceAnticipation(50)} m — l exemple cite par le client`,
+);
+verifier(
+  'rue de quartier (30 km/h) : 50 m',
+  distanceAnticipation(30) === ANTICIPATION_AGGLO_M,
+  `${distanceAnticipation(30)} m`,
+);
+verifier(
+  'un seul km/h au-dessus (60) : on repasse a 500 m',
+  distanceAnticipation(60) === ANTICIPATION_RASE_M,
+  `${distanceAnticipation(60)} m`,
+);
+verifier(
+  'RN hors agglomeration (100 km/h) : 500 m',
+  distanceAnticipation(100) === ANTICIPATION_RASE_M,
+  `${distanceAnticipation(100)} m`,
+);
+verifier(
+  'autoroute (120 km/h) : 500 m',
+  distanceAnticipation(120) === ANTICIPATION_RASE_M,
+  `${distanceAnticipation(120)} m`,
+);
+/* LIMITE INCONNUE : ON GARDE 500, et c'est le defaut du document lui-meme (`?: 90.0`).
+ * `useSpeedLimit` ne devine jamais : sur les troncons qu'OpenStreetMap ne renseigne pas, il
+ * rend `null`, et cela arrive souvent en Algerie. Annoncer trop tot coute un peu d'attention ;
+ * annoncer trop tard fait rater la sortie. */
+verifier(
+  'limite inconnue (null) : 500 m',
+  distanceAnticipation(null) === ANTICIPATION_RASE_M,
+  `${distanceAnticipation(null)} m`,
+);
+verifier(
+  'limite absente (undefined) : 500 m',
+  distanceAnticipation(undefined) === ANTICIPATION_RASE_M,
+);
+verifier(
+  'valeur aberrante (0 ou NaN) : 500 m, et non 50',
+  distanceAnticipation(0) === ANTICIPATION_RASE_M &&
+    distanceAnticipation(Number.NaN) === ANTICIPATION_RASE_M,
+  'une limite a zero n est pas une agglomeration : c est une donnee manquante',
+);
+/* ET LA PROPRIETE GENERALE : le seuil ne vaut JAMAIS autre chose que l'une des deux valeurs.
+ * C'est ce qui resisterait a quelqu'un qui remplacerait la regle par une interpolation. */
+let autreValeur = '';
+for (const v of [null, undefined, -10, 0, 5, 20, 30, 49, 50, 51, 70, 80, 90, 110, 130, 200]) {
+  const d = distanceAnticipation(v as number | null | undefined);
+  if (d !== ANTICIPATION_AGGLO_M && d !== ANTICIPATION_RASE_M) autreValeur = `${v} -> ${d}`;
+}
+verifier(
+  'le seuil ne prend que les deux valeurs du document, jamais une troisieme',
+  autreValeur === '',
+  autreValeur === '' ? '16 limites eprouvees' : autreValeur,
+);
+
+/* LES DEUX RANGEES PARTAGENT LE MEME SEUIL, et c'est la consigne du 18 novembre : << les
+ * petites fleches clignotent EN MEME TEMPS que la grande >>. Elles le partagent parce qu'elles
+ * appellent la MEME fonction — on verifie ici que ni l'une ni l'autre n'a garde un 500 en dur,
+ * et que le RYTHME, lui, est intact : << uniquement le seuil de declenchement est modifie >>. */
+const panneau = readFileSync(
+  resolve(__dirname, '..', 'src', 'components', 'PanneauDirection.tsx'),
+  'utf8',
+);
+const rangeeVoies = readFileSync(
+  resolve(__dirname, '..', 'src', 'components', 'LaneGuidance.tsx'),
+  'utf8',
+);
+verifier(
+  'la grande fleche calcule son seuil au lieu de l ecrire',
+  panneau.includes('distanceAnticipation(limiteKmh)') && !panneau.includes('CLIGNOTEMENT_M ='),
+  'plus aucune constante de 500 m dans PanneauDirection',
+);
+verifier(
+  'la rangee de voies calcule exactement le meme',
+  rangeeVoies.includes('distanceAnticipation(limiteKmh)'),
+);
+verifier(
+  'le rythme du clignotement n a bouge dans aucun des deux',
+  panneau.includes('CLIGNOTEMENT_MS = 500') &&
+    panneau.includes('CLIGNOTEMENT_MIN = 0.2') &&
+    rangeeVoies.includes('CLIGNOTEMENT_MS = 500') &&
+    rangeeVoies.includes('CLIGNOTEMENT_MIN = 0.2'),
+  'de 1,0 a 0,2 en 500 ms, comme depuis le 18 novembre',
+);
+
 console.log(
   fautes === 0
-    ? '\nLes neuf fleches se distinguent, et la nationale est reconnue.\n'
+    ? '\nLes neuf fleches se distinguent, la nationale est reconnue, et le seuil suit la ville.\n'
     : `\nA CORRIGER : ${fautes} verification(s) en echec.\n`,
 );
 process.exit(fautes === 0 ? 0 : 1);

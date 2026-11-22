@@ -48,8 +48,8 @@ type Props = {
    * ou sur le moment ou la recherche part.
    */
   listening: boolean;
-  onMicPressIn: () => void;
-  onMicPressOut: () => void;
+  /** Un seul appui, cinq secondes — point 8 du 22 novembre. Voir SearchBar. */
+  onMicPress: () => void;
   onCategory: (dataQ: string, label: string) => void;
   loading: boolean;
   results: GeocodedResult[];
@@ -63,8 +63,7 @@ export function NavDestinationPicker({
   query,
   onChangeQuery,
   listening,
-  onMicPressIn,
-  onMicPressOut,
+  onMicPress,
   onCategory,
   loading,
   results,
@@ -124,8 +123,7 @@ export function NavDestinationPicker({
               placeholder={t('map.searchPlaceholder')}
               colors={colors}
               listening={listening}
-              onMicPressIn={onMicPressIn}
-              onMicPressOut={onMicPressOut}
+              onMicPress={onMicPress}
             />
           </View>
 

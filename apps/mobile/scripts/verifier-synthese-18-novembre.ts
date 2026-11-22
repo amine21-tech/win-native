@@ -98,7 +98,16 @@ verifier(
 );
 
 console.log('\nF — LA FLECHE');
-verifier('elle clignote a 500 m', /CLIGNOTEMENT_M = 500/.test(panneau));
+/* Le point F.2 du 18 novembre demandait 500 m. Le point 6 du 22 novembre a ramene ce seuil a
+ * 50 m EN AGGLOMERATION, pour la raison que le client donne : sur une RN qui traverse un bourg,
+ * cinq cents metres avant la sortie on est encore devant six intersections, et la fleche semble
+ * designer la premiere. Hors agglomeration, le 500 du 18 novembre tient toujours — c'est la
+ * valeur que `distanceAnticipation` rend quand la limite depasse 50 km/h ou reste inconnue. */
+verifier(
+  'elle clignote au seuil d anticipation (500 m hors agglomeration)',
+  /distanceAnticipation\(limiteKmh\)/.test(panneau) &&
+    /ANTICIPATION_RASE_M = 500/.test(lire('src', 'navigation', 'grandAxe.ts')),
+);
 verifier('sur grand axe seulement', /surGrandAxe\(surAutoroute, nomVoie\)/.test(panneau));
 
 console.log('\nCE QUI RESTE A FAIRE, ET QUI N EST PAS DE NOTRE RESSORT');

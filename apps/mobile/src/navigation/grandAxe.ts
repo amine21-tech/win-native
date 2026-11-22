@@ -50,3 +50,51 @@ export function estNationale(nom: string | null | undefined): boolean {
 export function surGrandAxe(surAutoroute: boolean, nomVoie: string | null | undefined): boolean {
   return surAutoroute || estNationale(nomVoie);
 }
+
+/**
+ * A QUELLE DISTANCE LA FLECHE DOIT COMMENCER A CLIGNOTER — point 6 du 22 novembre.
+ *
+ * << Probleme constate : les fleches clignotent 500 m avant meme sur une RN en ville, avec des
+ * rues adjacentes. Resultat : anticipation trop precoce en ville, confusion avec les autres
+ * carrefours. >>
+ *
+ *   RN en agglomeration  (maxspeed <= 50)   50 m
+ *   RN hors agglomeration                  500 m
+ *   Autoroute                              500 m
+ *
+ * LE CLIENT A RAISON, ET SON EXEMPLE LE MONTRE MIEUX QUE LA REGLE : la RN 12 traverse Draa El
+ * Mizan. Cinq cents metres avant la sortie, on est encore au milieu du bourg, devant six ou
+ * sept intersections — et la fleche qui clignote semble designer la premiere. Une fleche qui
+ * annonce le mauvais carrefour est pire qu'une fleche fixe.
+ *
+ * D'OU VIENT LA VITESSE MAXIMALE, ET POURQUOI CE POINT EST FAISABLE ALORS QU'IL N'EN AVAIT PAS
+ * L'AIR. La reponse `/route` de Valhalla ne porte ni `maxspeed` ni `urban` : j'avais d'abord
+ * conclu que la source citee par le document n'existait pas chez nous. Elle existe, mais
+ * ailleurs — `useSpeedLimit` la lit DEJA, par `GET /routing/speed-limit` sur les tuiles
+ * Valhalla, et c'est elle qui alimente la pastille rouge de la colonne de gauche. Le chiffre
+ * demande est donc a l'ecran depuis le 79e correctif ; il n'avait simplement jamais servi a
+ * autre chose qu'a etre affiche.
+ *
+ * ET QUAND ELLE EST INCONNUE, ON GARDE 500. C'est le defaut du document lui-meme
+ * (`?: 90.0 km/h`), et c'est le bon sens de l'erreur : annoncer trop tot une manoeuvre sur une
+ * route de campagne fait perdre un peu d'attention, l'annoncer trop tard fait rater la sortie.
+ * `useSpeedLimit` ne devine jamais — pas de limite connue, pas de pastille — si bien que
+ * `null` arrive reellement, et souvent.
+ *
+ * CE QUI N'EST PAS TOUCHE : le clignotement lui-meme (son rythme, son opacite, les fleches qui
+ * s'y synchronisent) et la condition de GRAND AXE. << uniquement le seuil de declenchement est
+ * modifie, pas la logique de clignotement. >> Cette fonction ne rend qu'un nombre de metres.
+ */
+
+/** Au-dessus de ce chiffre, on est hors agglomeration. Valeur du document. */
+export const LIMITE_AGGLO_KMH = 50;
+/** Les deux seuils d'anticipation, en metres. Valeurs du document. */
+export const ANTICIPATION_AGGLO_M = 50;
+export const ANTICIPATION_RASE_M = 500;
+
+export function distanceAnticipation(limiteKmh: number | null | undefined): number {
+  if (typeof limiteKmh !== 'number' || !Number.isFinite(limiteKmh) || limiteKmh <= 0) {
+    return ANTICIPATION_RASE_M;
+  }
+  return limiteKmh <= LIMITE_AGGLO_KMH ? ANTICIPATION_AGGLO_M : ANTICIPATION_RASE_M;
+}

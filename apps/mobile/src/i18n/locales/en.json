@@ -457,7 +457,10 @@
     "close": "Close",
     "play": "Play",
     "pause": "Pause",
-    "stop": "Stop"
+    "stop": "Stop",
+    "seek": "Position in the recitation",
+    "back10": "Back 10 seconds",
+    "forward10": "Forward 10 seconds"
   },
   "trip": {
     "unavailable": "Route unavailable.",

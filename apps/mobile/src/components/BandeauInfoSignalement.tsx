@@ -61,21 +61,52 @@ const ROUGE = '#D32F2F';
 export function BandeauInfoSignalement({
   report,
   distanceM,
-  top,
-  left,
-  right,
-  leftReduit,
+  top = 0,
+  left = 0,
+  right = 0,
+  leftReduit = 0,
+  mode = 'tout',
   actif,
   onBasculer,
 }: {
   /** Le signalement a venir, ou `null` pour tout masquer. */
   report: Report | null;
   distanceM: number;
-  top: number;
-  left: number;
-  right: number;
-  /** Position horizontale en mode reduit : alignee sur les pastilles de vitesse. */
-  leftReduit: number;
+  /* LES QUATRE POSITIONS SONT FACULTATIVES DEPUIS LE 22 NOVEMBRE, et uniquement pour le mode
+   * `'pastille'` : la colonne de navigation place son enfant elle-meme, et l'appelant n'aurait
+   * que des zeros a ecrire. Les modes `'tout'` et `'barre'` les lisent toujours. */
+  top?: number;
+  left?: number;
+  right?: number;
+  /** Position horizontale en mode reduit, quand la pastille se place elle-meme. */
+  leftReduit?: number;
+  /**
+   * LEQUEL DES DEUX ETATS CE RENDU DESSINE — point 2 du 22 novembre.
+   *
+   * Ce composant a toujours eu deux visages : la BARRE pleine largeur quand les alertes sont
+   * actives, et la PASTILLE quand elles sont coupees. Ils vivaient au meme endroit de l'ecran,
+   * poses tous les deux en absolu sous le bandeau vert.
+   *
+   * LA PASTILLE A BESOIN D'ALLER AILLEURS, ET C'EST LE DEFAUT QUE LE CLIENT A PHOTOGRAPHIE.
+   * Posee a huit points sous le bandeau et haute de trente-huit, elle finissait SIX POINTS
+   * PLUS BAS que le haut de la colonne de navigation : elle recouvrait le compteur de vitesse.
+   * Le calcul n'avait jamais ete fait — deux fichiers differents decidaient chacun d'une
+   * position, sans se connaitre.
+   *
+   * On ne peut pas simplement deplacer le composant entier : la barre, elle, doit rester large
+   * et en haut. On lui demande donc lequel de ses visages il dessine :
+   *
+   *   `'tout'`     les deux, chacun se placant en absolu — EXACTEMENT le comportement d'avant,
+   *                et c'est le defaut, donc un appelant qui ne dit rien ne change pas.
+   *   `'barre'`    la barre seule ; la pastille est laissee a quelqu'un d'autre.
+   *   `'pastille'` la pastille seule, SANS position propre, pour qu'une colonne l'empile.
+   *
+   * POURQUOI `'tout'` SURVIT ALORS QUE LA COLONNE EXISTE : la colonne de navigation n'est a
+   * l'ecran QUE PENDANT UN TRAJET. Hors trajet, un signalement peut tres bien etre en vue — et
+   * si la pastille n'etait plus dessinee que par la colonne, le reglage coupe n'aurait plus
+   * aucune trace a l'ecran. C'est precisement ce que l'etat reduit existe pour eviter.
+   */
+  mode?: 'tout' | 'barre' | 'pastille';
   /** Les alertes de proximite sont-elles actives ? Vient du reglage partage. */
   actif: boolean;
   /** Bascule le reglage. Le MEME que celui du panneau de signalement. */
@@ -109,14 +140,22 @@ export function BandeauInfoSignalement({
 
   /* ------------------------------------------------------------------ etat 2 : reduit */
   if (!actif) {
+    if (mode === 'barre') return null; // c'est l'autre rendu qui dessine la pastille
     return (
       <Pressable
         onPress={() => onBasculer(true)}
         accessibilityRole="switch"
         accessibilityState={{ checked: false }}
         accessibilityLabel={t('approach.reenable')}
-        hitSlop={12}
-        style={[styles.reduit, { top, left: leftReduit, borderColor: couleur }]}
+        /* `hitSlop` COMPENSE LA REDUCTION A 26 POINTS. Le doigt a besoin de quarante-huit
+         * points pour viser sans regarder ; la pastille n'en occupe plus que vingt-six a
+         * l'ecran, et la zone sensible garde la taille d'avant tout autour. */
+        hitSlop={14}
+        style={[
+          styles.reduit,
+          { borderColor: couleur },
+          mode === 'tout' ? { position: 'absolute', top, left: leftReduit } : null,
+        ]}
       >
         <Text style={[styles.reduitTexte, { color: couleur }]}>⚠</Text>
         {/* LE POINT ROUGE DIT QUE C'EST COUPE, et pas seulement petit. Sans lui, la pastille
@@ -128,6 +167,7 @@ export function BandeauInfoSignalement({
   }
 
   /* ------------------------------------------------------------------ etat 1 : la barre */
+  if (mode === 'pastille') return null; // la colonne ne porte que la pastille
   return (
     /* `box-none` : la barre ne doit pas intercepter les appuis destines a la carte, mais
        l'interrupteur, lui, doit les recevoir. << none >> l'aurait rendu intouchable. */
@@ -208,13 +248,21 @@ const styles = StyleSheet.create({
   rail: { width: 32, height: 18, borderRadius: 9, padding: 2, justifyContent: 'center' },
   pastille: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#FFFFFF' },
 
-  /* LA PASTILLE REDUITE fait 38 points, comme les boutons ronds de la colonne de droite. Elle
-   * se pose au-dessus du compteur de vitesse, a la place qu'occupait le debut de la barre. */
+  /**
+   * VINGT-SIX POINTS — la valeur du document du 22 novembre (<< 44dp -> 26dp >>).
+   *
+   * Elle en faisait trente-huit, et le client a raison de la trouver trop grosse : posee a huit
+   * points sous le bandeau, elle descendait jusqu'a quarante-six, c'est-a-dire SIX POINTS PLUS
+   * BAS que le haut de la colonne de navigation. Elle recouvrait le compteur de vitesse.
+   *
+   * `position: 'absolute'` n'est PLUS ICI mais dans le rendu, et seulement en mode `'tout'` :
+   * une pastille qui se place elle-meme est precisement ce qui a permis le recouvrement. En
+   * mode colonne, c'est la colonne qui decide — et un recouvrement y devient impossible.
+   */
   reduit: {
-    position: 'absolute',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     borderWidth: 2,
     backgroundColor: '#FCFFFB',
     alignItems: 'center',
@@ -225,14 +273,16 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
-  reduitTexte: { fontSize: 17, fontWeight: '800' as const },
+  reduitTexte: { fontSize: 13, lineHeight: 15, fontWeight: '800' as const },
+  /* Le point rouge suit la pastille : a 10 points sur un disque de 26, il en couvrait le
+   * tiers et se lisait comme une seconde pastille collee. */
   reduitPoint: {
     position: 'absolute',
-    top: 1,
-    right: 1,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    top: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: ROUGE,
     borderWidth: 1.5,
     borderColor: '#FFFFFF',

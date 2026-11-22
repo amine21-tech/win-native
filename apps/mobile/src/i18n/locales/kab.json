@@ -457,7 +457,10 @@
     "close": "Mdel",
     "play": "Sell",
     "pause": "Sgunfu",
-    "stop": "Ḥbes"
+    "stop": "Ḥbes",
+    "seek": "Amkan deg usɣeṛ",
+    "back10": "Uɣal 10 n tesnatin",
+    "forward10": "Ddu 10 n tesnatin"
   },
   "trip": {
     "unavailable": "Abrid ulac-it.",

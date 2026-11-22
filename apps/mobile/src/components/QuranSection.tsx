@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useQuranPlayer } from '../quran/player';
+import { SeekBarSourate } from './SeekBarSourate';
 import { RECITATEUR, RECITATIONS } from '../quran/recitations';
 import { fonts, radius, spacing } from '../theme';
 
@@ -52,14 +53,27 @@ export function QuranSection() {
         const active = enCours?.numero === r.numero;
         const enAttente = active && charge;
         return (
+          /**
+           * UNE CARTE PAR SOURATE, ET NON PLUS UNE SEULE LIGNE — point 4 du 22 novembre.
+           *
+           * << Sourate active : carte elargie — SeekBar + temps actuel + controles. >>
+           *
+           * LA LIGNE N'A PAS CHANGE : elle garde son dessin, ses couleurs et son appui. On
+           * l'enveloppe seulement, pour pouvoir lui accrocher la barre en dessous. L'ecart de
+           * sept points entre deux sourates a simplement demenage de la ligne vers
+           * l'enveloppe, sinon il se serait glisse ENTRE la ligne et sa propre barre.
+           */
+          <View key={r.numero} style={styles.carte}>
           <Pressable
-            key={r.numero}
             onPress={() => basculer(r)}
             accessibilityRole="button"
             accessibilityLabel={`${r.latin} — ${r.duree}`}
             style={({ pressed }) => [
               styles.ligne,
               { borderColor: active ? OR : BORD_LIGNE, opacity: pressed ? 0.75 : 1 },
+              /* Le bas de la ligne s'ouvre sur la barre : plus de bordure ni d'arrondi entre
+               * les deux, pour qu'elles se lisent comme un seul objet. */
+              active && styles.ligneOuverte,
             ]}
           >
             {/* Le numero de sourate, comme sur un mushaf. Les trois protectrices n'en ont pas
@@ -91,6 +105,13 @@ export function QuranSection() {
               )}
             </View>
           </Pressable>
+
+          {/* ELLE N'EXISTE QUE SOUS LA SOURATE ACTIVE, comme le document le demande. Un rendu
+              conditionnel, et non un `display: none` : le composant porte ses propres crochets,
+              et le garder monte pour treize sourates ferait treize mesures de largeur a tenir
+              a jour pour une seule qui serve. */}
+          {active ? <SeekBarSourate /> : null}
+          </View>
         );
       })}
     </View>
@@ -99,6 +120,9 @@ export function QuranSection() {
 
 const styles = StyleSheet.create({
   bloc: { marginTop: spacing.lg },
+  /* L'ecart entre deux sourates vit ici depuis le point 4 : il entourait la ligne, et aurait
+   * separe la sourate active de sa propre barre. */
+  carte: { marginBottom: 7 },
   entete: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -123,8 +147,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 9,
     paddingHorizontal: 10,
-    marginBottom: 7,
   },
+  /* Sourate active : le bas de la ligne s'ouvre sur la barre de navigation. */
+  ligneOuverte: { borderBottomWidth: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   numero: {
     width: 38,
     height: 34,

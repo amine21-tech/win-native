@@ -77,6 +77,7 @@ vitesse = lire('components', 'SpeedBadge.tsx')
 limite = lire('components', 'SpeedLimitBadge.tsx')
 langue = lire('components', 'BoutonLangueNav.tsx')
 chips = lire('components', 'CategoryChips.tsx')
+alerte = lire('components', 'BandeauInfoSignalement.tsx')
 
 print('\nLA COLONNE DE GAUCHE EMPILE ELLE-MEME SES ELEMENTS — point 3')
 # Le defaut d'origine : trois decalages codes en dur (48, puis +66, puis +62) qui supposaient la
@@ -101,8 +102,32 @@ verifier(
     "colonneGauche: { position: 'absolute'" in overlay,
 )
 
-print('\nLES QUATRE ELEMENTS Y SONT, ET AUCUN NE SE PLACE PLUS LUI-MEME')
-verifier('le bouton de langue est en tete de colonne', '<BoutonLangueNav' in overlay)
+print('\nLES CINQ ELEMENTS Y SONT, DANS L ORDRE DU 22 NOVEMBRE, ET AUCUN NE SE PLACE PLUS LUI-MEME')
+# << ORDRE FINAL — colonne gauche (haut -> bas) : alerte 26dp, vitesse, limitation, recentrer,
+# bouton langue DERNIER >>. L'ordre etait l'inverse la veille pour le bouton de langue, et c'est
+# exactement le genre de chose qui se reinverse sans qu'on s'en apercoive : on le lit donc dans
+# la source, par la POSITION des balises les unes par rapport aux autres.
+rang = {}
+for nom, balise in (
+    ('alerte', '{pastilleAlerte}'),
+    ('vitesse', '<SpeedBadge subscribe'),
+    ('limite', '<SpeedLimitBadge limitKmh'),
+    ("vue d'ensemble", 'onPress={onOverview}'),
+    ('langue', '<BoutonLangueNav'),
+):
+    rang[nom] = overlay.find(balise)
+    verifier('%s : present dans la colonne' % nom, rang[nom] > 0)
+ordre_lu = [n for n, _ in sorted(rang.items(), key=lambda kv: kv[1]) if rang[n] > 0]
+verifier(
+    "la pastille d'alerte est la PREMIERE",
+    ordre_lu[:1] == ['alerte'],
+    ' > '.join(ordre_lu),
+)
+verifier(
+    'le bouton de langue est le DERNIER',
+    ordre_lu[-1:] == ['langue'],
+    ' > '.join(ordre_lu),
+)
 verifier(
     'le compteur de vitesse rentre dans le flux',
     re.search(r'<SpeedBadge[^>]*enColonne', overlay, re.S) is not None,
@@ -115,6 +140,36 @@ verifier(
     "le bouton de vue d'ensemble n'est plus pose en absolu",
     valeur_dans_style(overlay, 'overviewBtn', 'width') is not None
     and "overviewBtn: {\n    position: 'absolute'" not in overlay,
+)
+
+print('\nLA PASTILLE D ALERTE EST ENTREE DANS LA COLONNE — point 2')
+# Elle se posait elle-meme a huit points sous le bandeau et faisait 38 points de haut : elle
+# finissait donc SIX POINTS plus bas que le haut de la colonne, sur le compteur de vitesse.
+# C'est le chevauchement photographie par le client.
+cote_alerte = valeur_dans_style(alerte, 'reduit', 'height')
+verifier(
+    'elle est descendue aux 26 points du document',
+    cote_alerte is not None and cote_alerte <= 26,
+    '%s points' % cote_alerte,
+)
+verifier(
+    "elle ne porte plus 'absolute' dans son style",
+    "reduit: {\n    position: 'absolute'" not in alerte,
+)
+verifier(
+    'son rayon suit son cote : elle reste un disque',
+    valeur_dans_style(alerte, 'reduit', 'borderRadius') == (cote_alerte or 0) / 2,
+    'rayon %s pour un cote de %s' % (valeur_dans_style(alerte, 'reduit', 'borderRadius'), cote_alerte),
+)
+# ET LE MODE 'tout' SURVIT : hors trajet il n'y a pas de colonne, et une pastille qui ne serait
+# plus dessinee nulle part laisserait le reglage coupe sans aucune trace a l'ecran.
+verifier(
+    'les trois modes existent, pastille comprise',
+    "mode?: 'tout' | 'barre' | 'pastille'" in alerte,
+)
+verifier(
+    "le defaut reste 'tout', donc le comportement d'avant",
+    "mode = 'tout'" in alerte,
 )
 
 print('\nLE MODE PAYSAGE N A PAS BOUGE — la propriete est un AJOUT, pas un remplacement')
@@ -136,10 +191,11 @@ verifier(
 
 print('\nL ARITHMETIQUE DE LA COLONNE, REFAITE DEPUIS LES TAILLES REELLES')
 hauteurs = [
-    ('bouton de langue', constante(langue, 'COTE')),
+    ("pastille d'alerte", valeur_dans_style(alerte, 'reduit', 'height')),
     ('compteur de vitesse', valeur_dans_style(vitesse, 'badge', 'height')),
     ('limite reglementaire', valeur_dans_style(limite, 'badge', 'height')),
     ("vue d'ensemble", valeur_dans_style(overlay, 'overviewBtn', 'height')),
+    ('bouton de langue', constante(langue, 'COTE')),
 ]
 for nom, h in hauteurs:
     verifier('hauteur lue pour %s' % nom, h is not None, '%s points' % h)
@@ -149,16 +205,34 @@ if all(h is not None for _, h in hauteurs) and ecart is not None:
     print('    colonne : %s + %s ecarts de %s = %s points'
           % (' + '.join(str(h) for _, h in hauteurs), len(hauteurs) - 1, ecart, total))
 
-    # L'ECART SOUS LE BANDEAU reste a 48 et non a 8, et ce n'est pas un oubli : la languette
-    # « puis » pend sous le bandeau a gauche et fait environ 36 points de haut (point 19 du
-    # 18 novembre). A 8 points, le bouton de langue passerait dessous — on corrigerait un
-    # chevauchement en en creant un autre.
+    # L'ECART SOUS LE BANDEAU VAUT 6 POINTS — << android:layout_marginTop="6dp" >>, point 2.
+    #
+    # IL VALAIT 48, JUSTIFIE PAR UNE MESURE QUI N'EXISTAIT PAS : le commentaire disait que la
+    # languette « puis » pendait SOUS le bandeau et qu'il fallait 36 points pour la laisser
+    # passer. Or `bannerHeight` est mesure par le onLayout du Pressable qui CONTIENT la
+    # consigne, et la languette est une simple rangee dans son flux : elle etait deja comptee.
+    # Les 48 points ne protegeaient de rien, ils descendaient la colonne de quarante points.
     gap_bandeau = constante(overlay, 'BADGE_GAP')
-    LANGUETTE = 36
     verifier(
-        'le haut de la colonne laisse passer la languette « puis »',
-        gap_bandeau is not None and gap_bandeau >= LANGUETTE,
-        'BADGE_GAP = %s, languette %s' % (gap_bandeau, LANGUETTE),
+        'la colonne commence a 6 points sous le cadre vert',
+        gap_bandeau == 6,
+        'BADGE_GAP = %s' % gap_bandeau,
+    )
+    verifier(
+        "et elle ne le touche pas : l'ecart est strictement positif",
+        gap_bandeau is not None and gap_bandeau > 0,
+    )
+    # LE MESSAGE D'ECHEC DE CALCUL commence a la meme hauteur, et il est large. En portrait il
+    # doit demarrer APRES la colonne, sinon il passe derriere les pastilles — c'est le message
+    # qu'il faut le moins masquer de tous.
+    large = max(h for _, h in hauteurs)
+    import re as _re
+    m_echec = _re.search(r'landscape \? null : \{ left: spacing\.md \+ ([0-9]+) \}', overlay)
+    decale = float(m_echec.group(1)) if m_echec else None
+    verifier(
+        "le message d'echec demarre apres la colonne en portrait",
+        decale is not None and decale >= large,
+        'decale de %s pour une colonne large de %s' % (decale, large),
     )
 
     # ET LA COLONNE DOIT TENIR SUR L'ECRAN LE PLUS PETIT QU'ON AIT VU DEBORDER : 667 points,

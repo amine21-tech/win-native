@@ -24,8 +24,20 @@ import type { Language } from '../shared';
  * document ; seuls les departs depuis le kabyle ou le darija en profitent.
  */
 
-/** Les deux langues que le raccourci va chercher, dans l'ordre des appuis. */
-export const CYCLE: readonly Language[] = ['kab', 'dz'];
+/**
+ * Les deux langues que le raccourci va chercher, DANS L'ORDRE DES APPUIS.
+ *
+ * LE DARIJA D'ABORD — correction du 22 novembre, et le client donne sa raison : << Derija en
+ * 1er car langue la plus parlee en Algerie >>. L'ordre etait inverse la veille, non par choix
+ * mais par defaut : la synthese du 21 novembre ne disait pas lequel des deux venait en premier,
+ * et le tamazight avait ete nomme le premier dans sa phrase.
+ *
+ * L'ORDRE EST LA SEULE CHOSE QUI CHANGE. Tout le reste du cycle — la memoire de la langue de
+ * depart, le retour au troisieme appui, le palier saute quand il ne changerait rien — tient
+ * dans la fonction ci-dessous et ne depend pas de cette liste. C'est ce qui permet de
+ * l'inverser d'une ligne, et au controle de le prouver.
+ */
+export const CYCLE: readonly Language[] = ['dz', 'kab'];
 
 /** Nombre de paliers : les deux langues, puis le retour. */
 const PALIERS = CYCLE.length + 1;
@@ -73,19 +85,39 @@ export function appuiLangue(
 }
 
 /**
- * Le libelle a trois caracteres affiche sur le bouton : la langue OU L'ON VA, pas celle d'ou
- * l'on vient. C'est ce que fait le bouton drapeau de la carte, et c'est ce qu'on lit d'un coup
- * d'oeil au volant — un bouton qui montre l'etat courant demande de se souvenir de ce qui suit.
+ * La langue que le PROCHAIN appui donnera — c'est elle que le bouton annonce, et non celle qui
+ * est active.
+ *
+ * C'est ce que demande le document : << Tap 1 -> Derija activee, bouton affiche "Tamazight" >>.
+ * Le bouton dit donc ou l'on va, comme le bouton drapeau de la carte. Un bouton qui montrerait
+ * l'etat courant obligerait a se souvenir de ce qui vient apres.
+ */
+export function prochaineLangue(etat: EtatCycle, actuelle: Language): Language {
+  return appuiLangue(etat, actuelle).langue;
+}
+
+/**
+ * Le mot ecrit sur le bouton.
+ *
+ * DES MOTS, ET NON DES SIGLES — correction du 22 novembre. Le bouton affichait << DZ >> et le
+ * caractere tifinagh << ⵣ >>. Le client demande << Derija >> et << Tamazight >> en toutes
+ * lettres : « DZ » est le code du pays avant d'etre celui d'une langue, et le tifinagh seul ne
+ * se lit que par ceux qui le connaissent deja — c'est-a-dire pas ceux a qui le bouton
+ * s'adresse.
+ *
+ * LES TROIS AUTRES RESTENT EN SIGLE, et c'est voulu : elles ne sont jamais une DESTINATION du
+ * cycle, seulement un RETOUR. « FR » sur un bouton de 44 points se lit d'un coup d'oeil ;
+ * « Francais » demanderait deux lignes pour dire la meme chose a quelqu'un qui vient justement
+ * de cette langue.
  */
 export function libelleProchain(etat: EtatCycle, actuelle: Language): string {
-  const { langue } = appuiLangue(etat, actuelle);
-  return ETIQUETTES[langue];
+  return ETIQUETTES[prochaineLangue(etat, actuelle)];
 }
 
 const ETIQUETTES: Record<Language, string> = {
   fr: 'FR',
-  dz: 'DZ',
+  dz: 'Derija',
   ar: 'AR',
   en: 'EN',
-  kab: 'ⵣ',
+  kab: 'Tamazight',
 };

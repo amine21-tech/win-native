@@ -124,7 +124,7 @@ verifier(
   'le defaut de la table : ce que l on voit quand le type est perdu',
 );
 
-console.log("\nLA FLECHE DU BANDEAU CLIGNOTE A 500 M, SUR GRAND AXE");
+console.log("\nLA FLECHE DU BANDEAU CLIGNOTE AU SEUIL D ANTICIPATION, SUR GRAND AXE");
 
 /* POINT F.2 du 18 novembre : << La fleche doit clignoter 500 m avant chaque manoeuvre,
  * UNIQUEMENT sur autoroute et route nationale. >>
@@ -144,9 +144,13 @@ verifier(
   /CLIGNOTEMENT_MS = 500/.test(panneau) && /CLIGNOTEMENT_MIN = 0\.2/.test(panneau),
   'deux objets qui clignotent cote a cote a des rythmes differents se disputent le regard',
 );
+/* CINQ CENTS METRES N'EST PLUS UN CHIFFRE ECRIT ICI — point 6 du 22 novembre : 50 m en
+ * agglomeration, 500 m ailleurs, et c'est `distanceAnticipation` qui tranche d'apres la limite
+ * reglementaire du troncon. Le controle porte donc sur le fait que le seuil soit CALCULE, et
+ * que la comparaison l'utilise — pas sur sa valeur, qui est eprouvee dans verifier-voies. */
 verifier(
-  'a partir de 500 m seulement',
-  /CLIGNOTEMENT_M = 500/.test(panneau) && /distanceM <= CLIGNOTEMENT_M/.test(panneau),
+  'a partir du seuil calcule, et non d un 500 en dur',
+  /distanceAnticipation\(limiteKmh\)/.test(panneau) && /distanceM <= seuilM/.test(panneau),
 );
 verifier(
   'et sur grand axe seulement',

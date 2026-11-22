@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { FlecheManoeuvre } from './FlecheManoeuvre';
-import { surGrandAxe } from '../navigation/grandAxe';
+import { distanceAnticipation, surGrandAxe } from '../navigation/grandAxe';
 import { localizedInstruction, roadRef } from '../navigation/instructions';
 import type { Maneuver } from '../navigation/routing';
 import { formatDistance, type Language } from '../shared';
@@ -73,7 +73,15 @@ const TAILLE_FLECHE = 80;
  * ET SEULEMENT SUR GRAND AXE, comme la rangee : en ville, les manoeuvres s'enchainent a chaque
  * carrefour et une fleche qui clignote en permanence cesse d'alerter.
  */
-const CLIGNOTEMENT_M = 500;
+/**
+ * CINQ CENTS METRES N'EST PLUS UNE CONSTANTE — point 6 du 22 novembre.
+ *
+ * << Les fleches clignotent 500 m avant meme sur une RN en ville. Anticipation trop precoce en
+ * ville, confusion avec les autres carrefours. >> Le seuil vaut desormais 50 m en
+ * agglomeration et 500 m ailleurs ; il se calcule dans `distanceAnticipation`, a partir de la
+ * limite reglementaire du troncon. Le RYTHME du clignotement, lui, n'a pas bouge d'une
+ * milliseconde — c'est la consigne du document : << uniquement le seuil de declenchement >>.
+ */
 const CLIGNOTEMENT_MS = 500;
 const CLIGNOTEMENT_MIN = 0.2;
 
@@ -92,6 +100,15 @@ type Props = {
   nomVoie: string | null;
   /** Valhalla marque l'autoroute et la voie rapide ; la nationale se lit au nom. */
   surAutoroute: boolean;
+  /**
+   * Limite reglementaire du troncon en cours, en km/h — point 6 du 22 novembre.
+   *
+   * ELLE NE SERT PAS A L'AFFICHER ICI mais a savoir si l'on est EN VILLE : c'est le critere du
+   * document (<< maxspeed <= 50 km/h >>), et cette limite est la seule source de la
+   * reponse Valhalla qui le dise. `null` quand elle est inconnue — le seuil reste alors a
+   * cinq cents metres. Voir `distanceAnticipation`.
+   */
+  limiteKmh?: number | null;
 };
 
 export function PanneauDirection({
@@ -103,6 +120,7 @@ export function PanneauDirection({
   arrived,
   nomVoie,
   surAutoroute,
+  limiteKmh,
 }: Props) {
   const { t } = useTranslation();
 
@@ -164,13 +182,18 @@ export function PanneauDirection({
    * contretemps dans le meme bandeau se disputent le regard exactement quand il faut le poser
    * sur la route.
    */
+  /* LE SEUIL SE CALCULE, IL N'EST PLUS ECRIT : 50 m en agglomeration, 500 m ailleurs. La
+   * condition de GRAND AXE est inchangee — en ville hors nationale, la fleche ne clignote
+   * toujours pas du tout. */
+  const seuilM = distanceAnticipation(limiteKmh);
   const clignoter =
-    distanceM != null && distanceM <= CLIGNOTEMENT_M && surGrandAxe(surAutoroute, nomVoie);
+    distanceM != null && distanceM <= seuilM && surGrandAxe(surAutoroute, nomVoie);
 
   return (
     <View style={styles.bloc} pointerEvents="none">
       <View style={styles.ligne}>
-        {/* ELLE NE CLIGNOTE QUE DANS LES CINQ CENTS DERNIERS METRES, ET SUR GRAND AXE.
+        {/* ELLE NE CLIGNOTE QUE DANS LES DERNIERS METRES — cinquante en ville, cinq cents en
+            rase campagne — ET SUR GRAND AXE.
             Ailleurs, l'opacite reste a 1 : la meme vue, sans animation visible. */}
         <Animated.View style={clignoter ? { opacity: clignote } : undefined}>
           <FlecheManoeuvre type={maneuver.type} size={TAILLE_FLECHE} />

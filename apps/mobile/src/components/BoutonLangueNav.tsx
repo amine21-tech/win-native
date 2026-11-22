@@ -2,16 +2,50 @@ import { memo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, ToastAndroid } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../i18n';
-import { appuiLangue, AU_REPOS, libelleProchain, type EtatCycle } from '../i18n/cycleLangue';
+import {
+  appuiLangue,
+  AU_REPOS,
+  libelleProchain,
+  prochaineLangue,
+  type EtatCycle,
+} from '../i18n/cycleLangue';
 import { arreterClips, jouerClips } from '../speech/voixKab';
 import { useSession } from '../store/session';
 import type { Language } from '../shared';
 import type { Palette } from '../theme';
 
-/** Le cote du bouton, en points. C'est la taille demandee par le document du 21 novembre
- * (<< RÉDUIRE : 44dp -> 36dp >>), et elle reste au-dessus du minimum tactile parce que la
- * colonne lui laisse huit points d'air de chaque cote. */
-const COTE = 36;
+/**
+ * Le cote du bouton, en points — 44, la valeur du document du 22 novembre.
+ *
+ * IL ETAIT A 36 LA VEILLE, ET C'ETAIT UNE ERREUR DE LECTURE DE MA PART. Le 21 novembre, le
+ * << 44dp -> 36dp >> du document ne visait pas ce bouton-la mais le bouton d'ALERTE, qui
+ * debordait sur le cadre vert. Le document du 22 le dit sans ambiguite : le bouton d'alerte
+ * descend meme a 26, et le bouton de langue, lui, reste a 44. C'est coherent — l'un porte un
+ * pictogramme, l'autre porte un mot de neuf lettres.
+ */
+const COTE = 44;
+
+/**
+ * LES COULEURS D'IDENTITE DU BOUTON — point 1 du 22 novembre.
+ *
+ * << Bouton Derija (vert WIN) : fond vert fonce, texte dore, bordure verte. Bouton Tamazight :
+ * fond brun-rouge berbere, texte dore, bordure doree. >>
+ *
+ * ELLES SUIVENT LE MOT AFFICHE, c'est-a-dire la langue OU L'ON VA — pas celle qui est active.
+ * Le bouton annonce sa destination, et il doit en porter la couleur : un bouton vert qui
+ * emmene au tamazight dirait le contraire de ce qu'il fait.
+ *
+ * LE RETOUR GARDE LES COULEURS DE L'APPLICATION. Quand le bouton annonce << FR >>, << AR >> ou
+ * << EN >>, il ne va vers aucune des deux identites : lui donner l'une des deux couleurs
+ * laisserait croire qu'on y retourne. Il reprend donc l'or et la surface des autres commandes
+ * de la colonne, comme le bouton de vue d'ensemble juste au-dessus.
+ */
+const IDENTITES: Record<string, { fond: string; texte: string; bord: string }> = {
+  // Le vert WIN du bandeau Emploi et du bandeau de navigation.
+  dz: { fond: '#0A4A24', texte: '#F0B429', bord: '#0A4A24' },
+  // Le brun-rouge berbere, avec la bordure doree que le document demande.
+  kab: { fond: '#7A3B1F', texte: '#F0B429', bord: '#F0B429' },
+};
 
 type Props = {
   colors: Palette;
@@ -81,6 +115,14 @@ export const BoutonLangueNav = memo(function BoutonLangueNav({ colors }: Props) 
     }
   };
 
+  /* La langue VISEE decide du mot et des couleurs : le bouton annonce ou il emmene. */
+  const visee = prochaineLangue(cycle.current, actuelle);
+  const identite = IDENTITES[visee] ?? {
+    fond: colors.surface,
+    texte: colors.accentDark,
+    bord: colors.goldDeep,
+  };
+
   return (
     <Pressable
       onPress={appui}
@@ -91,15 +133,19 @@ export const BoutonLangueNav = memo(function BoutonLangueNav({ colors }: Props) 
       style={[
         styles.bouton,
         {
-          backgroundColor: colors.surface,
-          // Bordure rouge = muet, comme le demande le document ; or = la couleur des autres
-          // commandes de cette colonne.
-          borderColor: voixActive ? colors.goldDeep : colors.danger,
+          backgroundColor: identite.fond,
+          /* LA BORDURE ROUGE PASSE DEVANT L'IDENTITE, et c'est le bon ordre de priorite : une
+           * voix coupee est un etat ANORMAL qu'il faut pouvoir reperer d'un coup d'oeil, alors
+           * que la couleur de langue n'est qu'un rappel de ce que le mot dit deja. */
+          borderColor: voixActive ? identite.bord : colors.danger,
           borderWidth: voixActive ? 1.5 : 2.5,
         },
       ]}
     >
-      <Text style={[styles.libelle, { color: voixActive ? colors.accentDark : colors.danger }]}>
+      <Text
+        numberOfLines={2}
+        style={[styles.libelle, { color: voixActive ? identite.texte : colors.danger }]}
+      >
         {libelleProchain(cycle.current, actuelle)}
       </Text>
     </Pressable>
@@ -119,5 +165,9 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
-  libelle: { fontSize: 14, fontWeight: '800' },
+  /* 9 points, la taille du document (<< android:textSize="9sp" >>), et c'est la largeur qui
+   * l'impose : << Tamazight >> fait neuf lettres pour 44 points de cote. A 14 points le mot
+   * se serait coupe ; a 9 il tient sur une ligne, et le repli sur deux reste disponible pour
+   * les langues plus longues qu'on ajouterait un jour. */
+  libelle: { fontSize: 9, lineHeight: 11, fontWeight: '800', textAlign: 'center' },
 });

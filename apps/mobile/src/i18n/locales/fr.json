@@ -457,7 +457,10 @@
     "close": "Fermer",
     "play": "Écouter",
     "pause": "Pause",
-    "stop": "Arrêter"
+    "stop": "Arrêter",
+    "seek": "Position dans la récitation",
+    "back10": "Reculer de 10 secondes",
+    "forward10": "Avancer de 10 secondes"
   },
   "trip": {
     "unavailable": "Itinéraire indisponible.",
