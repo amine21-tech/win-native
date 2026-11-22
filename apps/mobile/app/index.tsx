@@ -1792,6 +1792,12 @@ ${t(`report.badge_${report.kind}`)}`,
                 phoneFixe: p.phoneFixe,
                 phoneMobile: p.phoneMobile,
                 whatsapp: p.whatsapp,
+                /* VIBER MANQUAIT A CETTE FUSION, et personne ne s'en apercevait tant que
+                 * rien ne le lisait : la fiche ouverte depuis la CARTE perdait le numero
+                 * Viber que la meme fiche ouverte depuis la recherche affichait. Le
+                 * formulaire de correction le lit maintenant — il aurait ouvert un champ
+                 * vide, et l'enregistrement aurait efface le numero. */
+                viber: p.viber,
                 email: p.email,
                 promo: p.promo,
               }

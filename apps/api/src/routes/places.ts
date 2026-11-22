@@ -760,24 +760,30 @@ const routes: FastifyPluginAsync = async (app) => {
       const surAutrui = !(await estAuteur(req.params.id, req.deviceId!));
       const avant = await etatFiche(req.params.id);
 
-      /* Une fiche PARTENAIRE reste la seule exception, et elle le reste meme maintenant que
-       * tout le monde peut supprimer. Elle a ete payee : la retirer coute de l'argent a
-       * quelqu'un, et le geste ne se repare pas par un simple << oups >>. Son auteur et
-       * l'equipe peuvent toujours le faire, un passant non. */
-      const partenaire = (avant as { is_partner?: boolean } | null)?.is_partner === true;
-      if (partenaire && surAutrui) {
-        throw new HttpError(
-          403,
-          'fiche_partenaire',
-          "Cette adresse appartient a un partenaire WIN : son retrait passe par l'equipe.",
-        );
-      }
-
+      /* UNE FICHE PARTENAIRE SE RETIRE COMME UNE AUTRE — decision du client, 24 novembre.
+       *
+       * Il y avait ici un refus : une fiche payee ne pouvait etre retiree que par son auteur ou
+       * par l'equipe, et la requete elle-meme portait la condition
+       * `(created_by = ... OR is_partner = false)`. Cette reserve etait de moi, pas du client.
+       * Sa decision du 19 octobre disait deja << n'importe quel utilisateur peut faire cette
+       * action >> ; j'avais mis les fiches partenaires a part parce qu'elles ont ete payees.
+       *
+       * IL L'A TRANCHE, CAPTURE D'ECRAN A L'APPUI : << l'adresse VIP et non VIP sera
+       * supprimee >>. Et ce qu'il decrivait n'etait pas un cas de bord : ses fiches d'essai
+       * sont creees depuis le site, donc rattachees a un autre appareil que son telephone.
+       * Toute fiche partenaire lui etait donc inaccessible depuis l'application.
+       *
+       * CE QUI PROTEGE ENCORE, ET QUI SUFFIT : la suppression est LOGIQUE — `deleted_at`, et
+       * rien n'est detruit. L'etat precedent entier part dans le journal de moderation juste
+       * en dessous, avec l'appareil qui a agi. Un retrait abusif se defait d'une ligne ; il ne
+       * perd ni le telephone du commerce, ni sa promotion, ni ses photos.
+       *
+       * (Le code WIN a quatre chiffres garde son propre chemin, `/places/:id/vip-action`, et
+       * lui seul sait DECLASSER une fiche sans la retirer de la carte.) */
       const rows = (await db.execute(sql`
         UPDATE places SET deleted_at = now()
         WHERE id = ${req.params.id}
           AND deleted_at IS NULL
-          AND (created_by = ${req.deviceId!} OR is_partner = false)
         RETURNING id
       `)) as unknown as unknown[];
       if (rows.length === 0) throw notFound();

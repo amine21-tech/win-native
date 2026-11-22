@@ -23,7 +23,9 @@ type Props = {
   onEdit: () => void;
   onDelete: () => void;
   /** Appele quand quelqu'un sans le droit appuie sur Modifier ou Supprimer. */
-  onSansDroit: () => void;
+  onSansDroit?: () => void;
+  /** Gestion par code WIN, sur les seules fiches partenaires. Voir GererFiche. */
+  onVip?: () => void;
   suppressionEnCours: boolean;
   colors: Palette;
 };
@@ -65,6 +67,7 @@ export function ManagePlaceSheet({
   onEdit,
   onDelete,
   onSansDroit,
+  onVip,
   suppressionEnCours,
   colors,
 }: Props) {
@@ -111,6 +114,7 @@ export function ManagePlaceSheet({
             onEdit={onEdit}
             onDelete={onDelete}
             onSansDroit={onSansDroit}
+            onVip={onVip}
             colors={colors}
           />
 

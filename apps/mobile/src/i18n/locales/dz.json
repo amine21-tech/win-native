@@ -217,6 +217,8 @@
     "viber": "فايبر",
     "vipBadge": "WIN VIP",
     "vipManageAction": "سيّر (كود WIN)",
+    "deletePartnerQuestion": "تحيّد بطاقة شريك؟",
+    "vipManageSub": "ترجّعها عنوان عادي، ولا تحيّدها نهائي",
     "vipManageTitle": "عنوان VIP: {{name}}",
     "vipManageBody": "دخّل كود WIN باش تنحّي الحالة ولا تمسح العنوان.",
     "vipDowngrade": "رجّعه عنوان عادي",

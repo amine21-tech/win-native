@@ -191,9 +191,25 @@ export function PlaceSheet({
    * fiche pour que tout geste se repare. */
   const peutGerer = Boolean(place.placeId);
 
-  /* La seule exception qui subsiste : une fiche PARTENAIRE a ete payee. Son auteur et l'equipe
-   * peuvent la retirer, un passant non. Le serveur refuse aussi, avec le meme motif. */
-  const peutSupprimer = peutGerer && (isMine || !place.isPartner);
+  /* PLUS AUCUNE EXCEPTION : UNE FICHE PARTENAIRE SE SUPPRIME COMME UNE AUTRE — 24 novembre.
+   *
+   * Il y avait ici `peutGerer && (isMine || !place.isPartner)`. Une fiche payee ne pouvait etre
+   * retiree que par son auteur ou par l'equipe, et le serveur refusait de la meme facon. Cette
+   * reserve etait de moi, pas du client : sa decision du 19 octobre disait deja << n'importe
+   * quel utilisateur peut faire cette action >>, et j'avais mis les fiches partenaires a part
+   * parce qu'elles ont ete payees.
+   *
+   * IL L'A TRANCHE LE 24 NOVEMBRE, capture d'ecran a l'appui : << l'adresse VIP et non VIP sera
+   * supprimee >>. Ce qui se passait pour lui : il appuyait sur Supprimer, une alerte lui
+   * repondait que le retrait passait par l'equipe, et rien ne se supprimait. Sur son propre
+   * telephone, avec ses propres fiches d'essai — creees depuis le site, donc rattachees a un
+   * autre appareil que le sien.
+   *
+   * CE QUI PROTEGE ENCORE, ET QUI N'A PAS BOUGE : la suppression reste LOGIQUE cote serveur
+   * (`deleted_at`), l'etat precedent de la fiche part dans le journal de moderation a chaque
+   * geste, et la boite de confirmation nomme la fiche. Un retrait abusif se defait ; il ne
+   * detruit rien. */
+  const peutSupprimer = peutGerer;
   /**
    * FICHE COMPACTE pour une adresse enregistree par un utilisateur WIN (point 12 du client).
    *
@@ -213,30 +229,14 @@ export function PlaceSheet({
 
   /* La confirmation est obligatoire et le dit clairement : la suppression efface la photo, les
    * coordonnees et tout ce qui est rattache au lieu, sans retour possible cote utilisateur. */
-  /* Refuser le retrait d'une fiche partenaire sans laisser l'utilisateur devant un mur : on
-   * dit pourquoi, et on propose le geste qui reste possible. */
-  const expliquerDroit = () => {
-    Alert.alert(t('place.partnerProtectedTitle'), t('place.partnerProtectedBody'), [
-      { text: t('addPlace.cancel'), style: 'cancel' },
-      {
-        text: t('place.reportIssueTitle'),
-        onPress: () => {
-          setManageOpen(false);
-          setCorrectionOpen(true);
-        },
-      },
-      /* LE TROISIEME CHOIX OUVRE LA PORTE — point B. La regle ne change pas : une fiche payee
-       * ne se retire pas d'un appui distrait. Mais ceux qui en ont le droit n'avaient aucun
-       * moyen d'agir depuis l'application, et devaient passer par quelqu'un. */
-      {
-        text: t('place.vipManageAction'),
-        onPress: () => {
-          setManageOpen(false);
-          setVipActionOpen(true);
-        },
-      },
-    ]);
-  };
+  /* GERER UNE FICHE PARTENAIRE PAR LE CODE WIN — point B du 18 novembre, chemin deplace.
+   *
+   * Il y avait ici une alerte << fiche partenaire >> qui refusait la suppression et proposait,
+   * en troisieme choix, d'ouvrir la gestion par code. La suppression n'est plus refusee : cette
+   * alerte n'a plus d'objet, et la gestion par code devient une ligne a elle, visible dans
+   * << Gerer cette fiche >> sur les seules fiches partenaires. Elle mene aux deux actions que
+   * la suppression ordinaire ne fait pas : declasser, ou supprimer definitivement. */
+  const ouvrirGestionVip = () => setVipActionOpen(true);
 
   const askDelete = () => setDeleteOpen(true);
 
@@ -643,7 +643,7 @@ export function PlaceSheet({
             onReport={() => setCorrectionOpen(true)}
             onEdit={() => setMyEditOpen(true)}
             onDelete={askDelete}
-            onSansDroit={expliquerDroit}
+            onVip={place.isPartner && place.placeId ? ouvrirGestionVip : undefined}
             colors={colors}
           />
         ) : (
@@ -701,15 +701,18 @@ export function PlaceSheet({
           setManageOpen(false);
           askDelete();
         }}
-        onSansDroit={expliquerDroit}
+        onVip={place.isPartner && place.placeId ? ouvrirGestionVip : undefined}
         suppressionEnCours={deleting}
         colors={colors}
       />
 
       {/* Confirmation de suppression — boite compacte et centree, point 14 du 28 octobre. Elle
           montre CE QU'ON SUPPRIME, ce que la boite du systeme ne permettait pas. */}
+      {/* LA CONFIRMATION DIT QUE LA FICHE EST PAYEE — c'est ce qui reste de la protection
+          levee le 24 novembre. Un mot de plus a lire, pas un appui de plus a faire. */}
       <ConfirmDeleteSheet
         visible={deleteOpen}
+        titre={place.isPartner ? t('place.deletePartnerQuestion') : undefined}
         nom={place.name}
         busy={deleting}
         onCancel={() => setDeleteOpen(false)}
@@ -769,6 +772,13 @@ export function PlaceSheet({
                 street: place.street,
                 city: place.city,
                 postalCode: place.postalCode,
+                /* LES CONTACTS SUIVENT LA FICHE jusqu'au formulaire de correction : sans eux,
+                 * les champs s'ouvriraient vides et le premier enregistrement effacerait le
+                 * telephone du commerce. */
+                phoneMobile: place.phoneMobile,
+                whatsapp: place.whatsapp,
+                viber: place.viber,
+                email: place.email,
               }
             : null
         }

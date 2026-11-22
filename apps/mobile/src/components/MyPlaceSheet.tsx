@@ -1,6 +1,6 @@
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { api, ApiError, uploadPhoto } from '../api/client';
@@ -17,10 +17,21 @@ import { radius, spacing, typography, type Palette } from '../theme';
  * trompe de nom ou dont le GPS avait derape devait nous ecrire et attendre. Il peut desormais
  * corriger lui-meme, et le serveur verifie que la fiche est bien la sienne.
  *
- * Volontairement limite a ce qui se corrige vraiment : le nom, la categorie et les
- * coordonnees. Le reste de la fiche — contacts, adresse — se modifie par le meme formulaire
- * qu'a la creation, et le statut partenaire reste hors de portee : c'est un engagement
- * commercial, pas une information saisie par le contributeur.
+ * LES CONTACTS SONT ICI DEPUIS LE 24 NOVEMBRE, et la phrase qui suivait etait fausse.
+ *
+ * On lisait : << le reste de la fiche — contacts, adresse — se modifie par le meme formulaire
+ * qu'a la creation >>. Ce formulaire-la ne s'ouvre QUE pour creer une fiche : il n'y avait
+ * donc aucun moyen, depuis l'application, de corriger le telephone ou le WhatsApp d'une
+ * adresse deja enregistree. Pour une fiche partenaire, c'est-a-dire une fiche payee pour ses
+ * contacts, cela voulait dire qu'une faute de frappe ne se reparait pas.
+ *
+ * Le serveur, lui, les acceptait deja : la route PATCH /places/:id/mine ecrit le fixe, le
+ * mobile, le WhatsApp, le Viber et le courriel depuis le premier jour. Il manquait quatre
+ * champs a l'ecran, pas une ligne au serveur.
+ *
+ * LE STATUT PARTENAIRE RESTE HORS DE PORTEE, et la promotion avec lui : ce sont des
+ * engagements commerciaux, pas des informations saisies par le contributeur. Ils se changent
+ * par le code WIN (voir VipActionSheet) ou par l'equipe.
  */
 /** Largeur d'envoi, comme a la creation : le serveur re-limite de toute facon a 1600 px, et
  * reduire AVANT d'afficher la vignette evite de decoder deux fois une image de 12 megapixels —
@@ -43,6 +54,13 @@ type Props = {
     city?: string | null;
     postalCode?: string | null;
     wilaya?: string | null;
+    /* LES CONTACTS, pour les corriger sans tout ressaisir. Le fixe et l'enseigne ne sont pas
+     * ici : ils n'existent dans aucun formulaire de l'application, pas meme a la creation, et
+     * les ajouter ici seulement ferait un champ qu'on ne peut remplir qu'en corrigeant. */
+    phoneMobile?: string | null;
+    whatsapp?: string | null;
+    viber?: string | null;
+    email?: string | null;
   } | null;
   onClose: () => void;
   onSaved: () => void;
@@ -65,6 +83,25 @@ export function MyPlaceSheet({ visible, photoUrl, place, onClose, onSaved, onDel
   const [street, setStreet] = useState('');
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
+  const [phoneMobile, setPhoneMobile] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [viber, setViber] = useState('');
+  const [email, setEmail] = useState('');
+  /**
+   * LES CONTACTS TELS QU'ILS ETAIENT A L'OUVERTURE — et le garde-fou qui va avec.
+   *
+   * Un champ vide EFFACE, c'est la regle de ce formulaire. Elle est juste quand l'ecran
+   * connaissait la valeur et que l'utilisateur l'a effacee lui-meme ; elle est destructrice
+   * quand l'ecran ne la connaissait pas. Or cela arrive : une fiche ouverte depuis la CARTE
+   * n'a d'abord que son nom et sa position, ses contacts arrivent une fraction de seconde plus
+   * tard par /places/:id. Corriger le nom pendant ce court instant aurait efface le telephone
+   * du commerce — sur une fiche partenaire, c'est-a-dire une fiche payee pour ce telephone.
+   *
+   * ON N'ENVOIE DONC QUE CE QUI A CHANGE. Un champ qu'on n'a pas touche n'est pas transmis, le
+   * serveur garde sa valeur (`COALESCE`), et l'effacement volontaire fonctionne toujours —
+   * vider un champ qui portait un numero, c'est bien un changement.
+   */
+  const contactsInitiaux = useRef({ phoneMobile: '', whatsapp: '', viber: '', email: '' });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +120,17 @@ export function MyPlaceSheet({ visible, photoUrl, place, onClose, onSaved, onDel
     setStreet(place.street ?? '');
     setCity(place.city ?? '');
     setPostalCode(place.postalCode ?? '');
+    const contacts = {
+      phoneMobile: place.phoneMobile ?? '',
+      whatsapp: place.whatsapp ?? '',
+      viber: place.viber ?? '',
+      email: place.email ?? '',
+    };
+    contactsInitiaux.current = contacts;
+    setPhoneMobile(contacts.phoneMobile);
+    setWhatsapp(contacts.whatsapp);
+    setViber(contacts.viber);
+    setEmail(contacts.email);
     setNouvellePhoto(null);
     setError(null);
   }, [place]);
@@ -122,6 +170,21 @@ export function MyPlaceSheet({ visible, photoUrl, place, onClose, onSaved, onDel
   const typedLon = Number(lon.replace(',', '.'));
   const coordsValid =
     Number.isFinite(typedLat) && Number.isFinite(typedLon) && Math.abs(typedLat) <= 90 && Math.abs(typedLon) <= 180;
+
+  /** Les contacts qui different de ce que la fiche portait a l'ouverture, et eux seuls. */
+  const contactsModifies = () => {
+    const saisis = {
+      phoneMobile: phoneMobile.trim(),
+      whatsapp: whatsapp.trim(),
+      viber: viber.trim(),
+      email: email.trim(),
+    };
+    const sortie: Record<string, string> = {};
+    for (const [champ, valeur] of Object.entries(saisis)) {
+      if (valeur !== contactsInitiaux.current[champ as keyof typeof saisis]) sortie[champ] = valeur;
+    }
+    return sortie;
+  };
 
   const save = async () => {
     if (!place) return;
@@ -164,6 +227,10 @@ export function MyPlaceSheet({ visible, photoUrl, place, onClose, onSaved, onDel
           street: street.trim(),
           city: city.trim(),
           postalCode: postalCode.trim(),
+          /* Un champ vide EFFACE — corriger une fiche, c'est aussi pouvoir retirer un numero
+           * qui n'est plus le bon. Mais seuls les champs REELLEMENT changes partent : voir
+           * `contactsInitiaux`. */
+          ...contactsModifies(),
         },
       });
       clearSearchCache();
@@ -357,6 +424,43 @@ export function MyPlaceSheet({ visible, photoUrl, place, onClose, onSaved, onDel
                 />
               </View>
             </View>
+
+            {/* LES CONTACTS — point du 24 novembre. Les memes quatre champs que le formulaire
+                de creation, dans le meme ordre et avec les memes mots : ce sont les memes
+                clefs de traduction, et il n'y a donc rien a traduire de neuf. */}
+            <TextInput
+              value={phoneMobile}
+              onChangeText={setPhoneMobile}
+              placeholder={t('addPlace.phoneMobile')}
+              placeholderTextColor={colors.textMuted}
+              keyboardType="phone-pad"
+              style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+            />
+            <TextInput
+              value={whatsapp}
+              onChangeText={setWhatsapp}
+              placeholder={t('addPlace.whatsapp')}
+              placeholderTextColor={colors.textMuted}
+              keyboardType="phone-pad"
+              style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+            />
+            <TextInput
+              value={viber}
+              onChangeText={setViber}
+              placeholder={t('addPlace.viber')}
+              placeholderTextColor={colors.textMuted}
+              keyboardType="phone-pad"
+              style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+            />
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder={t('addPlace.email')}
+              placeholderTextColor={colors.textMuted}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+            />
 
             {error ? (
               <Text style={[typography.caption, { color: colors.danger, marginTop: spacing.sm }]}>{error}</Text>

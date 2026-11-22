@@ -217,6 +217,8 @@
     "viber": "Viber",
     "vipBadge": "WIN VIP",
     "vipManageAction": "Gérer (code WIN)",
+    "deletePartnerQuestion": "Supprimer une fiche Partenaire ?",
+    "vipManageSub": "Déclasser en adresse normale, ou supprimer définitivement",
     "vipManageTitle": "Adresse VIP : {{name}}",
     "vipManageBody": "Entrez le code WIN pour déclasser ou supprimer cette adresse.",
     "vipDowngrade": "Déclasser en adresse normale",

@@ -217,6 +217,8 @@
     "viber": "Viber",
     "vipBadge": "WIN VIP",
     "vipManageAction": "Sefrek (tangalt WIN)",
+    "deletePartnerQuestion": "Tkksed takarḍa n umendid?",
+    "vipManageSub": "Err-it d tansa tamagnut, neɣ kkes-it i lebda",
     "vipManageTitle": "Tansa VIP: {{name}}",
     "vipManageBody": "Sekcem tangalt WIN akken ad tekkseḍ addad neɣ tansa.",
     "vipDowngrade": "Err-it d tansa tamagnut",

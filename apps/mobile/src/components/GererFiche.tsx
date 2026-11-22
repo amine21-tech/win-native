@@ -30,8 +30,22 @@ type Props = {
   onReport: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  /** Appui sur une ligne verrouillee : on explique au lieu de ne rien faire. */
-  onSansDroit: () => void;
+  /** Appui sur une ligne verrouillee : on explique au lieu de ne rien faire. Facultatif —
+   *  plus rien ne verrouille la suppression depuis le 24 novembre, mais le mecanisme reste. */
+  onSansDroit?: () => void;
+  /**
+   * GERER UNE FICHE PARTENAIRE PAR LE CODE WIN — point B du 18 novembre.
+   *
+   * Cette ligne n'apparait QUE sur une fiche partenaire, et elle mene aux deux actions que la
+   * suppression ordinaire ne sait pas faire : DECLASSER la fiche en adresse normale (elle
+   * reste sur la carte, elle perd son statut), ou la supprimer definitivement.
+   *
+   * ELLE EXISTE PARCE QUE LE CHEMIN QUI Y MENAIT A DISPARU. On y arrivait par l'alerte
+   * << fiche partenaire protegee >>, qui s'ouvrait quand on appuyait sur Supprimer. Cette
+   * protection est levee : Supprimer supprime. Sans cette ligne, le declassement serait
+   * devenu injoignable depuis l'application.
+   */
+  onVip?: () => void;
   colors: Palette;
 };
 
@@ -44,6 +58,7 @@ export function GererFiche({
   onEdit,
   onDelete,
   onSansDroit,
+  onVip,
   colors,
 }: Props) {
   const { t } = useTranslation();
@@ -86,7 +101,22 @@ export function GererFiche({
           verrouille={!peutSupprimer}
           danger
           disabled={suppressionEnCours}
-          onPress={peutSupprimer ? onDelete : onSansDroit}
+          /* Quand rien ne verrouille — le cas ordinaire depuis le 24 novembre — la ligne
+             agit. L'explication ne sert que si un jour un droit revient. */
+          onPress={peutSupprimer || !onSansDroit ? onDelete : onSansDroit}
+          colors={colors}
+        />
+      ) : null}
+
+      {/* LA LIGNE DU CODE WIN, SUR LES SEULES FICHES PARTENAIRES. Elle est en dernier : c'est
+          le geste le plus rare, et le seul qui demande quatre chiffres. */}
+      {onVip ? (
+        <LigneAction
+          emoji="⭐"
+          teinte={colors.gold300 + '2a'}
+          titre={t('place.vipManageAction')}
+          detail={t('place.vipManageSub')}
+          onPress={onVip}
           colors={colors}
         />
       ) : null}
