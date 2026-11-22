@@ -1,4 +1,4 @@
-﻿// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // FICHIER RECOPIE - NE PAS MODIFIER ICI.
 // La source est packages/shared/src/. Recopie par build-apk.ps1.
 // ---------------------------------------------------------------------------
@@ -9,4 +9,5 @@ export * from './geo';
 export * from './search';
 export * from './routing';
 export * from './alertes';
+export * from './probation';
 export * from './wilayas';

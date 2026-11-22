@@ -5,4 +5,5 @@ export * from './geo.js';
 export * from './search.js';
 export * from './routing.js';
 export * from './alertes.js';
+export * from './probation.js';
 export * from './wilayas.js';

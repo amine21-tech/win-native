@@ -33,6 +33,21 @@ type Props = {
   message: string | null;
   /** Distance restante jusqu'au signalement, quand on roule vers lui. */
   distanceM?: number | null;
+  /**
+   * CE QU'ON DEMANDE AU CONDUCTEUR — point H du correctif v2, phase 2.
+   *
+   *   `vote`       : << Ce signalement est-il toujours la ? >> Toujours la / Disparu. C'est la
+   *                  carte du 27 octobre, inchangee, et c'est le cas par defaut.
+   *   `praticable` : << Cette route est-elle praticable ? >> Oui / Non. Posee aux deux premiers
+   *                  conducteurs qui empruntent un segment en reouverture provisoire.
+   *
+   * UNE VARIANTE DE LA MEME CARTE, ET NON UNE SECONDE CARTE. Le document dit << AJOUTER >>, et
+   * c'est bien un ajout : le chemin du vote ne change pas d'une ligne. Mais poser la question
+   * dans une feuille differente aurait demande au conducteur d'apprendre une deuxieme interface
+   * au volant, pour deux boutons au meme endroit. Ce qui change est le titre et les libelles ;
+   * le pictogramme, l'anciennete, la distance et le geste sont deja les bons.
+   */
+  mode?: 'vote' | 'praticable';
   onConfirm: () => void;
   onAbsent: () => void;
   onClose: () => void;
@@ -74,6 +89,7 @@ export function ReportVoteCard({
   pending,
   message,
   distanceM,
+  mode = 'vote',
   onConfirm,
   onAbsent,
   onClose,
@@ -106,8 +122,11 @@ export function ReportVoteCard({
             </View>
 
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.titre} numberOfLines={1}>
-                {t(`report.${report.kind}`)}
+              {/* LE TITRE PORTE LA QUESTION, et non le type du signalement : au volant, deux
+                  boutons sans question posee se devinent mal, et c'est le texte exact que le
+                  client a ecrit — << Cette route est-elle praticable ? >>. */}
+              <Text style={styles.titre} numberOfLines={2}>
+                {mode === 'praticable' ? t('report.passableAsk') : t(`report.${report.kind}`)}
               </Text>
               <Text style={styles.sousTitre} numberOfLines={2}>
                 {anciennete ?? ''}
@@ -131,10 +150,20 @@ export function ReportVoteCard({
             </View>
           ) : null}
 
+          {/* EN MODE PRATICABLE, LES PUCES DISENT AUTRE CHOSE. << 4 confirmations >> et
+              << expire dans 20 min >> parlent de la vie du signalement ; ici la question est
+              celle de la ROUTE, et ce qui aide a repondre est le type de ce qui avait ete
+              signale et depuis quand. */}
           <View style={styles.puces}>
-            <Puce texte={t('report.confirmations', { n: report.confirmCount })} />
+            {mode === 'praticable' ? (
+              <Puce texte={t(`report.${report.kind}`)} />
+            ) : (
+              <Puce texte={t('report.confirmations', { n: report.confirmCount })} />
+            )}
             {anciennete ? <Puce texte={anciennete} /> : null}
-            {restantMin !== null ? <Puce texte={t('report.expiresIn', { n: restantMin })} /> : null}
+            {mode !== 'praticable' && restantMin !== null ? (
+              <Puce texte={t('report.expiresIn', { n: restantMin })} />
+            ) : null}
           </View>
 
           {message ? (
@@ -143,19 +172,28 @@ export function ReportVoteCard({
             <ActivityIndicator color={VERT} style={{ marginTop: spacing.sm }} />
           ) : (
             <View style={styles.actions}>
+              {/* LES COULEURS NE CHANGENT PAS DE SENS D'UNE VARIANTE A L'AUTRE, et c'est ce qui
+                  evite l'erreur de doigt : le rouge est a gauche et dit toujours << la route ne
+                  passe pas >> (Disparu, ou Non), le vert est a droite et dit toujours
+                  << la situation tient >> (Toujours la, ou Oui). Un conducteur qui connait la
+                  carte du 27 octobre appuie au bon endroit sans relire. */}
               <Pressable
                 onPress={onAbsent}
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.disparu, { opacity: pressed ? 0.8 : 1 }]}
               >
-                <Text style={styles.disparuTexte}>{t('report.gone')}</Text>
+                <Text style={styles.disparuTexte}>
+                  {t(mode === 'praticable' ? 'report.passableNo' : 'report.gone')}
+                </Text>
               </Pressable>
               <Pressable
                 onPress={onConfirm}
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.toujours, { opacity: pressed ? 0.85 : 1 }]}
               >
-                <Text style={styles.toujoursTexte}>{t('report.stillThere')}</Text>
+                <Text style={styles.toujoursTexte}>
+                  {t(mode === 'praticable' ? 'report.passableYes' : 'report.stillThere')}
+                </Text>
               </Pressable>
             </View>
           )}

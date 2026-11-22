@@ -250,6 +250,25 @@ export const report = z.object({
    * `blocageConfirme` traite l'absence comme un seul temoin — donc en attente. Le defaut le
    * plus prudent. */
   temoins: z.number().int().optional(),
+  /* L'INSTANT OU LE BLOCAGE A ETE CONFIRME — point H du correctif v2, phase 2.
+   *
+   * C'est de cette date que partent les sept jours (travaux) ou les trente jours (chemin sans
+   * issue) avant reouverture provisoire, et c'est elle que le serveur remet a l'instant present
+   * quand un conducteur repond << non, ce n'est pas praticable >> (<< delai repart >>). Toute la
+   * phase 2 se lit dans cette seule valeur et les deux compteurs qui suivent : voir
+   * `phaseBlocage` dans probation.ts.
+   *
+   * Nulle pour tout ce qui n'est pas un blocage confirme, et absente des reponses d'un serveur
+   * plus ancien que l'application — `phaseBlocage` traite les deux comme << bloque >>, c'est-a-
+   * dire comme avant le point H. */
+  bloqueLe: z.string().nullable().optional(),
+  /* Reponses << oui, c'est praticable >> recues depuis `bloqueLe`. Deux debloquent le segment
+   * definitivement. Les reponses d'un cycle precedent ne comptent pas : la requete ne retient
+   * que celles qui suivent la date ci-dessus. */
+  praticableOui: z.number().int().optional(),
+  /* Reponses recues en tout, les << non >> compris. Sert a savoir qu'on a deja interroge les
+   * deux conducteurs prevus, et donc a ne plus poser la question. */
+  praticableTotal: z.number().int().optional(),
   createdAt: z.string(),
   expiresAt: z.string().nullable(),
 });
@@ -261,6 +280,18 @@ export const createReportInput = z.object({
   lon: longitude,
   heading: z.number().min(0).max(360).optional(),
   speedLimit: z.number().int().min(5).max(160).optional(),
+  /* METRES REELLEMENT PARCOURUS JUSTE AVANT LE SIGNALEMENT — point H du correctif v2 :
+   * << condition : chaque utilisateur a depasse le segment de 10 m (preuve qu'il l'a vecu) >>.
+   *
+   * L'application le mesure sur ses propres positions GPS (voir preuvePassage.ts). Facultatif,
+   * et `preuveVecue` traite l'absence comme une preuve acquise : une application plus ancienne
+   * que le serveur ne l'envoie pas, et desarmer ses signalements punirait l'utilisateur pour
+   * une mise a jour qu'il n'a pas faite. Ce qui est ecarte, c'est une mesure PRESENTE et
+   * inferieure a dix metres.
+   *
+   * Plafonne a cent kilometres : au-dela, ce n'est plus une preuve de passage mais une erreur
+   * de calcul, et un chiffre absurde n'a rien a faire en base. */
+  parcourusM: z.number().min(0).max(100_000).optional(),
 });
 export type CreateReportInput = z.infer<typeof createReportInput>;
 
@@ -268,6 +299,21 @@ export const voteReportInput = z.object({
   vote: z.enum(['confirm', 'absent']),
 });
 export type VoteReportInput = z.infer<typeof voteReportInput>;
+
+/**
+ * << CETTE ROUTE EST-ELLE PRATICABLE ? >> OUI / NON — point H du correctif v2, phase 2.
+ *
+ * UNE ROUTE A PART, ET NON UN TROISIEME VOTE. Le document est formel : << NE PAS MODIFIER le
+ * systeme de signalement existant — AJOUTER >>. Les deux votes existants disent si le
+ * signalement est encore la ; celui-ci repond a une question qu'on POSE, pendant une
+ * reouverture provisoire, a deux conducteurs choisis par le hasard de leur trajet. Les melanger
+ * aurait fait d'un << non praticable >> un << toujours la >>, qui prolonge les signalements
+ * temporaires et nourrit le compte des temoins : deux effets que personne n'a demandes.
+ */
+export const praticableInput = z.object({
+  praticable: z.boolean(),
+});
+export type PraticableInput = z.infer<typeof praticableInput>;
 
 export const nearbyReportsQuery = z.object({
   lat: latitudeQuery,

@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { avanceDansSegmentM } from '../src/navigation/signalementBlocage';
-import { bearing as geoBearing, blocageConfirme, bloqueLaRoute, countryFromCoords, formatDistance, formatDuration, haversine, NEARBY_RADIUS_M, type Language, type Place, type Report, type ReportKind } from '../src/shared';
+import { bearing as geoBearing, blocageConfirme, bloqueLaRoute, countryFromCoords, doitPoserLaQuestion, exclutLesItineraires, formatDistance, formatDuration, haversine, NEARBY_RADIUS_M, phaseBlocage, type Language, type Place, type Report, type ReportKind } from '../src/shared';
 import { api, ApiError } from '../src/api/client';
 import { AddPlaceSheet } from '../src/components/AddPlaceSheet';
 import { SectionSure } from '../src/components/SectionSure';
@@ -71,6 +71,11 @@ import { MeMarker } from '../src/map/MeMarker';
 import { NavMarker } from '../src/map/NavMarker';
 import { COUNTRY_VIEWS, INITIAL_VIEW_STATE, MAP_STYLES, REPORT_COLORS, type CountryView } from '../src/map/style';
 import { useMapStyle } from '../src/map/useMapStyle';
+import {
+  ajouterPosition,
+  metresParcourus,
+  type PositionDatee,
+} from '../src/reports/preuvePassage';
 import { useTuilesHorsLigne } from '../src/map/useTuilesHorsLigne';
 import { usePoiLayer } from '../src/map/usePoiLayer';
 import { REPORT_EMOJI } from '../src/reports/kinds';
@@ -622,6 +627,28 @@ export default function MapScreen() {
   const [reportMenuOpen, setReportMenuOpen] = useState(false);
   const [votingReport, setVotingReport] = useState<Report | null>(null);
   const [voteMessage, setVoteMessage] = useState<string | null>(null);
+  /**
+   * << CETTE ROUTE EST-ELLE PRATICABLE ? >> — point H du correctif v2, phase 2.
+   *
+   * Le signalement dont on vient de passer le segment pendant sa reouverture provisoire, et le
+   * message qui remercie une fois la reponse enregistree.
+   */
+  const [questionReport, setQuestionReport] = useState<Report | null>(null);
+  const [questionMessage, setQuestionMessage] = useState<string | null>(null);
+  /**
+   * LES SIGNALEMENTS SUR LESQUELS CE TELEPHONE A DEJA ETE INTERROGE.
+   *
+   * << Maximum 1 question par utilisateur par evenement — jamais de relance. >> Le serveur le
+   * garantit par un index unique, mais il ne peut le dire qu'une fois la reponse envoyee : sans
+   * cette memoire locale, la carte se rouvrirait a chaque mesure GPS devant le meme segment,
+   * pour se faire refuser ensuite. On y inscrit donc aussi les questions ECARTEES d'une croix :
+   * une question posee et fermee reste une question posee.
+   *
+   * Une reference, et volontairement pas un stockage durable : une reinstallation change
+   * l'identifiant de l'appareil, et le serveur ne reconnaitrait plus ce telephone de toute
+   * facon. Ce qu'elle protege est la seance en cours, c'est-a-dire le trajet.
+   */
+  const praticableVusRef = useRef<Set<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
   const [sosOpen, setSosOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -705,6 +732,27 @@ export default function MapScreen() {
     navigating,
     serviceLabels,
   );
+
+  /**
+   * LA TRACE DE LA DERNIERE MINUTE — point H du correctif v2, phase 1.
+   *
+   * << Condition : chaque utilisateur a depasse le segment de 10 m (preuve qu'il l'a vecu). >>
+   * Cette reference garde les dernieres positions du telephone, et elle seule permet de
+   * repondre a la question : ce conducteur a-t-il ROULE ici, ou bien signale-t-il de loin ?
+   *
+   * UNE REFERENCE ET NON UN ETAT, parce que rien a l'ecran n'en depend : la reecrire dans un
+   * etat redessinerait la carte a chaque mesure GPS, soit une fois par seconde en roulant.
+   * C'est la meme raison que pour `liveReportsRef`, juste en dessous.
+   */
+  const traceRef = useRef<PositionDatee[]>([]);
+  useEffect(() => {
+    if (!position) return;
+    traceRef.current = ajouterPosition(traceRef.current, {
+      lat: position.lat,
+      lon: position.lon,
+      t: Date.now(),
+    });
+  }, [position]);
 
   /** Cap au sol : utile pour un radar/barrage (sens de circulation), pas critique — on ne
    * bloque jamais l'envoi d'un signalement en son absence (GPS interieur, telephone pose). */
@@ -808,9 +856,32 @@ export default function MapScreen() {
    * sous l'eau n'a pas besoin d'un second temoin : personne ne signale une inondation par
    * erreur, et s'y engager ne se repare pas.
    */
+  /* UN SEGMENT EN REOUVERTURE PROVISOIRE NE DETOURNE PLUS PERSONNE — point H, phase 2.
+   *
+   * << Apres 7 jours (travaux) ou 30 jours (chemin sans issue) -> segment provisoirement
+   * rouvert. >> C'est la condition meme de la suite : il faut que les itineraires y repassent
+   * pour que deux conducteurs l'empruntent et repondent a la question. Tant que le blocage est
+   * en phase << bloque >>, rien ne change par rapport au 28 octobre.
+   *
+   * LE SIGNALEMENT RESTE AFFICHE SUR LA CARTE pendant la probation, et c'est voulu : le
+   * conducteur voit le symbole << route barree >>, il decide, et c'est a lui qu'on demandera si
+   * elle etait praticable. Le faire disparaitre d'un coup aurait donne une route rendue a la
+   * circulation sans que personne l'ait verifiee. */
   const avoidPoints = useCallback(() => {
+    const maintenant = new Date();
     const retenus = liveReportsRef.current.filter(
-      (r) => r.kind === 'flood' || (bloqueLaRoute(r.kind) && blocageConfirme(r.temoins)),
+      (r) =>
+        r.kind === 'flood' ||
+        (bloqueLaRoute(r.kind) &&
+          blocageConfirme(r.temoins) &&
+          exclutLesItineraires(
+            phaseBlocage({
+              kind: r.kind,
+              bloqueLe: r.bloqueLe,
+              oui: r.praticableOui ?? 0,
+              maintenant,
+            }),
+          )),
     );
     return {
       points: retenus.slice(0, 20).map((r) => ({ lat: r.lat, lon: r.lon })),
@@ -1418,7 +1489,18 @@ ${t(`report.badge_${report.kind}`)}`,
     mutationFn: (kind: ReportKind) =>
       api<Report>('/reports', {
         method: 'POST',
-        body: { kind, lat: position!.lat, lon: position!.lon, heading: currentHeading() },
+        body: {
+          kind,
+          lat: position!.lat,
+          lon: position!.lon,
+          heading: currentHeading(),
+          /* LA PREUVE DU PASSAGE VOYAGE AVEC TOUS LES SIGNALEMENTS, et non seulement avec les
+           * routes barrees : le serveur ne s'en sert aujourd'hui que pour compter les temoins
+           * d'un blocage (point H), mais la mesure ne coute rien, et un champ qu'on n'envoie
+           * qu'a certains types est un champ qu'on oublie d'envoyer le jour ou un type de plus
+           * en a besoin. */
+          parcourusM: metresParcourus(traceRef.current, Date.now()),
+        },
       }),
     onSuccess: () => setToast(t('report.sent')),
     onError: () => setToast(t('errors.network')),
@@ -1437,6 +1519,96 @@ ${t(`report.badge_${report.kind}`)}`,
       setTimeout(() => setVotingReport(null), 1800);
     },
   });
+
+  /**
+   * LA REPONSE A LA QUESTION DE PRATICABILITE — point H du correctif v2, phase 2.
+   *
+   * Le serveur dit ce que la reponse a produit, et c'est lui qui compte : deux << oui >>
+   * debloquent definitivement, un << non >> rebloque et fait repartir le delai. On ne le
+   * recalcule pas ici — le telephone ne connait pas les reponses des autres.
+   *
+   * UNE ERREUR N'OUVRE PAS DE SECONDE CHANCE : qu'elle vienne du reseau ou d'un refus du
+   * serveur (409 : deux conducteurs ont deja repondu, ou celui-ci a deja repondu), le
+   * signalement entre dans la memoire locale. Reposer la question serait la relance que le
+   * document interdit, et pour une reponse qui ne serait pas acceptee davantage.
+   */
+  const repondrePraticable = useMutation({
+    mutationFn: ({ id, praticable }: { id: string; praticable: boolean }) =>
+      api<{ degage: boolean; bloque: boolean }>(`/reports/${id}/praticable`, {
+        method: 'POST',
+        body: { praticable },
+      }),
+    onSuccess: (result, variables) => {
+      praticableVusRef.current.add(variables.id);
+      setQuestionMessage(
+        t(
+          result.degage
+            ? 'report.passableThanksOpen'
+            : result.bloque
+              ? 'report.passableThanksBlocked'
+              : 'report.passableThanks',
+        ),
+      );
+      setTimeout(() => setQuestionReport(null), 1800);
+    },
+    onError: (error, variables) => {
+      praticableVusRef.current.add(variables.id);
+      const deja = error instanceof ApiError && error.status === 409;
+      setQuestionMessage(deja ? t('report.alreadyVoted') : t('errors.network'));
+      setTimeout(() => setQuestionReport(null), 1800);
+    },
+  });
+
+  const fermerQuestion = useCallback(() => {
+    /* UNE QUESTION FERMEE SANS REPONSE RESTE UNE QUESTION POSEE. Le conducteur a vu la carte et
+     * a choisi de ne pas repondre — c'est une reponse en soi, et la rouvrir au prochain passage
+     * serait la relance que le document interdit. Le segment, lui, n'est pas perdu : il reste
+     * en reouverture provisoire, un autre conducteur sera interroge, et faute de reponse sous
+     * quarante-huit heures il sera rendu a la circulation. */
+    if (questionReport) praticableVusRef.current.add(questionReport.id);
+    setQuestionReport(null);
+    setQuestionMessage(null);
+  }, [questionReport]);
+
+  /**
+   * LA QUESTION S'OUVRE AU MOMENT DU PASSAGE — point H du correctif v2, phase 2.
+   *
+   *   << Les 2 prochains utilisateurs qui empruntent ce segment recoivent la question en temps
+   *   reel : "Cette route est-elle praticable ?" Oui / Non (dans l'app, au moment du
+   *   passage). >>
+   *
+   * AUCUNE CONDITION DE NAVIGATION, et c'est la lecon du point 13 du 28 octobre : sur le trajet
+   * qu'on fait tous les jours, personne ne lance d'itineraire. Un cul-de-sac du quartier serait
+   * donc re-emprunte cent fois sans qu'une seule question soit posee.
+   *
+   * LES QUATRE CONDITIONS SONT DANS `doitPoserLaQuestion`, eprouvee par le verificateur. Ici il
+   * ne reste que la distance, calculee sur la position courante, et la regle de politesse : une
+   * seule carte a la fois. Si la carte << Toujours la ? >> est ouverte, la question attend —
+   * deux feuilles empilees au volant ne se lisent ni l'une ni l'autre.
+   */
+  useEffect(() => {
+    if (!position || votingReport || questionReport) return;
+    const maintenant = new Date();
+    for (const r of liveReports) {
+      if (!bloqueLaRoute(r.kind)) continue;
+      const phase = phaseBlocage({
+        kind: r.kind,
+        bloqueLe: r.bloqueLe,
+        oui: r.praticableOui ?? 0,
+        maintenant,
+      });
+      const poser = doitPoserLaQuestion({
+        phase,
+        reponses: r.praticableTotal ?? 0,
+        dejaRepondu: praticableVusRef.current.has(r.id),
+        distanceM: haversine(position.lat, position.lon, r.lat, r.lon),
+      });
+      if (!poser) continue;
+      setQuestionMessage(null);
+      setQuestionReport(r);
+      break;
+    }
+  }, [position, liveReports, votingReport, questionReport]);
 
   const openReportMenu = useCallback(() => setReportMenuOpen(true), []);
 
@@ -1551,7 +1723,23 @@ ${t(`report.badge_${report.kind}`)}`,
     }
     if (!nav.route || !position) return;
 
-    const bloquants = liveReports.filter((r) => bloqueLaRoute(r.kind) && blocageConfirme(r.temoins));
+    /* LE RECALCUL PROACTIF SUIT LA MEME REGLE QUE L'EVITEMENT (point H, phase 2) : detourner
+     * un conducteur a cause d'un segment qu'on vient de rouvrir provisoirement serait le priver
+     * du passage ET de la question. Les deux endroits lisent donc la meme fonction. */
+    const maintenantBlocage = new Date();
+    const bloquants = liveReports.filter(
+      (r) =>
+        bloqueLaRoute(r.kind) &&
+        blocageConfirme(r.temoins) &&
+        exclutLesItineraires(
+          phaseBlocage({
+            kind: r.kind,
+            bloqueLe: r.bloqueLe,
+            oui: r.praticableOui ?? 0,
+            maintenant: maintenantBlocage,
+          }),
+        ),
+    );
     if (bloquants.length === 0) return;
 
     const surTrace = projeterSurTrace(nav.route, bloquants);
@@ -3101,6 +3289,28 @@ ${t(`report.badge_${report.kind}`)}`,
           onConfirm={() => voteReport.mutate({ id: votingReport.id, vote: 'confirm' })}
           onAbsent={() => voteReport.mutate({ id: votingReport.id, vote: 'absent' })}
           onClose={closeVoteCard}
+          colors={colors}
+        />
+      ) : null}
+
+      {/* LA QUESTION DE PRATICABILITE — point H du correctif v2, phase 2.
+          La meme feuille que << Toujours la ? >>, dans sa variante a deux boutons Oui / Non, et
+          jamais en meme temps qu'elle : `questionReport` n'est arme que si aucune carte de vote
+          n'est ouverte. */}
+      {questionReport && !votingReport ? (
+        <ReportVoteCard
+          report={questionReport}
+          mode="praticable"
+          pending={repondrePraticable.isPending}
+          message={questionMessage}
+          distanceM={
+            position
+              ? haversine(position.lat, position.lon, questionReport.lat, questionReport.lon)
+              : null
+          }
+          onConfirm={() => repondrePraticable.mutate({ id: questionReport.id, praticable: true })}
+          onAbsent={() => repondrePraticable.mutate({ id: questionReport.id, praticable: false })}
+          onClose={fermerQuestion}
           colors={colors}
         />
       ) : null}
