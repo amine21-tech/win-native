@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { FlecheManoeuvre } from './FlecheManoeuvre';
-import { distanceAnticipation } from '../navigation/grandAxe';
+import { seuilClignotementM } from '../navigation/grandAxe';
 import { localizedInstruction, roadRef } from '../navigation/instructions';
 import type { Maneuver } from '../navigation/routing';
 import { formatDistance, type Language } from '../shared';
@@ -128,12 +128,16 @@ type Props = {
    * Valhalla qui le dise. `null` quand elle est inconnue — le seuil tombe alors a cinquante
    * metres, << agglomeration supposee >> (point E du correctif v2). Voir `distanceAnticipation`.
    *
-   * C'EST DESORMAIS LA SEULE CHOSE DONT LE CLIGNOTEMENT DEPEND. `nomVoie` et `surAutoroute`
-   * etaient ici pour la condition de grand axe ; elle a quitte cette fleche au correctif v2
-   * (voir l'en-tete), et ces deux proprietes avec elle. La rangee de voies les recoit toujours,
-   * directement de la manoeuvre.
+   * ELLE NE SUFFIT PLUS A ELLE SEULE — correctif Fleches. Une nationale taguee 100 km/h au
+   * milieu d'une ville se lisait << rase campagne >>, et une sortie d'autoroute non taguee se
+   * lisait << ville >>. Les deux proprietes qui suivent reparent chacun de ces deux cas, et
+   * le seuil se decide maintenant dans `seuilClignotementM`, pour les DEUX fleches a la fois.
    */
   limiteKmh?: number | null;
+  /** Du bati autour du vehicule ? C'est ce qui corrige la RN 68 en ville (bug 1). */
+  agglomeration?: boolean | null;
+  /** Classe de route lue sur la carte : c'est ce qui corrige la sortie non taguee (bug 3). */
+  classeRoute?: string | null;
 };
 
 export function PanneauDirection({
@@ -144,6 +148,8 @@ export function PanneauDirection({
   lang,
   arrived,
   limiteKmh,
+  agglomeration,
+  classeRoute,
 }: Props) {
   const { t } = useTranslation();
 
@@ -208,7 +214,15 @@ export function PanneauDirection({
   /* LE SEUIL SE CALCULE, IL N'EST PLUS ECRIT : 50 m en agglomeration, 500 m ailleurs. La
    * condition de GRAND AXE est inchangee — en ville hors nationale, la fleche ne clignote
    * toujours pas du tout. */
-  const seuilM = distanceAnticipation(limiteKmh);
+  /* LE MEME APPEL, MOT POUR MOT, QUE DANS LA RANGEE DE VOIES — exigence du document :
+   * << Grande fleche + Petite fleche = meme fonction. >> Le verificateur compare les deux
+   * lignes caractere par caractere, pour qu'elles ne puissent plus diverger.
+   *
+   * `surAutoroute` n'est PAS passe ici, alors que la fonction l'accepte : le drapeau de
+   * Valhalla porte sur la manoeuvre a venir, pas sur le troncon sous les roues, et c'est le
+   * second qui dit a quelle distance prevenir. La classe de route lue sur la carte dit la
+   * meme chose et la dit mieux. La rangee de voies, elle, ne le passe pas non plus. */
+  const seuilM = seuilClignotementM({ limiteKmh, agglomeration, classeRoute });
   const clignoter = distanceM != null && distanceM <= seuilM;
 
   return (

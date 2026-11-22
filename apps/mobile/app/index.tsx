@@ -2230,7 +2230,10 @@ ${t(`report.badge_${report.kind}`)}`,
 
   /* Limite reglementaire du troncon en cours, lue sous le vehicule. En suivi, le vehicule est
    * au point focal de la camera ; carte deplacee a la main, on lit sous le centre de l'ecran. */
-  const speedLimit = useSpeedLimit({
+  /* TROIS VALEURS D'UNE SEULE LECTURE DE LA CARTE — correctif Fleches. La pastille rouge
+   * n'affiche que la premiere ; les deux autres disent aux fleches a quelle distance
+   * clignoter. Les calculer ailleurs aurait voulu dire interroger la carte deux fois. */
+  const { limiteKmh: speedLimit, agglomeration, classeRoute } = useSpeedLimit({
     active: navigating,
     mapRef,
     here: position,
@@ -2970,6 +2973,8 @@ ${t(`report.badge_${report.kind}`)}`,
           onBack={exitNavigationToHome}
           onLayoutBounds={onNavLayoutBounds}
           limitKmh={speedLimit}
+          agglomeration={agglomeration}
+          classeRoute={classeRoute}
           /* LA PASTILLE D'ALERTE REDUITE ENTRE DANS LA COLONNE — point 2 du 22 novembre.
            *
            * Elle se posait toute seule a `spacing.md`, huit points sous le bandeau, et faisait

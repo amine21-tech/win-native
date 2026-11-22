@@ -72,6 +72,16 @@ type Props = {
    * la pastille disparait alors (voir useSpeedLimit). */
   limitKmh: number | null;
   /**
+   * CE QUE LA CARTE DIT DU TRONCON SOUS LE VEHICULE — correctif Fleches.
+   *
+   * Ces deux proprietes ne sont PAS affichees : elles decident a quelle distance les deux
+   * fleches commencent a clignoter, et elles sortent de la meme lecture que `limitKmh` (voir
+   * useSpeedLimit). `agglomeration` corrige la nationale taguee 100 km/h en pleine ville
+   * (bug 1), `classeRoute` la sortie d'autoroute sans limite taguee (bug 3).
+   */
+  agglomeration: boolean;
+  classeRoute: string | null;
+  /**
    * LA PASTILLE D'ALERTE REDUITE, DEJA CONSTRUITE — point 2 du 22 novembre.
    *
    * ELLE ARRIVE EN BLOC PLUTOT QU'EN DONNEES, et c'est volontaire. Pour la fabriquer ici il
@@ -128,6 +138,8 @@ export const NavigationOverlay = memo(function NavigationOverlay({
   onRecenter,
   onBack,
   limitKmh,
+  agglomeration,
+  classeRoute,
   pastilleAlerte,
   onLayoutBounds,
   onSearch,
@@ -248,9 +260,15 @@ export const NavigationOverlay = memo(function NavigationOverlay({
            * nom de la voie et le drapeau d'autoroute, pour ne clignoter que sur grand axe : ce
            * filtre faisait qu'une destination sur deux ne clignotait pas du tout, parce que la
            * plupart des voies algeriennes n'ont pas de nom dans OpenStreetMap. Le point E du
-           * correctif v2 demande que TOUTES les directions clignotent ; la rangee de voies, elle,
-           * garde ses conditions du 3 novembre et les lit directement de la manoeuvre. */
+           * correctif v2 demande que TOUTES les directions clignotent.
+           *
+           * ET LA RANGEE DE VOIES A PERDU LE SIEN AU CORRECTIF FLECHES : elle le gardait, ce
+           * qui faisait que la petite fleche n'apparaissait pas la ou la grande clignotait
+           * (bug 2). Les deux recoivent desormais les memes trois valeurs, et le meme calcul
+           * les lit. */
           limiteKmh={limitKmh}
+          agglomeration={agglomeration}
+          classeRoute={classeRoute}
         />
 
         {/* Heure d'arrivee estimee et distance restante, EN HAUT comme EN BAS : le client les
@@ -268,11 +286,16 @@ export const NavigationOverlay = memo(function NavigationOverlay({
              * presque partout en Algerie. Voir la note de LaneGuidance. */
             typeManoeuvre={nextManeuver?.type ?? null}
             distanceM={distanceToUpcoming}
-            surAutoroute={nextManeuver?.surAutoroute ?? false}
-            nomVoie={nextManeuver?.streetName ?? null}
-            /* Le MEME seuil que la grande fleche : les deux rangees doivent apparaitre et
-             * clignoter ensemble. Voir LANE_GUIDANCE_VISIBLE_M. */
+            /* LE MEME SEUIL QUE LA GRANDE FLECHE, ET LES MEMES ARGUMENTS POUR LE CALCULER :
+             * les deux rangees doivent apparaitre et clignoter ensemble (correctif Fleches,
+             * << meme fonction, meme instant >>).
+             *
+             * `surAutoroute` et `nomVoie` ne sont plus transmis : ils ne servaient qu'au
+             * filtre de grand axe, qui est ce que le bug 2 demandait de retirer. Le type de
+             * manoeuvre, lui, reste — c'est lui qui dessine la fleche. */
             limiteKmh={limitKmh}
+            agglomeration={agglomeration}
+            classeRoute={classeRoute}
           />
         ) : null}
 

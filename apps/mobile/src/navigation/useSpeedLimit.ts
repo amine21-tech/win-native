@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { MapRef } from '@maplibre/maplibre-react-native';
 import { api } from '../api/client';
 import { haversine } from '../shared';
+import { estEnAgglomeration, type TraitDeCarte } from './agglomeration';
 
 /**
  * Limite de vitesse reglementaire du troncon en cours (v79 #7 du site).
@@ -46,6 +47,15 @@ const BY_IMPORTANCE = Object.keys(LIMITS);
 
 /** Fenetre de lecture autour du vehicule, en points d'ecran. */
 const PROBE_RADIUS = 22;
+/**
+ * FENETRE DU BATI, bien plus large que celle de la route — correctif Fleches, bug 1.
+ *
+ * Vingt-deux points suffisent a trouver la route : on roule dessus. Les maisons, elles, sont
+ * de l'autre cote du trottoir. A 17,5 de zoom, un point d'ecran vaut environ soixante-dix
+ * centimetres : quatre-vingt-dix points font donc une soixantaine de metres de part et
+ * d'autre du vehicule. Assez pour voir la rue ; trop peu pour apercevoir le village suivant.
+ */
+const PROBE_AGGLO = 90;
 /** Cadence de lecture. Plus court n'apporterait rien : le type de route change rarement. */
 const INTERVAL_MS = 3000;
 /** Garde-fous de l'interrogation du serveur, repris de la version web. */
@@ -61,8 +71,28 @@ type Props = {
   here: { lat: number; lon: number } | null;
 };
 
-export function useSpeedLimit({ active, mapRef, vehiclePoint, here }: Props): number | null {
-  const [limit, setLimit] = useState<number | null>(null);
+/**
+ * CE QUE LA CARTE DIT DU TRONCON SOUS LE VEHICULE.
+ *
+ * Le hook rendait un nombre — la limite — parce que c'est tout ce que la pastille rouge
+ * demandait. Le correctif Fleches a besoin de deux choses de plus, et elles sortent de la MEME
+ * lecture : la classe de la route (une sortie d'autoroute sans `maxspeed` reste une autoroute)
+ * et la presence de bati (une nationale taguee 100 km/h au milieu des maisons reste une
+ * ville). Les calculer ailleurs aurait voulu dire interroger la carte une seconde fois.
+ */
+export type EtatTroncon = {
+  /** Limite reglementaire en km/h, ou `null` si ni les panneaux ni la carte ne la donnent. */
+  limiteKmh: number | null;
+  /** Classe de route d'OpenMapTiles : `motorway`, `trunk`, `primary`, `minor`... */
+  classeRoute: string | null;
+  /** Du bati autour du vehicule ? Voir agglomeration.ts. */
+  agglomeration: boolean;
+};
+
+const RIEN: EtatTroncon = { limiteKmh: null, classeRoute: null, agglomeration: false };
+
+export function useSpeedLimit({ active, mapRef, vehiclePoint, here }: Props): EtatTroncon {
+  const [etat, setEtat] = useState<EtatTroncon>(RIEN);
   const pointRef = useRef(vehiclePoint);
   pointRef.current = vehiclePoint;
   const hereRef = useRef(here);
@@ -73,7 +103,7 @@ export function useSpeedLimit({ active, mapRef, vehiclePoint, here }: Props): nu
 
   useEffect(() => {
     if (!active) {
-      setLimit(null);
+      setEtat(RIEN);
       fromServer.current = null;
       posted.current = null;
       return;
@@ -137,8 +167,34 @@ export function useSpeedLimit({ active, mapRef, vehiclePoint, here }: Props): nu
             best = cls;
           }
         }
+        /* LE BATI AUTOUR, dans une fenetre plus large — correctif Fleches, bug 1. Une seconde
+         * interrogation de la carte, et non un elargissement de la premiere : chercher la
+         * route dans une fenetre de quatre-vingt-dix points ramasserait l'autoroute qui passe
+         * a cote quand on roule sur la contre-allee. */
+        const autour = await mapRef.current?.queryRenderedFeatures([
+          [x - PROBE_AGGLO, y - PROBE_AGGLO],
+          [x + PROBE_AGGLO, y + PROBE_AGGLO],
+        ]);
+        if (cancelled) return;
+        const traits: TraitDeCarte[] = (autour ?? []).map((feature) => ({
+          polygone:
+            feature.geometry?.type === 'Polygon' || feature.geometry?.type === 'MultiPolygon',
+          proprietes: (feature.properties ?? {}) as Record<string, unknown>,
+        }));
+
         // La valeur des panneaux prime toujours sur la deduction.
-        setLimit(fromServer.current ?? (best ? (LIMITS[best] ?? null) : null));
+        const limiteKmh = fromServer.current ?? (best ? (LIMITS[best] ?? null) : null);
+        const agglomeration = estEnAgglomeration(traits);
+        /* ON NE REND UN NOUVEL OBJET QUE SI QUELQUE CHOSE A CHANGE. Sans cette comparaison,
+         * l'ecran de navigation entier se redessinerait toutes les trois secondes, pour
+         * annoncer trois valeurs identiques. React s'en chargeait tout seul tant que ce hook
+         * rendait un nombre ; un objet est toujours une reference neuve. */
+        setEtat((prev) =>
+          prev.limiteKmh === limiteKmh &&
+          prev.classeRoute === best &&
+          prev.agglomeration === agglomeration
+            ? prev
+            : { limiteKmh, classeRoute: best, agglomeration });
       } catch {
         // Carte pas encore prete, ou lecture impossible : on garde la valeur precedente plutot
         // que de faire clignoter la pastille.
@@ -153,5 +209,5 @@ export function useSpeedLimit({ active, mapRef, vehiclePoint, here }: Props): nu
     };
   }, [active, mapRef]);
 
-  return limit;
+  return etat;
 }

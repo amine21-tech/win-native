@@ -145,12 +145,16 @@ verifier(
   'deux objets qui clignotent cote a cote a des rythmes differents se disputent le regard',
 );
 /* CINQ CENTS METRES N'EST PLUS UN CHIFFRE ECRIT ICI — point 6 du 22 novembre : 50 m en
- * agglomeration, 500 m ailleurs, et c'est `distanceAnticipation` qui tranche d'apres la limite
- * reglementaire du troncon. Le controle porte donc sur le fait que le seuil soit CALCULE, et
- * que la comparaison l'utilise — pas sur sa valeur, qui est eprouvee dans verifier-voies. */
+ * agglomeration, 500 m ailleurs. Le controle porte donc sur le fait que le seuil soit CALCULE,
+ * et que la comparaison l'utilise — pas sur sa valeur, qui est eprouvee dans verifier-voies.
+ *
+ * LE CALCUL A CHANGE DE NOM AU CORRECTIF FLECHES (23 novembre) : `distanceAnticipation` ne
+ * lisait que la limite de vitesse, et une RN taguee 100 km/h en pleine ville se lisait donc
+ * << rase campagne >>. `seuilClignotementM` regarde en plus le bati autour du vehicule et la
+ * classe de la route. Les sept cas du document sont rejoues dans verifier-fleches-synchro. */
 verifier(
   'a partir du seuil calcule, et non d un 500 en dur',
-  /distanceAnticipation\(limiteKmh\)/.test(panneau) && /distanceM <= seuilM/.test(panneau),
+  /seuilClignotementM\(\{/.test(panneau) && /distanceM <= seuilM/.test(panneau),
 );
 /* LE FILTRE DE GRAND AXE A QUITTE LA GRANDE FLECHE — point E du correctif v2.
  *

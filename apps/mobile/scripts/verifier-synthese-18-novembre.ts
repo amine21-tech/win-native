@@ -103,9 +103,12 @@ console.log('\nF — LA FLECHE');
  * cinq cents metres avant la sortie on est encore devant six intersections, et la fleche semble
  * designer la premiere. Hors agglomeration, le 500 du 18 novembre tient toujours — c'est la
  * valeur que `distanceAnticipation` rend quand la limite depasse 50 km/h ou reste inconnue. */
+/* Et le correctif Fleches du 23 novembre a confie ce calcul a `seuilClignotementM`, qui lit
+ * aussi le bati autour du vehicule : le 500 du 18 novembre tient toujours hors agglomeration,
+ * mais il ne depend plus de la seule limite de vitesse, laquelle mentait en ville. */
 verifier(
   'elle clignote au seuil d anticipation (500 m hors agglomeration)',
-  /distanceAnticipation\(limiteKmh\)/.test(panneau) &&
+  /seuilClignotementM\(\{/.test(panneau) &&
     /ANTICIPATION_RASE_M = 500/.test(lire('src', 'navigation', 'grandAxe.ts')),
 );
 /* LE FILTRE DE GRAND AXE A QUITTE LA GRANDE FLECHE — point E du correctif v2.

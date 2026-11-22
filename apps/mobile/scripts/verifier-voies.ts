@@ -305,7 +305,7 @@ const rangeeVoies = readFileSync(
 );
 verifier(
   'la grande fleche calcule son seuil au lieu de l ecrire',
-  panneau.includes('distanceAnticipation(limiteKmh)') && !panneau.includes('CLIGNOTEMENT_M ='),
+  panneau.includes('seuilClignotementM({') && !panneau.includes('CLIGNOTEMENT_M ='),
   'plus aucune constante de 500 m dans PanneauDirection',
 );
 /* << TOUTES LES DIRECTIONS DECLENCHENT LE CLIGNOTEMENT >> — point E du correctif v2, et c'est
@@ -318,17 +318,28 @@ verifier(
   !panneau.includes('surGrandAxe'),
   'un nom de rue manquant dans OpenStreetMap empechait le clignotement',
 );
-/* LA RANGEE DE VOIES, ELLE, LE GARDE. Consigne du 3 novembre, jamais retiree : << elle NE
- * s'active PAS sur les virages normaux en ville, les carrefours classiques, les ronds-points >>.
- * Le point E demande que les deux fleches clignotent, pas que la rangee s'affiche partout. */
+/* LA RANGEE DE VOIES L'A PERDU A SON TOUR — correctif Fleches, 23 novembre, bug 2.
+ *
+ * Ce controle exigeait l'inverse jusqu'a aujourd'hui, et citait la consigne du 3 novembre :
+ * << elle NE s'active PAS sur les virages normaux en ville, les carrefours classiques, les
+ * ronds-points >>. Le client est revenu sur cette consigne apres essai au volant, et sa liste
+ * de controle ne laisse pas de place au doute : trois de ses sept cas sont en agglomeration,
+ * pour les trois directions, et chacun exige que LES DEUX fleches clignotent. Le filtre faisait
+ * que la petite restait absente la ou la grande clignotait — sur la route de l'aeroport, par
+ * exemple, parce qu'il se decide en partie sur le NOM de la voie.
+ *
+ * ON LIT LE CODE SANS SES COMMENTAIRES, et c'est le piege que ce controle vient d'eviter :
+ * LaneGuidance CITE la ligne retiree, pour que personne ne la remette. Un `includes` sur le
+ * fichier entier trouvait donc la citation et restait vert alors que la ligne avait disparu. */
+const codeRangee = rangeeVoies.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
 verifier(
-  'la rangee de voies garde ses conditions du 3 novembre',
-  rangeeVoies.includes('surGrandAxe(surAutoroute, nomVoie)'),
-  'deux exigences differentes, et celle-la n a pas ete retiree',
+  'la rangee de voies ne filtre plus sur le grand axe non plus',
+  !codeRangee.includes('surGrandAxe'),
+  'les deux fleches clignotent ensemble, pour toute direction et toute destination',
 );
 verifier(
   'la rangee de voies calcule exactement le meme',
-  rangeeVoies.includes('distanceAnticipation(limiteKmh)'),
+  codeRangee.includes('seuilClignotementM({'),
 );
 verifier(
   'le rythme du clignotement n a bouge dans aucun des deux',

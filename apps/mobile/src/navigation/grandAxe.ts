@@ -119,3 +119,92 @@ export function distanceAnticipation(limiteKmh: number | null | undefined): numb
   }
   return limiteKmh <= LIMITE_AGGLO_KMH ? ANTICIPATION_AGGLO_M : ANTICIPATION_RASE_M;
 }
+
+/**
+ * LE SEUIL DE CLIGNOTEMENT DES DEUX FLECHES — correctif Fleches (document du 23 novembre).
+ *
+ *   << REGLE FINALE — Non negociable. Grande fleche + Petite fleche = meme fonction
+ *   getBlinkThreshold(). Fonctionne pour TOUTE direction : gauche, droite, tout droit — TOUTE
+ *   destination. 50 m agglo · 500 m route nationale hors agglo + autoroute. Supprimer toute
+ *   valeur hardcodee. >>
+ *
+ * `distanceAnticipation`, juste au-dessus, ne connait que la limite de vitesse. Elle a tenu
+ * tant que la limite disait ou l'on est — et les trois bugs du document sont trois cas ou elle
+ * ne le dit pas :
+ *
+ *   BUG 1  RN 68 en ville, taguee 100 km/h dans OpenStreetMap. La limite dit << rase
+ *          campagne >> au milieu des maisons. C'est `agglomeration` qui tranche, en regardant
+ *          le bati autour du vehicule — voir agglomeration.ts.
+ *   BUG 3  Sortie d'autoroute sans `maxspeed` : la limite est inconnue, et le repli prudent de
+ *          cinquante metres est ici le pire des choix. C'est `classeRoute` qui tranche.
+ *
+ * (Le bug 2 — << certaines destinations : aucun clignotement, petite fleche absente >> — ne se
+ * corrige pas ici : il venait d'un filtre de grand axe qui restait sur la rangee de voies.
+ * Voir LaneGuidance.tsx.)
+ *
+ * L'ORDRE DES QUESTIONS N'EST PAS CELUI DU DOCUMENT, ET C'EST LE SEUL ECART. Son code pose
+ * `maxSpeed in 1..50 || isUrban() -> 50` AVANT de regarder la classe de route : une autoroute
+ * qui traverse une ville — l'A1 a Birtouta, la rocade sud d'Alger — clignoterait alors a
+ * cinquante metres. A cent dix kilometres a l'heure, cinquante metres font une seconde et
+ * demie : ni le temps de se rabattre, ni celui de lire la fleche. Et le document lui-meme
+ * exige 500 m sur autoroute dans deux de ses sept cas d'essai, dont la sortie non taguee.
+ * L'autoroute passe donc EN PREMIER ; pour tout le reste, l'ordre est le sien.
+ *
+ * Les sept cas de sa liste de controle sont rejoues dans scripts/verifier-fleches-synchro.ts.
+ */
+
+/** Classes de route d'OpenMapTiles qui valent une voie rapide. Les bretelles (`motorway_link`)
+ *  arrivent ici deja debarrassees de leur suffixe — voir useSpeedLimit. */
+export const CLASSES_VOIE_RAPIDE = ['motorway', 'trunk'] as const;
+
+/**
+ * Sommes-nous sur une autoroute ou une voie rapide ?
+ *
+ * Deux chemins independants, et c'est voulu : `surAutoroute` est le drapeau `highway` que
+ * Valhalla pose sur la manoeuvre, `classeRoute` est ce que la carte affiche sous le vehicule.
+ * Le premier manque sur les troncons mal tagues, le second manque quand la carte n'est pas
+ * encore prete. Il suffit que l'un des deux parle.
+ */
+export function estVoieRapide(
+  surAutoroute: boolean | null | undefined,
+  classeRoute: string | null | undefined,
+): boolean {
+  if (surAutoroute === true) return true;
+  if (!classeRoute) return false;
+  return (CLASSES_VOIE_RAPIDE as readonly string[]).includes(classeRoute.toLowerCase());
+}
+
+/** Ce que l'on sait du troncon sous le vehicule, au moment de la manoeuvre. */
+export type TronconCourant = {
+  /** Limite reglementaire, en km/h. `null` quand ni les panneaux ni la carte ne l'ont dite. */
+  limiteKmh?: number | null;
+  /** Classe de route lue sur la carte : `motorway`, `trunk`, `primary`, `minor`... */
+  classeRoute?: string | null;
+  /** Du bati autour du vehicule ? Voir `estEnAgglomeration`. */
+  agglomeration?: boolean | null;
+  /** Drapeau `highway` de la manoeuvre Valhalla. */
+  surAutoroute?: boolean | null;
+};
+
+/** A quelle distance de la manoeuvre les DEUX fleches commencent a clignoter, en metres. */
+export function seuilClignotementM(troncon: TronconCourant): number {
+  /* 1. AUTOROUTE ET VOIE RAPIDE : toujours 500 m, bati ou pas, limite taguee ou non. */
+  if (estVoieRapide(troncon.surAutoroute, troncon.classeRoute)) return ANTICIPATION_RASE_M;
+
+  const limite = troncon.limiteKmh;
+  const limiteConnue = typeof limite === 'number' && Number.isFinite(limite) && limite > 0;
+
+  /* 2. LIMITE DE VILLE : la limite se suffit a elle-meme quand elle est basse. */
+  if (limiteConnue && limite <= LIMITE_AGGLO_KMH) return ANTICIPATION_AGGLO_M;
+
+  /* 3. DU BATI AUTOUR : on est en ville, quoi que dise la limite — c'est le bug 1. */
+  if (troncon.agglomeration === true) return ANTICIPATION_AGGLO_M;
+
+  /* 4. HORS AGGLOMERATION CONFIRME PAR LA VITESSE. */
+  if (limiteConnue) return ANTICIPATION_RASE_M;
+
+  /* 5. RIEN DE SUR : cinquante metres, << agglomeration supposee >> (point E du correctif v2).
+   *    Mieux vaut clignoter trop tard sur une route qu'on ne reconnait pas que promettre un
+   *    carrefour a cinq cents metres sans savoir lequel. */
+  return ANTICIPATION_AGGLO_M;
+}

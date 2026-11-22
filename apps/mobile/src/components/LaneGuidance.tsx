@@ -3,7 +3,7 @@ import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { FlecheVoie } from './FlecheVoie';
 import { libelleOption, optionsDeManoeuvre, optionsDeVoies } from '../navigation/optionsVoies';
-import { distanceAnticipation, surGrandAxe } from '../navigation/grandAxe';
+import { seuilClignotementM } from '../navigation/grandAxe';
 import type { Lane } from '../navigation/routing';
 
 /**
@@ -137,24 +137,24 @@ const PASTILLE = 9;
 export function LaneGuidance({
   lanes,
   distanceM,
-  surAutoroute,
-  nomVoie,
   typeManoeuvre,
   limiteKmh,
+  agglomeration,
+  classeRoute,
 }: {
   lanes: Lane[];
   /** Distance restante jusqu'a la bifurcation, ou `null` si elle est inconnue. */
   distanceM: number | null;
-  /** La manoeuvre se fait-elle sur une autoroute ou une voie rapide ? */
-  surAutoroute: boolean;
-  /** Nom de la voie, seul moyen de reconnaitre une NATIONALE : voir grandAxe.ts. */
-  nomVoie?: string | null;
   /** Type de manoeuvre Valhalla. Il suffit a dessiner la fleche recommandee quand le
    *  marquage au sol manque — voir optionsDeManoeuvre. */
   typeManoeuvre: number | null;
   /** Limite reglementaire du troncon, pour distinguer la ville de la rase campagne. Voir
-   *  `distanceAnticipation` et la note de LANE_GUIDANCE_VISIBLE_M. */
+   *  `seuilClignotementM` et la note de LANE_GUIDANCE_VISIBLE_M. */
   limiteKmh?: number | null;
+  /** Du bati autour du vehicule ? Voir agglomeration.ts. */
+  agglomeration?: boolean | null;
+  /** Classe de route lue sur la carte : `motorway`, `trunk`, `primary`, `minor`... */
+  classeRoute?: string | null;
 }) {
   /* LE CLIGNOTEMENT TOURNE MEME QUAND RIEN N'EST AFFICHE, et c'est une contrainte de React et
    * non un choix : un hook ne peut pas etre appele apres un `return`. L'animation est native
@@ -183,22 +183,39 @@ export function LaneGuidance({
     return () => boucle.stop();
   }, [clignote]);
 
-  /* AUTOROUTE ET VOIE RAPIDE UNIQUEMENT, et au moins deux voies — correctif 1 du 3 novembre.
+  /* LE FILTRE DE GRAND AXE A DISPARU D'ICI — correctif Fleches, bug 2. C'EST LA CORRECTION
+   * PRINCIPALE DE CE DOCUMENT, et elle consiste a retirer une ligne.
    *
-   * << Elle NE s'active PAS sur les virages normaux en ville, les carrefours classiques, les
-   * ronds-points, ni sur une route a voie unique. >>
+   *   << BUG 2 — Certaines destinations : aucun clignotement, petite fleche absente. Ex:
+   *   destination aeroport Houari Boumediene — grande fleche gauche visible, mais la grande
+   *   fleche ne clignote pas + la petite fleche n'apparait pas du tout. Cause : declenchement
+   *   conditionnel selon la direction. >>
    *
-   * Le client a raison, et pour une raison qu'on ne voit qu'au volant : en ville, les voies
-   * changent a chaque carrefour et l'affichage clignoterait d'un feu a l'autre sans jamais
-   * rien apprendre. Rater une file en ville coute un tour du pate de maisons ; la rater avant
-   * une sortie d'autoroute coute dix kilometres. C'est la que l'information vaut. */
-  /* AUTOROUTE, VOIE RAPIDE *ET NATIONALE* depuis le 8 novembre. Valhalla ne marque pas les
-   * nationales taguees `primary` : on les reconnait a leur nom — << RN 12 >>, << N5 >>. Voir
-   * grandAxe.ts. */
-  if (!surGrandAxe(surAutoroute, nomVoie)) return null;
+   * LA LIGNE RETIREE ETAIT `if (!surGrandAxe(surAutoroute, nomVoie)) return null;`. Elle
+   * demandait que la manoeuvre se fasse sur une autoroute, une voie rapide ou une route dont
+   * le NOM ressemble a << RN 12 >>. Or la plupart des voies algeriennes n'ont pas de nom dans
+   * OpenStreetMap : la condition etait donc fausse presque partout, et la rangee restait
+   * invisible — exactement ce que le client decrit sur la route de l'aeroport. La grande
+   * fleche avait perdu ce meme filtre au correctif v2 (point E) ; la rangee l'avait garde,
+   * et c'est ce qui desynchronisait les deux.
+   *
+   * CELA RENVERSE LE CORRECTIF DU 3 NOVEMBRE, qui disait : << Elle NE s'active PAS sur les
+   * virages normaux en ville, les carrefours classiques, les ronds-points. >> Le document du
+   * 23 novembre tranche dans l'autre sens, et sa liste de controle ne laisse aucun doute —
+   * trois de ses sept cas d'essai sont en agglomeration, pour les trois directions, et chacun
+   * exige que LES DEUX fleches clignotent. Ce qui rend le renversement tenable est le seuil
+   * lui-meme : en ville il est de cinquante metres, c'est-a-dire deux secondes. La rangee ne
+   * clignote donc plus << d'un feu a l'autre >> comme en novembre, ou le seuil valait encore
+   * cinq cents metres ; elle se montre juste avant le carrefour, puis s'efface.
+   *
+   * << Ne rien casser >> : les deux conditions qui restent — un seuil de distance, et une
+   * direction a montrer — sont celles d'origine. */
   /* CINQUANTE METRES EN AGGLOMERATION, CINQ CENTS AILLEURS — le meme seuil que la grande
-   * fleche, calcule par la meme fonction, pour que les deux ne puissent pas differer. */
-  if (distanceM == null || distanceM > distanceAnticipation(limiteKmh)) return null;
+   * fleche, calcule par la meme fonction, avec les memes arguments, pour que les deux ne
+   * puissent pas differer. */
+  if (distanceM == null || distanceM > seuilClignotementM({ limiteKmh, agglomeration, classeRoute })) {
+    return null;
+  }
 
   /* LA RANGEE N'EXIGE PLUS LE MARQUAGE AU SOL — correction du client, 17 novembre.
    *
