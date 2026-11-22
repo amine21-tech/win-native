@@ -71,6 +71,7 @@ import { MeMarker } from '../src/map/MeMarker';
 import { NavMarker } from '../src/map/NavMarker';
 import { COUNTRY_VIEWS, INITIAL_VIEW_STATE, MAP_STYLES, REPORT_COLORS, type CountryView } from '../src/map/style';
 import { useMapStyle } from '../src/map/useMapStyle';
+import { useTuilesHorsLigne } from '../src/map/useTuilesHorsLigne';
 import { usePoiLayer } from '../src/map/usePoiLayer';
 import { REPORT_EMOJI } from '../src/reports/kinds';
 import { emojiForPlace } from '../src/map/placeIcons';
@@ -2059,6 +2060,16 @@ ${t(`report.badge_${report.kind}`)}`,
    * client, « critique sur autoroutes algeriennes ». Voir useMapStyle : elle est trouvee en
    * lisant le style, les deux fonds d'OpenFreeMap n'ayant pas les memes noms de couches. */
   const { mapStyle, routeAnchorId } = useMapStyle(scheme === 'dark' ? MAP_STYLES.night : MAP_STYLES.day);
+
+  /* LE MODE HORS LIGNE AUTOMATIQUE — point I du correctif v2 : << 0 bouton, 0 action
+   * utilisateur >>. Cette ligne est tout ce que l'ecran en sait. Le crochet ne rend rien,
+   * n'affiche rien, et ne fait quelque chose que si le telephone se trouve en Wi-Fi et que le
+   * pays n'est pas deja dans sa base.
+   *
+   * C'EST LE STYLE DE JOUR QUI EST PASSE, MEME LA NUIT, ET C'EST VOULU : les deux fonds
+   * d'OpenFreeMap partagent la meme source de tuiles, donc un seul paquet sert aux deux. Passer
+   * le style courant ferait croire a deux paquets a telecharger a celui qui change de theme. */
+  useTuilesHorsLigne(MAP_STYLES.day);
 
   /* Colonne des dix boutons. Elle etait ecrite dans la branche « accueil » du rendu, donc
    * absente pendant le guidage — le client a constate qu'il ne restait que le bouton du son.
