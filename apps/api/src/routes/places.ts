@@ -43,6 +43,8 @@ const placeColumns = sql`
   p.created_at                    AS "createdAt",
   p.updated_at                    AS "updatedAt",
   COALESCE(ph.photos, '[]'::json) AS photos,
+  vi.url                          AS "videoUrl",
+  vi.duree_s                      AS "videoDureeS",
   av.note                         AS "avisNote",
   COALESCE(av.nombre, 0)          AS "avisCount"
 `;
@@ -93,6 +95,28 @@ const photosJoin = sql`
     FROM place_photos f
     WHERE f.place_id = p.id
   ) ph ON true
+`;
+
+/**
+ * LA VIDEO DE PRESENTATION — document du 24 novembre, priorite 2.
+ *
+ * Une seule ligne par lieu : c'est l'index unique de la migration 0016 qui le garantit, pas
+ * cette requete. Le `LIMIT 1` n'est donc pas un filtre, c'est une promesse tenue des deux
+ * cotes — si l'index venait a disparaitre, la fiche continuerait d'afficher UNE video au lieu
+ * d'en faire apparaitre plusieurs au hasard des jointures.
+ *
+ * `LEFT JOIN` : une fiche sans video reste une fiche. `videoUrl` vaut alors NULL, et la carte
+ * affiche ses photos comme avant — c'est ce qui fait de ce point un AJOUT et non un
+ * remplacement.
+ */
+const videoJoin = sql`
+  LEFT JOIN LATERAL (
+    SELECT ${env.PUBLIC_BASE_URL} || '/uploads/' || v.storage_key AS url,
+           v.duree_s
+    FROM place_videos v
+    WHERE v.place_id = p.id
+    LIMIT 1
+  ) vi ON true
 `;
 
 /** Mots vides ignores : ils apparaissent dans presque tous les noms et ne distinguent rien. */
@@ -234,6 +258,7 @@ const routes: FastifyPluginAsync = async (app) => {
              END                                                          AS "distanceM"
       FROM places p
       ${photosJoin}
+      ${videoJoin}
       ${avisJoin}
       WHERE p.deleted_at IS NULL
         AND p.status = 'published'
@@ -290,6 +315,7 @@ const routes: FastifyPluginAsync = async (app) => {
       SELECT ${placeColumns}
       FROM places p
       ${photosJoin}
+      ${videoJoin}
       ${avisJoin}
       WHERE p.id = ${req.params.id} AND p.deleted_at IS NULL
       LIMIT 1
@@ -322,6 +348,7 @@ const routes: FastifyPluginAsync = async (app) => {
       SELECT ${placeColumns}
       FROM places p
       ${photosJoin}
+      ${videoJoin}
       ${avisJoin}
       WHERE p.deleted_at IS NULL
         AND p.status = 'published'
@@ -595,6 +622,17 @@ const routes: FastifyPluginAsync = async (app) => {
       `);
     }
 
+    /* LA VIDEO SE RATTACHE COMME LES PHOTOS, et pour la meme raison de calendrier : elle a ete
+     * televersee pendant que le contributeur finissait de remplir le formulaire, donc avant
+     * que ce lieu n'existe. `place_id IS NULL` empeche de s'approprier la video d'un autre
+     * lieu en en recopiant l'identifiant. */
+    if (input.videoId) {
+      await db.execute(sql`
+        UPDATE place_videos SET place_id = ${placeId}
+        WHERE id = ${input.videoId}::uuid AND place_id IS NULL
+      `);
+    }
+
     await db.execute(sql`
       INSERT INTO contributors (device_id, places_count, score)
       VALUES (${deviceId}, 1, 10)
@@ -631,6 +669,7 @@ const routes: FastifyPluginAsync = async (app) => {
       SELECT ${placeColumns}
       FROM places p
       ${photosJoin}
+      ${videoJoin}
       ${avisJoin}
       WHERE p.created_by = ${req.deviceId!}
         AND p.deleted_at IS NULL
@@ -724,6 +763,25 @@ const routes: FastifyPluginAsync = async (app) => {
         await db.execute(sql`
           UPDATE place_photos SET place_id = ${req.params.id}
           WHERE id IN (${ids}) AND place_id IS NULL
+        `);
+      }
+
+      /* REMPLACER LA VIDEO D'UNE FICHE — meme regle que pour les photos juste au-dessus.
+       *
+       * Absent, `videoId` ne touche a rien : corriger un numero de telephone ne doit pas
+       * effacer la video de presentation d'un partenaire. Present, il REMPLACE — l'ancienne
+       * est DETACHEE et non supprimee, son fichier reste sur le disque, et une video retiree
+       * par erreur se rattache donc encore.
+       *
+       * Le detachement est indispensable AVANT, et pas seulement par propriete : l'index
+       * unique de la migration 0016 refuserait la seconde video du meme lieu. */
+      if (input.videoId) {
+        await db.execute(sql`
+          UPDATE place_videos SET place_id = NULL WHERE place_id = ${req.params.id}
+        `);
+        await db.execute(sql`
+          UPDATE place_videos SET place_id = ${req.params.id}
+          WHERE id = ${input.videoId}::uuid AND place_id IS NULL
         `);
       }
 

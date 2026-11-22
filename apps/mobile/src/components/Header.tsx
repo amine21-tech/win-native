@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import { changeLanguage } from '../i18n';
 import type { Language } from '../shared';
 import { jouerClips } from '../speech/voixKab';
@@ -34,16 +34,37 @@ import { formatClock24, useClock } from '../utils/clock';
  * c'est l'ecriture du quotidien chez les locuteurs. Le bouton et son contenu ne sont donc pas
  * dans la meme graphie, ce qui est assume.
  */
-const LANGUAGE_PILLS: { code: Language | 'kab'; label: string; pret: boolean }[] = [
+/**
+ * DEUX LIGNES SUR DERIJA ET TAMAZIRT — point 4 du 24 novembre.
+ *
+ *   << Ligne 1 : "Derija" en phonetique latin · Ligne 2 : دارجة en arabe. >>
+ *   << Ligne 1 : "Tamazirt" en phonetique latin · Ligne 2 : ⵜⴰⵎⴰⵣⵉⵖⵜ en Tifinagh. >>
+ *
+ * POURQUOI CES DEUX-LA ET PAS LES CINQ. FR, عربي et EN se lisent par tout le monde qui les
+ * cherche : l'arabe litteraire s'ecrit en arabe et se nomme en arabe, le francais en latin.
+ * Le darija et le tamazight sont les deux seules langues de la liste dont l'ecriture ne dit
+ * pas le nom a qui ne la lit pas — un chauffeur kabyle alphabetise en francais ne reconnait
+ * pas ⵜⴰⵎⴰⵣⵉⵖⵜ au premier coup d'oeil, et c'est precisement pour lui que la ligne latine est
+ * la. L'ecriture native reste en dessous, pleine et entiere : elle n'est pas remplacee.
+ *
+ * LA RANGEE GARDE SES CINQ BOUTONS SUR UNE LIGNE. La maquette montre les deux carres l'un
+ * SOUS l'autre, mais elle ne montre QUE ces deux-la — c'est une planche de design qui compare
+ * deux boutons, pas le plan du bandeau. Les casser en deux rangees deplacerait la barre de
+ * recherche et tout ce qui la suit, pour un gain nul : `flex: 1` leur donne deja la meme
+ * surface, et `alignItems: stretch` la meme hauteur. << Les 2 boutons sont de MEME taille >>
+ * est donc tenu. (A confirmer avec le client : si la pile verticale est voulue telle quelle,
+ * c'est HEADER_HEIGHT dans app/index.tsx qu'il faut reprendre avec.)
+ */
+const LANGUAGE_PILLS: { code: Language | 'kab'; label: string; sous?: string; pret: boolean }[] = [
   { code: 'fr', label: 'FR', pret: true },
   // Le darija s'ecrit en caracteres arabes : c'est la langue parlee, pas une autre graphie.
-  { code: 'dz', label: 'دارجة', pret: true },
+  { code: 'dz', label: 'Derija', sous: 'دارجة', pret: true },
   /* TIFINAGH, l'alphabet officiel — et l'orthographe corrigee le 18 novembre.
    *
    * On ecrivait ⴰⵎⴰⵣⵉⵖ (Amaziɣ), qui nomme la PERSONNE. La langue se dit ⵜⴰⵎⴰⵣⵉⵖⵜ
    * (Tamaziɣt) : le prefixe et le suffixe en t- -t font le feminin, comme en kabyle parle.
    * Correction validee par Mazigh ARHAB, cite par le client. */
-  { code: 'kab', label: 'ⵜⴰⵎⴰⵣⵉⵖⵜ', pret: true },
+  { code: 'kab', label: 'Tamazirt', sous: 'ⵜⴰⵎⴰⵣⵉⵖⵜ', pret: true },
   { code: 'ar', label: 'عربي', pret: true },
   { code: 'en', label: 'EN', pret: true },
 ];
@@ -75,6 +96,30 @@ export function Header({ colors, top }: Props) {
      * ET C'EST LE PREMIER MOT QU'ON ENTEND dans sa langue : la liste des 92 clips contient
      * `bienvenue` depuis le premier envoi, sans qu'aucun ecran ne l'ait jamais joue. */
     if (lang === 'kab') jouerClips(['bienvenue']);
+
+    /**
+     * ET LE MESSAGE DE BIENVENUE S'AFFICHE — point 4 du 24 novembre, pour les CINQ langues.
+     *
+     *   << Affiche un MESSAGE DE BIENVENUE dans la langue choisie. >>
+     *
+     * << Affiche >>, et non << dit >> : c'est un message a LIRE. La difference compte, parce
+     * qu'elle est la seule facon de tenir la demande pour le darija — aucun clip n'a ete
+     * enregistre dans cette langue, et la regle du 9 novembre interdit d'y substituer une
+     * synthese vocale. Le tamazight, lui, garde les deux : son clip juste au-dessus, et le
+     * meme bandeau que les autres.
+     *
+     * POURQUOI UN TOAST ET NON UN Alert. Un dialogue demande un appui pour disparaitre : on
+     * ferait fermer une fenetre a quelqu'un qui vient juste d'appuyer sur un bouton. Le toast
+     * dit la meme chose, dans la meme langue, et s'en va tout seul. C'est deja le choix fait
+     * pour la coupure du son pendant la navigation (BoutonLangueNav).
+     *
+     * `i18n.t` AVEC `lng` EXPLICITE, et non `t(...)` : `changeLanguage` vient d'etre appelee,
+     * mais elle est asynchrone — le `t` de ce rendu-ci porte encore l'ANCIENNE langue, et le
+     * message de bienvenue serait donc affiche dans la langue qu'on vient de quitter.
+     */
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(i18n.t('app.bienvenue', { lng: lang }), ToastAndroid.SHORT);
+    }
   };
 
   return (
@@ -145,6 +190,23 @@ export function Header({ colors, top }: Props) {
               >
                 {p.label}
               </Text>
+              {/* L'ECRITURE NATIVE, SOUS LE NOM PHONETIQUE — point 4 du 24 novembre.
+                  Un peu plus petite et un peu plus pale : c'est la meme langue dite deux fois,
+                  pas deux informations. Le `numberOfLines` tient tete aux grandes tailles de
+                  police du systeme, qui feraient sinon passer le mot a la ligne et grandir la
+                  rangee entiere. */}
+              {p.sous ? (
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.langSous,
+                    { color: on ? colors.accentText : colors.textMuted },
+                    !p.pret && styles.langLabelSoon,
+                  ]}
+                >
+                  {p.sous}
+                </Text>
+              ) : null}
             </Pressable>
           );
         })}
@@ -174,6 +236,8 @@ const styles = StyleSheet.create({
   clock: { fontFamily: fonts.sansBold, fontSize: 12.5, letterSpacing: 0.3 },
   langs: {
     flexDirection: 'row',
+    // Voir `langPill` : c'est ce mot qui donne aux cinq boutons la meme hauteur.
+    alignItems: 'stretch',
     gap: 3,
     borderRadius: radius.pill,
     padding: 3,
@@ -193,8 +257,32 @@ const styles = StyleSheet.create({
   // `flex: 1` : les cinq langues se partagent la largeur a parts egales, quelle que soit la
   // longueur du mot. Une pastille de deux lettres et une de six gardent la meme surface
   // tactile — c'est ce qui rend la rangee lisible au premier coup d'oeil.
-  langPill: { flex: 1, borderRadius: radius.pill, paddingVertical: 6, alignItems: 'center' },
+  /* `justifyContent: center` AVEC `alignItems: stretch` SUR LA RANGEE : les pastilles d'une
+   * seule ligne — FR, عربي, EN — prennent la hauteur des deux autres et centrent leur mot
+   * dedans, au lieu de se coller en haut. C'est ce qui garde les cinq boutons de la meme
+   * taille maintenant que deux d'entre eux portent deux lignes. */
+  langPill: {
+    flex: 1,
+    borderRadius: radius.pill,
+    /* TROIS ET NON SIX DEPUIS LA SECONDE LIGNE. La rangee ne peut pas grandir librement : la
+     * colonne de dix boutons, a droite de la carte, se calcule sur ce qui reste sous
+     * l'en-tete, et sur un Android de 640 points elle n'avait que quatre points de marge.
+     * Ces trois points repris en haut et en bas rendent a la seconde ligne la place qu'elle
+     * prend, et la colonne tient toujours ses dix boutons (verifier-colonne-fab.py). */
+    paddingVertical: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   langLabel: { fontFamily: fonts.sansBold, fontSize: 11.5 },
+  /* L'ecriture native : deux points de moins que le nom phonetique, et un cheveu d'air entre
+   * les deux. Le tifinagh et l'arabe portent des signes au-dessus et en dessous de la ligne —
+   * sans cette marge, ils touchent le mot du dessus. */
+  /* `lineHeight` ECRIT EN TOUTES LETTRES, et c'est ce qui rend la seconde ligne abordable.
+   * Laisse libre, une police rend une hauteur de ligne d'environ 1,35 fois sa taille — et
+   * l'arabe comme le tifinagh, qui portent des signes au-dessus et en dessous, la poussent
+   * encore. Dix points fixes : le signe reste lisible, et la rangee entiere ne grandit que de
+   * quatre points au lieu de douze. */
+  langSous: { fontFamily: fonts.sansBold, fontSize: 9, lineHeight: 10 },
   /* Une langue annoncee mais pas encore traduite. Volontairement discrete : elle ne doit pas
    * attirer l'oeil autant qu'une langue utilisable. */
   langPillSoon: { opacity: 0.45 },

@@ -1,7 +1,8 @@
-﻿// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // FICHIER RECOPIE - NE PAS MODIFIER ICI.
 // La source est packages/shared/src/. Recopie par build-apk.ps1.
 // ---------------------------------------------------------------------------
+
 /** Rayon terrestre moyen, en metres. */
 const EARTH_RADIUS_M = 6_371_008.8;
 

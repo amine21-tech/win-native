@@ -2,6 +2,7 @@
 // FICHIER RECOPIE - NE PAS MODIFIER ICI.
 // La source est packages/shared/src/. Recopie par build-apk.ps1.
 // ---------------------------------------------------------------------------
+
 import { z } from 'zod';
 import {
   COUNTRIES,
@@ -140,6 +141,17 @@ export const place = z.object({
   avisNote: z.number().nullable().optional(),
   /** Nombre d'avis. L'affichage exige trois minimum — voir apps/mobile/src/place/avis.ts. */
   avisCount: z.number().int().nullable().optional(),
+  /**
+   * LA VIDEO DE PRESENTATION — document du 24 novembre, priorite 2. Au plus une par fiche.
+   *
+   * NULLABLE ET FACULTATIVE, comme les trois champs ci-dessus et pour la meme raison : une
+   * fiche ordinaire n'en porte pas, un serveur qui n'a pas encore recu la migration 0016 ne
+   * renvoie pas ce champ du tout, et l'application doit continuer a afficher la carte dans les
+   * deux cas. C'est ce qui fait de ce point un AJOUT.
+   */
+  videoUrl: z.string().nullable().optional(),
+  /** Duree annoncee par le telephone, en secondes. Sert a afficher « 0:28 », rien de plus. */
+  videoDureeS: z.coerce.number().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -185,6 +197,8 @@ export const createPlaceInput = z.object({
    * coupure de midi, et cela borne la saisie sans jamais gener un commerce reel. */
   horaires: z.array(horaire).max(14).optional(),
   photoIds: z.array(uuid).max(6).optional(),
+  /** La video de presentation, deja televersee par POST /videos. Une seule par fiche. */
+  videoId: uuid.optional(),
   /** Code du service VIP. Present et exact : le lieu est enregistre comme partenaire VIP.
    * Verifie UNIQUEMENT par le serveur — l'application ne le connait pas. */
   vipCode: z.string().trim().min(1).max(32).optional(),

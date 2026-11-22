@@ -38,6 +38,15 @@ export type GeocodedResult = RankableResult & {
   avisNote?: number | null;
   /** Nombre d'avis. L'affichage exige trois minimum — voir src/place/avis.ts. */
   avisCount?: number | null;
+  /**
+   * LA VIDEO DE PRESENTATION — document du 24 novembre, priorite 2. Au plus une par fiche.
+   *
+   * Facultative au meme titre que les trois champs ci-dessus, et pour la meme raison : un
+   * resultat Photon ou Nominatim n'en porte pas, une fiche enregistree avant la migration 0016
+   * non plus, et un serveur qui n'a pas encore recu cette migration ne renvoie pas le champ du
+   * tout. Dans les trois cas la carte s'affiche comme avant.
+   */
+  videoUrl?: string | null;
 };
 
 /**

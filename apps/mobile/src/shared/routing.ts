@@ -1,7 +1,8 @@
-﻿// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // FICHIER RECOPIE - NE PAS MODIFIER ICI.
 // La source est packages/shared/src/. Recopie par build-apk.ps1.
 // ---------------------------------------------------------------------------
+
 /**
  * Decodage d'une polyligne encodee (algorithme de Google, precision
  * configurable). Valhalla encode ses traces en precision 1e6, pas 1e5 comme
@@ -34,4 +35,3 @@ export function decodePolyline(encoded: string, precision = 1e6): [number, numbe
     return result & 1 ? ~(result >> 1) : result >> 1;
   }
 }
-

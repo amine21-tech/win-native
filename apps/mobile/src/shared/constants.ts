@@ -1,7 +1,8 @@
-﻿// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // FICHIER RECOPIE - NE PAS MODIFIER ICI.
 // La source est packages/shared/src/. Recopie par build-apk.ps1.
 // ---------------------------------------------------------------------------
+
 /**
  * Constantes partagees entre l'API et l'application mobile.
  * Toute valeur presente ici est la seule source de verite : ne pas la

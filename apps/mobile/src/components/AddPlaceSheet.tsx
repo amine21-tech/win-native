@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { api, ApiError, uploadPhoto } from '../api/client';
+import { api, ApiError, uploadPhoto, uploadVideo } from '../api/client';
 import { clearSearchCache } from '../search/usePlaceSearch';
 import * as Location from 'expo-location';
 import { countryFromCoords, formatDistance, haversine, PLACE_CATEGORIES, type PlaceCategory } from '../shared';
@@ -62,9 +62,97 @@ const REGISTERING_HERE_M = 150;
  */
 const VERIFY_SUSPICIOUS_M = 300;
 
-/** Jusqu'a 3 photos par fiche (v81 #14) — la fiche du lieu (PlaceSheet) affiche deja une galerie
- * de plusieurs photos, mais ce formulaire n'en proposait qu'une seule a l'envoi. */
-const MAX_PHOTOS = 3;
+/**
+ * ON N'ENREGISTRE PAS UN LIEU OU L'ON N'EST PAS — point 3 du 24 novembre.
+ *
+ *   << Un lieu ne peut etre enregistre qu'a <= 15 m de la position GPS reelle. Pas possible en
+ *   cliquant sur un point de la carte a distance. Le bouton "Garder tel quel" est SUPPRIME
+ *   pour tout utilisateur normal. >>
+ *
+ * LA CAPTURE QUI L'A DECLENCHE montre << le lieu enregistre se trouve a 33 km de votre position
+ * actuelle >> — et, juste en dessous, un bouton vert << Garder tel quel >>. L'application
+ * voyait l'erreur, la nommait au metre pres, et proposait quand meme de la garder. Une fiche
+ * fausse entrait sur la carte en un appui, et personne ne s'en apercevait plus ensuite.
+ *
+ * LA VERIFICATION PASSE DONC AVANT L'ENREGISTREMENT, et plus apres. Elle redemande une mesure
+ * GPS FRAICHE en haute precision, comme la double verification : reutiliser le releve qui a
+ * servi a remplir les coordonnees reviendrait a comparer une erreur avec elle-meme.
+ *
+ * CE QUI N'EST PAS CASSE. Un GPS muet ne bloque personne : sans mesure, on enregistre comme
+ * avant — on ne reproche pas a un contributeur un recepteur qui ne repond pas. Et le refus
+ * n'est jamais un cul-de-sac : il porte le bouton qui replace la fiche sur la position reelle,
+ * donc un appui suffit pour continuer.
+ *
+ * LE CODE WIN RESTE AU-DESSUS DE LA REGLE. Une fiche partenaire se saisit au bureau, a partir
+ * de coordonnees communiquees par le commercant — c'est pour cela que les deux champs de
+ * latitude et longitude existent. Le document le dit lui-meme : << pour tout utilisateur
+ * NORMAL >>.
+ */
+const MAX_DISTANCE_M = 15;
+
+/**
+ * TROIS PHOTOS PRISES SUR PLACE, DEUX CHOISIES DANS LE TELEPHONE — document du 24 novembre.
+ *
+ *   « 3 PHOTOS CAMERA DIRECTE — prises depuis l'appareil photo du telephone, sur place, au
+ *   moment de la creation. »  « 2 PHOTOS GALERIE / FICHIER. »
+ *
+ * DEUX COMPTEURS ET NON UN SEUL DE CINQ, parce que la distinction est tout l'interet de la
+ * demande. Une photo prise sur place prouve que le contributeur y etait ; une photo tiree de
+ * la galerie peut venir de n'importe ou — c'est pratique pour un logo ou une devanture
+ * envoyee par le commercant, et c'est precisement pourquoi elle ne doit pas pouvoir occuper
+ * les cinq emplacements. Un seul compteur de cinq autoriserait une fiche entierement
+ * illustree d'images trouvees ailleurs.
+ *
+ * ON PASSE DE TROIS A CINQ : c'est un AJOUT. Les fiches a trois photos restent valables, le
+ * serveur en acceptait deja six (`photoIds.max(6)`), et rien de ce qui existe ne retrecit.
+ */
+const MAX_PHOTOS_CAMERA = 3;
+const MAX_PHOTOS_GALERIE = 2;
+const MAX_PHOTOS = MAX_PHOTOS_CAMERA + MAX_PHOTOS_GALERIE;
+
+/**
+ * TRENTE SECONDES, ET C'EST LE TELEPHONE QUI LES FAIT RESPECTER — document du 24 novembre.
+ *
+ *   « 1 VIDEO 30 SECONDES MAX — enregistree en direct OU importee depuis la galerie, duree
+ *   maximum STRICTE : 30 secondes. »
+ *
+ * `videoMaxDuration` arrete l'enregistrement tout seul : la camera se coupe a trente secondes,
+ * il n'y a rien a refuser ensuite. Mais il ne s'applique qu'a la PRISE DE VUE — une video
+ * IMPORTEE depuis la galerie peut durer dix minutes, et le document autorise explicitement
+ * l'import. Celle-la est donc mesuree a l'arrivee et refusee si elle depasse, avec sa duree
+ * affichee : un refus qui ne dit pas de combien on depasse ne sert a rien.
+ *
+ * LA DEMI-SECONDE DE TOLERANCE n'est pas de la complaisance. Un encodeur ferme son fichier sur
+ * la derniere image complete : trente secondes filmees donnent regulierement 30,04 s de
+ * conteneur. Refuser cela ferait echouer une video que la camera de l'application vient
+ * elle-meme de produire.
+ */
+const VIDEO_MAX_S = 30;
+const VIDEO_TOLERANCE_S = 0.5;
+
+type PhotoChoisie = { uri: string; source: 'camera' | 'galerie' };
+
+/**
+ * Ajoute une photo SANS faire deborder sa propre colonne, et sans toucher a l'autre.
+ *
+ * Hors du composant parce qu'elle ne depend que de ses arguments : elle se lit seule, et le
+ * verificateur peut la rejouer sans monter un ecran React. Le `slice` d'origine, lui, etait
+ * ecrit deux fois dans `addPhoto` — une par branche — et les deux copies auraient fini par
+ * differer le jour ou l'une des deux aurait ete corrigee.
+ *
+ * La photo EN TROP est la plus ANCIENNE de sa colonne, pas la nouvelle : quelqu'un qui prend
+ * une quatrieme photo veut manifestement celle-la. Rendre la main sans rien changer donnerait
+ * un bouton qui ne repond pas.
+ */
+function garderSousQuota(actuelles: PhotoChoisie[], ajoutee: PhotoChoisie): PhotoChoisie[] {
+  const max = ajoutee.source === 'camera' ? MAX_PHOTOS_CAMERA : MAX_PHOTOS_GALERIE;
+  const memeSource = [...actuelles.filter((ph) => ph.source === ajoutee.source), ajoutee].slice(-max);
+  // L'ordre d'ajout est conserve pour l'autre colonne : seule celle qui deborde est recomposee.
+  const gardees = new Set(memeSource.map((ph) => ph.uri));
+  return [...actuelles.filter((ph) => ph.source !== ajoutee.source || gardees.has(ph.uri)), ajoutee].filter(
+    (ph, i, tous) => tous.findIndex((a) => a.uri === ph.uri) === i,
+  );
+}
 
 /** Largeur d'envoi. Le serveur re-limite a 1600 px de toute facon (routes/photos.ts) : au-dela,
  * on ne transporterait que des octets inutiles sur une connexion mobile algerienne. */
@@ -89,7 +177,12 @@ const emptyForm = {
 export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Props) {
   const { t } = useTranslation();
   const [form, setForm] = useState(emptyForm);
-  const [photoUris, setPhotoUris] = useState<string[]>([]);
+  /* L'ORIGINE EST GARDEE AVEC CHAQUE PHOTO, et pas seulement comptee : sans elle, retirer une
+   * photo ne rendrait pas son emplacement a la bonne colonne — on effacerait une prise de vue
+   * et c'est un emplacement de galerie qui se libererait. */
+  const [photos, setPhotos] = useState<{ uri: string; source: 'camera' | 'galerie' }[]>([]);
+  /** La video de presentation, choisie mais pas encore envoyee. Au plus une. */
+  const [video, setVideo] = useState<{ uri: string; dureeS: number | null } | null>(null);
   const [preparingPhoto, setPreparingPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,6 +196,8 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
   const [verifyM, setVerifyM] = useState<number | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [moving, setMoving] = useState(false);
+  /** Distance mesuree AVANT l'enregistrement quand elle depasse les quinze metres (point 3). */
+  const [tropLoinM, setTropLoinM] = useState<number | null>(null);
   /** Service VIP : null = ferme, 'code' = saisie du code, sinon le code valide par le serveur. */
   const [vip, setVip] = useState<null | 'code' | { code: string }>(null);
   const [vipInput, setVipInput] = useState('');
@@ -134,7 +229,8 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
   useEffect(() => {
     if (coords) {
       setForm(emptyForm);
-      setPhotoUris([]);
+      setPhotos([]);
+      setVideo(null);
       setPreparingPhoto(false);
       setError(null);
       setSavedWithoutPhoto(null);
@@ -147,6 +243,8 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
       setSavedId(null);
       setVerifyM(null);
       setVerifying(false);
+      // Le refus de distance du lieu PRECEDENT : sans cette ligne il barre le formulaire suivant.
+      setTropLoinM(null);
     }
   }, [coords]);
 
@@ -169,7 +267,12 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
-  const removePhoto = (uri: string) => setPhotoUris((cur) => cur.filter((u) => u !== uri));
+  const removePhoto = (uri: string) => setPhotos((cur) => cur.filter((ph) => ph.uri !== uri));
+
+  /** Combien de place reste-t-il dans l'une des deux colonnes. */
+  const placeRestante = (source: 'camera' | 'galerie') =>
+    (source === 'camera' ? MAX_PHOTOS_CAMERA : MAX_PHOTOS_GALERIE) -
+    photos.filter((ph) => ph.source === source).length;
 
   /**
    * Reduit la photo AVANT de la garder, et non au moment de l'enregistrement.
@@ -184,19 +287,19 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
    * En reduisant des la prise de vue, la vignette affiche un fichier deja petit et l'appui sur
    * « Enregistrer » n'a plus aucun travail d'image a faire.
    */
-  const addPhoto = async (uri: string) => {
+  const addPhoto = async (uri: string, source: 'camera' | 'galerie') => {
     setPreparingPhoto(true);
     try {
       const resized = await manipulateAsync(uri, [{ resize: { width: UPLOAD_WIDTH } }], {
         compress: 0.7,
         format: SaveFormat.JPEG,
       });
-      setPhotoUris((cur) => [...cur, resized.uri].slice(0, MAX_PHOTOS));
+      setPhotos((cur) => garderSousQuota(cur, { uri: resized.uri, source }));
     } catch {
       // Le redimensionnement a echoue : on garde l'originale plutot que de perdre la photo.
       // Le serveur la redimensionnera de son cote (routes/photos.ts), l'envoi sera seulement
       // plus long.
-      setPhotoUris((cur) => [...cur, uri].slice(0, MAX_PHOTOS));
+      setPhotos((cur) => garderSousQuota(cur, { uri, source }));
     } finally {
       setPreparingPhoto(false);
     }
@@ -216,7 +319,7 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
     // module natif, qui les transporte en memoire.
     const result = await ImagePicker.launchCameraAsync({ quality: 0.7, exif: false });
     const picked = result.canceled ? null : result.assets?.[0]?.uri;
-    if (picked) await addPhoto(picked);
+    if (picked) await addPhoto(picked, 'camera');
   };
 
   const pickFromGallery = async () => {
@@ -227,7 +330,48 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
     }
     const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7, exif: false });
     const picked = result.canceled ? null : result.assets?.[0]?.uri;
-    if (picked) await addPhoto(picked);
+    if (picked) await addPhoto(picked, 'galerie');
+  };
+
+  /**
+   * LA VIDEO DE PRESENTATION — document du 24 novembre, priorite 2.
+   *
+   * UN SEUL CHEMIN POUR LES DEUX CAS, parce que le document les met sur le meme rang :
+   * « enregistree en direct OU importee depuis la galerie ». `enDirect` choisit la camera ou
+   * le selecteur de fichiers, le reste est identique — meme borne de duree, meme refus, meme
+   * message.
+   *
+   * `videoMaxDuration` coupe la CAMERA a trente secondes ; il ne peut rien contre un fichier
+   * deja enregistre, d'ou la mesure a l'arrivee. Une video dont le telephone ne sait pas dire
+   * la duree passe : on ne refuse pas sur une information manquante, et le serveur la borne
+   * de toute facon au poids.
+   */
+  const choisirVideo = async (enDirect: boolean) => {
+    const perm = enDirect
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      setError(t(enDirect ? 'addPlace.cameraDenied' : 'addPlace.galleryDenied'));
+      return;
+    }
+    const result = enDirect
+      ? await ImagePicker.launchCameraAsync({
+          mediaTypes: ['videos'],
+          videoMaxDuration: VIDEO_MAX_S,
+          quality: 0.7,
+        })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], quality: 0.7 });
+    const asset = result.canceled ? null : result.assets?.[0];
+    if (!asset?.uri) return;
+
+    // `duration` vient en MILLISECONDES quand le telephone la connait, et manque sinon.
+    const dureeS = typeof asset.duration === 'number' && asset.duration > 0 ? asset.duration / 1000 : null;
+    if (dureeS !== null && dureeS > VIDEO_MAX_S + VIDEO_TOLERANCE_S) {
+      setError(t('addPlace.videoTooLong', { s: VIDEO_MAX_S, d: Math.round(dureeS) }));
+      return;
+    }
+    setError(null);
+    setVideo({ uri: asset.uri, dureeS });
   };
 
   /** Le code n'est jamais compare dans l'application : il est envoye au serveur, seul a le
@@ -310,6 +454,30 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
     }
   };
 
+  /**
+   * << Replacer sur ma position >> AVANT l'enregistrement — la sortie du refus de distance.
+   *
+   * Le meme geste que `moveToMe`, mais sur un lieu qui n'existe pas encore : il n'y a donc rien
+   * a corriger en base, seulement les deux champs de coordonnees a reecrire. Le refus s'efface
+   * avec eux, et l'appui suivant sur << Enregistrer >> passe.
+   */
+  const placerSurMaPosition = async () => {
+    setMoving(true);
+    try {
+      const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.BestForNavigation });
+      setCoordText({
+        lat: fix.coords.latitude.toFixed(6),
+        lon: fix.coords.longitude.toFixed(6),
+      });
+      setTropLoinM(null);
+      setError(null);
+    } catch {
+      setError(t('addPlace.gpsUnstable'));
+    } finally {
+      setMoving(false);
+    }
+  };
+
   const submit = async () => {
     if (!form.name.trim()) {
       setError(t('addPlace.nameRequired'));
@@ -327,7 +495,32 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
     }
     setError(null);
     setSubmitting(true);
+    /* LES QUINZE METRES, MESURES MAINTENANT — point 3 du 24 novembre, voir MAX_DISTANCE_M.
+     *
+     * Dans le `try` du submit et non avant lui : `setSubmitting(true)` est deja passe, et un
+     * retour anticipe doit rendre le bouton. C'est le `finally` du bas qui s'en charge pour
+     * toutes les sorties a la fois — une seule ligne a ne pas oublier au lieu de quatre. */
     try {
+      if (!vipCode) {
+        let ici: { lat: number; lon: number } | null = null;
+        try {
+          const fix = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.BestForNavigation,
+          });
+          ici = { lat: fix.coords.latitude, lon: fix.coords.longitude };
+        } catch {
+          // GPS muet : on n'invente pas une distance, et on n'empeche pas d'enregistrer.
+          ici = null;
+        }
+        if (ici) {
+          const ecart = haversine(ici.lat, ici.lon, saveLat, saveLon);
+          if (ecart > MAX_DISTANCE_M) {
+            setTropLoinM(ecart);
+            return;
+          }
+        }
+      }
+      setTropLoinM(null);
       /**
        * Les photos sont envoyees AVANT le lieu, mais leur echec ne l'empeche plus.
        *
@@ -339,8 +532,8 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
        */
       const photoIds: string[] = [];
       let photoProblem: string | null = null;
-      if (photoUris.length > 0) {
-        for (const uri of photoUris) {
+      if (photos.length > 0) {
+        for (const { uri } of photos) {
           try {
             // Sequentiel plutot que Promise.all — trois envois simultanes sur une connexion
             // mobile algerienne se genent plus qu'ils ne s'aident.
@@ -349,6 +542,22 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
           } catch (e) {
             photoProblem = e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e);
           }
+        }
+      }
+
+      /* LA VIDEO PART APRES LES PHOTOS, ET SON ECHEC NE FAIT PAS PLUS PERDRE LE LIEU.
+       *
+       * Meme raisonnement qu'au-dessus, en plus vrai encore : une video pese vingt fois une
+       * photo, c'est donc l'envoi qui a le plus de chances de tomber sur une connexion
+       * algerienne — et ce serait le plus absurde des echecs, puisque le lieu lui-meme tient
+       * en deux cents octets. Elle se rattache plus tard depuis la fiche. */
+      let videoId: string | undefined;
+      if (video) {
+        try {
+          const envoyee = await uploadVideo(video.uri, video.dureeS ?? undefined);
+          videoId = envoyee.id;
+        } catch (e) {
+          photoProblem = e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e);
         }
       }
 
@@ -370,6 +579,7 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
           viber: form.viber.trim() || undefined,
           email: form.email.trim() || undefined,
           photoIds: photoIds.length > 0 ? photoIds : undefined,
+          videoId,
           promo: vipCode ? form.promo.trim() || undefined : undefined,
           vipCode: vipCode ?? undefined,
         },
@@ -459,11 +669,22 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
                 </View>
               )}
 
-              <Pressable onPress={onSaved} style={[styles.save, { backgroundColor: colors.accent }]}>
-                <Text style={styles.saveText}>
-                  {verifyM !== null && verifyM > VERIFY_SUSPICIOUS_M ? t('addPlace.keepAnyway') : t('search.confirm')}
-                </Text>
-              </Pressable>
+              {/* << GARDER TEL QUEL >> A DISPARU POUR UN UTILISATEUR ORDINAIRE — point 3 du
+                  24 novembre, capture d'ecran a l'appui : il s'affichait sous << le lieu
+                  enregistre se trouve a 33 km de votre position actuelle >>.
+                  Il ne reste que pour une saisie par code WIN, ou les coordonnees sont
+                  communiquees par le commercant et ou l'ecart est donc normal. Quand la
+                  distance est bonne — ou que le GPS n'a rien pu dire —, ce bouton n'a jamais
+                  ete << garder tel quel >> : c'est le bouton qui ferme, et il reste.
+                  Dans tous les cas, la croix du haut referme la feuille : personne n'est
+                  enferme dans cet ecran. */}
+              {vipCode || verifyM === null || verifyM <= VERIFY_SUSPICIOUS_M ? (
+                <Pressable onPress={onSaved} style={[styles.save, { backgroundColor: colors.accent }]}>
+                  <Text style={styles.saveText}>
+                    {verifyM !== null && verifyM > VERIFY_SUSPICIOUS_M ? t('addPlace.keepAnyway') : t('search.confirm')}
+                  </Text>
+                </Pressable>
+              ) : null}
             </ScrollView>
           ) : savedWithoutPhoto ? (
             <ScrollView keyboardShouldPersistTaps="handled">
@@ -641,12 +862,20 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
             </Field>
 
             <Text style={[styles.label, { color: colors.textMuted }]}>
-              {t('addPlace.photo')} {photoUris.length > 0 ? `(${photoUris.length}/${MAX_PHOTOS})` : ''}
+              {t('addPlace.photo')} {photos.length > 0 ? `(${photos.length}/${MAX_PHOTOS})` : ''}
               {preparingPhoto ? ` — ${t('addPlace.preparingPhoto')}` : ''}
             </Text>
-            {photoUris.length > 0 ? (
+            {/* LE DETAIL DES DEUX COLONNES — document du 24 novembre : trois prises sur place,
+                deux tirees du telephone. Sans cette ligne, un bouton qui cesse de repondre a la
+                quatrieme photo n'aurait aucune explication a l'ecran : l'utilisateur verrait
+                « 3/5 » et un appareil photo qui ne fait plus rien. */}
+            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.xs }]}>
+              📷 {photos.filter((ph) => ph.source === 'camera').length}/{MAX_PHOTOS_CAMERA}
+              {'   '}🖼️ {photos.filter((ph) => ph.source === 'galerie').length}/{MAX_PHOTOS_GALERIE}
+            </Text>
+            {photos.length > 0 ? (
               <View style={styles.photoRow}>
-                {photoUris.map((uri) => (
+                {photos.map(({ uri }) => (
                   <Pressable key={uri} onPress={() => removePhoto(uri)} style={styles.photoThumbWrap}>
                     {/* `resizeMethod="resize"` : Android decode l'image DEJA reduite a la
                         taille d'affichage, au lieu de charger le bitmap entier en memoire
@@ -658,15 +887,25 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
                     </View>
                   </Pressable>
                 ))}
-                {photoUris.length < MAX_PHOTOS ? (
+                {/* CHAQUE MOITIE DE LA TUILE S'EFFACE SEPAREMENT, quand SA colonne est pleine :
+                    trois photos prises sur place ne doivent pas faire disparaitre l'acces a la
+                    galerie, ni l'inverse. La tuile entiere ne part que lorsque les deux le
+                    sont. */}
+                {placeRestante('camera') > 0 || placeRestante('galerie') > 0 ? (
                   <View style={[styles.photoAddTile, { borderColor: colors.border }]}>
-                    <Pressable onPress={() => void takePhoto()} style={styles.photoAddHalf}>
-                      <Text style={{ fontSize: 18 }}>📷</Text>
-                    </Pressable>
-                    <View style={[styles.photoAddDivider, { backgroundColor: colors.border }]} />
-                    <Pressable onPress={() => void pickFromGallery()} style={styles.photoAddHalf}>
-                      <Text style={{ fontSize: 18 }}>🖼️</Text>
-                    </Pressable>
+                    {placeRestante('camera') > 0 ? (
+                      <Pressable onPress={() => void takePhoto()} style={styles.photoAddHalf}>
+                        <Text style={{ fontSize: 18 }}>📷</Text>
+                      </Pressable>
+                    ) : null}
+                    {placeRestante('camera') > 0 && placeRestante('galerie') > 0 ? (
+                      <View style={[styles.photoAddDivider, { backgroundColor: colors.border }]} />
+                    ) : null}
+                    {placeRestante('galerie') > 0 ? (
+                      <Pressable onPress={() => void pickFromGallery()} style={styles.photoAddHalf}>
+                        <Text style={{ fontSize: 18 }}>🖼️</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
                 ) : null}
               </View>
@@ -677,6 +916,41 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
                 </Pressable>
                 <Pressable onPress={() => void pickFromGallery()} style={[styles.photoBtn, { borderColor: colors.border }]}>
                   <Text style={{ color: colors.textMuted }}>🖼️ {t('addPlace.gallery')}</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* LA VIDEO DE PRESENTATION — document du 24 novembre, priorite 2.
+                Posee sous les photos et au-dessus du bloc VIP : c'est un media de plus, pas un
+                service de plus. Elle est FACULTATIVE pour tout le monde — une fiche ordinaire
+                qui en porte une l'affichera le jour ou elle deviendra partenaire, au lieu de
+                repartir de rien, exactement comme les avis depuis le 19 novembre. */}
+            <Text style={[styles.label, { color: colors.textMuted, marginTop: spacing.md }]}>
+              🎬 {t('addPlace.video')} — {t('addPlace.videoMax', { s: VIDEO_MAX_S })}
+            </Text>
+            {video ? (
+              <Pressable
+                onPress={() => setVideo(null)}
+                style={[styles.photoBtn, { borderColor: colors.goldDeep, flexDirection: 'row', gap: spacing.sm }]}
+              >
+                <Text style={{ color: colors.text, flex: 1 }} numberOfLines={1}>
+                  ▶ {video.dureeS !== null ? `${Math.round(video.dureeS)} s` : t('addPlace.video')}
+                </Text>
+                <Text style={{ color: colors.danger, fontWeight: '700' }}>✕</Text>
+              </Pressable>
+            ) : (
+              <View style={styles.photoRow}>
+                <Pressable
+                  onPress={() => void choisirVideo(true)}
+                  style={[styles.photoBtn, { borderColor: colors.border }]}
+                >
+                  <Text style={{ color: colors.textMuted }}>🎥 {t('addPlace.videoRecord')}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void choisirVideo(false)}
+                  style={[styles.photoBtn, { borderColor: colors.border }]}
+                >
+                  <Text style={{ color: colors.textMuted }}>📁 {t('addPlace.videoImport')}</Text>
                 </Pressable>
               </View>
             )}
@@ -731,6 +1005,28 @@ export function AddPlaceSheet({ coords, onClose, onSaved, colors, userFix }: Pro
                 <Text style={[styles.vipBtnText, { color: colors.goldDeep }]}>⭐ {t('addPlace.vipButton')}</Text>
               </Pressable>
             )}
+
+            {/* LE REFUS DE DISTANCE — point 3 du 24 novembre, voir MAX_DISTANCE_M.
+                Il remplace l'ancien enchainement << on enregistre, puis on previent, puis on
+                propose de garder >> : ici rien n'est encore entre sur la carte, et le seul
+                bouton offert est celui qui corrige. */}
+            {tropLoinM !== null ? (
+              <View style={[styles.verifyWarn, { borderColor: colors.danger, backgroundColor: colors.danger + '12' }]}>
+                <Text style={[typography.body, { color: colors.danger, fontWeight: '700' }]}>
+                  ⚠️ {t('addPlace.tooFar', { d: formatDistance(tropLoinM) })}
+                </Text>
+                <Text style={[typography.caption, { color: colors.text, marginTop: 6 }]}>
+                  {t('addPlace.tooFarWhy', { m: MAX_DISTANCE_M })}
+                </Text>
+                <Pressable
+                  disabled={moving}
+                  onPress={() => void placerSurMaPosition()}
+                  style={[styles.save, { backgroundColor: colors.accent, marginTop: spacing.md }]}
+                >
+                  <Text style={styles.saveText}>{moving ? '…' : t('addPlace.moveHere')}</Text>
+                </Pressable>
+              </View>
+            ) : null}
 
             {error ? <Text style={[typography.caption, { color: colors.danger, marginTop: spacing.sm }]}>{error}</Text> : null}
 

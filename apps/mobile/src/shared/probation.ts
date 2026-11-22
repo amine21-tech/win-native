@@ -2,6 +2,7 @@
 // FICHIER RECOPIE - NE PAS MODIFIER ICI.
 // La source est packages/shared/src/. Recopie par build-apk.ps1.
 // ---------------------------------------------------------------------------
+
 /**
  * ROUTES SANS ISSUE ET TRAVAUX : BLOCAGE AUTOMATIQUE, PUIS LEVEE AUTOMATIQUE.
  *

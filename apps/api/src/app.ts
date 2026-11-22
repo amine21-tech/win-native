@@ -22,6 +22,7 @@ import partnerRoutes from './routes/partners.js';
 import paymentRoutes from './routes/payments.js';
 import placeRoutes from './routes/places.js';
 import photoRoutes from './routes/photos.js';
+import videoRoutes from './routes/videos.js';
 import reportRoutes from './routes/reports.js';
 import routingRoutes from './routes/routing.js';
 import unlockRoutes from './routes/unlocks.js';
@@ -39,7 +40,12 @@ export async function buildApp(): Promise<FastifyInstance> {
     // le parsing multipart, donc une valeur plus basse rejette une photo de telephone pourtant
     // sous la limite annoncee — silencieusement du point de vue de l'app (voir formulaire
     // d'ajout de lieu, qui semblait "ne rien faire" a l'enregistrement).
-    bodyLimit: 10 * 1024 * 1024,
+    /* MONTE AVEC LA VIDEO (24 Mo par defaut) depuis le 24 novembre. Le commentaire ci-dessus
+     * garde toute sa valeur : ce plafond s'applique AVANT le parsing multipart, donc une
+     * valeur trop basse rejette un fichier pourtant sous la limite annoncee, et sans rien dire
+     * du point de vue de l'application. Les deux megaoctets de rabiot couvrent les entetes
+     * multipart et les champs du formulaire, qui comptent dans ce total. */
+    bodyLimit: Math.max(env.UPLOAD_MAX_BYTES, env.VIDEO_MAX_BYTES) + 2 * 1024 * 1024,
   });
 
   await app.register(errors);
@@ -58,8 +64,13 @@ export async function buildApp(): Promise<FastifyInstance> {
     keyGenerator: (req) => req.deviceId ?? req.ip,
   });
 
+  /* LE PLAFOND GENERAL EST CELUI DE LA VIDEO, LE PLUS HAUT DES DEUX — et ce n'est pas un
+   * relachement de la limite des photos : chaque route repasse la sienne a `req.file()`, qui
+   * l'emporte sur celle-ci. routes/photos.ts borne donc toujours a `UPLOAD_MAX_BYTES`. Laisser
+   * ici la valeur des photos aurait coupe toutes les videos avant meme d'atteindre leur
+   * route. */
   await app.register(multipart, {
-    limits: { fileSize: env.UPLOAD_MAX_BYTES, files: 1 },
+    limits: { fileSize: Math.max(env.UPLOAD_MAX_BYTES, env.VIDEO_MAX_BYTES), files: 1 },
   });
 
   await app.register(auth);
@@ -82,6 +93,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(contributorCodeRoutes);
   await app.register(partnerRoutes);
   await app.register(photoRoutes);
+  await app.register(videoRoutes);
   await app.register(routingRoutes);
   await app.register(geocodeRoutes);
   await app.register(adminRoutes);

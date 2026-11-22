@@ -152,6 +152,9 @@ function mapPlace(p: Place, lang: Language): GeocodedResult {
     horaires: p.horaires ?? null,
     avisNote: p.avisNote ?? null,
     avisCount: p.avisCount ?? null,
+    // Meme regle que les trois du dessus : `?? null` dit << il n'y en a pas >>, pas << pas
+    // encore charge >>.
+    videoUrl: p.videoUrl ?? null,
   };
 }
 

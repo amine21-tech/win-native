@@ -1,7 +1,8 @@
-﻿// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // FICHIER RECOPIE - NE PAS MODIFIER ICI.
 // La source est packages/shared/src/. Recopie par build-apk.ps1.
 // ---------------------------------------------------------------------------
+
 /**
  * Recherche : donnees et algorithmes purs, repris a l'identique de win-v83
  * (index.html, section RECHERCHE) pour que le classement des resultats ne

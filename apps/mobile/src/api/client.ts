@@ -410,4 +410,78 @@ export async function uploadPhoto(uri: string, retrying = false): Promise<{ id: 
   return JSON.parse(result.body) as { id: string; url: string };
 }
 
+/**
+ * ENVOI DE LA VIDEO DE PRESENTATION D'UNE FICHE VIP — document du 24 novembre, priorite 2.
+ *
+ * LE MEME ALLER-RETOUR QUE LA PHOTO, PAS UNE VARIANTE : deux voies d'envoi, le jeton
+ * d'appareil renouvele une fois sur 401, et les deux raisons remontees si les deux voies
+ * echouent. Ce n'est pas de la recopie par facilite — c'est l'envoi natif qui compte ici plus
+ * encore que pour une photo. `uploadAsync` diffuse le fichier depuis le disque, alors que la
+ * voie `fetch` le charge en memoire : vingt megaoctets charges d'un bloc font tomber
+ * l'application sur un telephone d'entree de gamme, ceux-la memes que le client utilise pour
+ * ses essais. La voie `fetch` reste le filet, jamais le chemin normal.
+ *
+ * LA DUREE VOYAGE AVEC LE FICHIER, en champ de formulaire : le serveur ne sait pas lire une
+ * video — il faudrait ffmpeg pour cela — et le telephone, lui, la connait. Elle n'est
+ * qu'indicative (voir routes/videos.ts), la limite reelle est posee a la prise de vue.
+ */
+export async function uploadVideo(
+  uri: string,
+  dureeS?: number,
+  retrying = false,
+): Promise<{ id: string; url: string }> {
+  const token = await ensureDeviceToken();
+  if (!token) {
+    throw new ApiError(401, 'appareil_non_identifie', "L'appareil n'a pas pu s'identifier. Verifiez la connexion.");
+  }
+
+  const duree = typeof dureeS === 'number' && Number.isFinite(dureeS) && dureeS > 0 ? String(Math.round(dureeS)) : '';
+
+  let result: RawResponse;
+  try {
+    result = await uploadAsync(`${apiBase()}/videos`, uri, {
+      httpMethod: 'POST',
+      uploadType: FileSystemUploadType.MULTIPART,
+      fieldName: 'file',
+      mimeType: 'video/mp4',
+      parameters: duree ? { duree } : undefined,
+      headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
+    }).then((r) => ({ status: r.status, body: r.body }));
+  } catch (nativeError) {
+    try {
+      const form = new FormData();
+      form.append('file', new File(uri) as unknown as Blob, 'video.mp4');
+      if (duree) form.append('duree', duree);
+      const response = await fetch(`${apiBase()}/videos`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+        body: form,
+      });
+      result = { status: response.status, body: await response.text() };
+    } catch (fetchError) {
+      const first = nativeError instanceof Error ? nativeError.message : String(nativeError);
+      const second = fetchError instanceof Error ? fetchError.message : String(fetchError);
+      throw new ApiError(0, 'video_envoi_impossible', `envoi impossible (natif: ${first} | fetch: ${second})`);
+    }
+  }
+
+  if (result.status === 401 && !retrying) {
+    forgetDeviceToken();
+    if (await ensureDeviceToken()) return uploadVideo(uri, dureeS, true);
+  }
+
+  if (result.status < 200 || result.status >= 300) {
+    let message = `La video n'a pas pu etre envoyee (${result.status}).`;
+    try {
+      const body = JSON.parse(result.body) as { message?: string };
+      if (body?.message) message = body.message;
+    } catch {
+      /* corps illisible : on garde le message generique */
+    }
+    throw new ApiError(result.status, 'video_refusee', message);
+  }
+
+  return JSON.parse(result.body) as { id: string; url: string };
+}
+
 export { BASE_URL };

@@ -1,7 +1,8 @@
-﻿// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // FICHIER RECOPIE - NE PAS MODIFIER ICI.
 // La source est packages/shared/src/. Recopie par build-apk.ps1.
 // ---------------------------------------------------------------------------
+
 import { countryFromCoords, haversine } from './geo';
 import { DZ_WILAYA_NAMES } from './search';
 

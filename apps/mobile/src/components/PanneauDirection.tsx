@@ -268,7 +268,12 @@ export function PanneauDirection({
           {/* LA MEME VALEUR D'ANIMATION que la grande fleche, et non une seconde boucle : c'est
               ce qui garantit qu'elles s'eteignent et se rallument sur le meme temps. */}
           <Animated.View style={clignoter ? { opacity: clignote } : undefined}>
-            <FlecheManoeuvre type={suivante!.type} size={22} couleur="rgba(255,255,255,0.85)" />
+            {/* BLANC PLEIN, ET PLUS 85 % — regle absolue du 24 novembre : << Jamais de fleche
+                transparente, grise, invisible ou reduite en opacite hors zone de blink >>.
+                C'etait le dernier endroit de l'application ou une fleche naissait a moins de
+                100 %. Le texte qui la suit garde ses 85 %, lui : c'est un mot, pas une fleche,
+                et l'attenuer est ce qui le place au second plan sans l'effacer. */}
+            <FlecheManoeuvre type={suivante!.type} size={22} couleur="#FFFFFF" />
           </Animated.View>
           <Text style={styles.suivanteTexte} numberOfLines={1}>
             {t('nav.then')} {localizedInstruction(suivante!, lang)}

@@ -129,7 +129,25 @@ type Position = { lat: number; lon: number };
  * Une premiere tentative avait change les DEUX — une marge basse de dix points dans Header.tsx
  * et cette constante de dix points — et les deux se sont exactement annules : l'ecart visible
  * n'avait pas bouge d'un pixel. La marge a ete retiree ; seule cette valeur compte. */
-const HEADER_HEIGHT = 102;
+/* 106 ET NON 102 DEPUIS LE 24 NOVEMBRE : les boutons Derija et Tamazirt portent desormais une
+ * SECONDE LIGNE (nom phonetique au-dessus, ecriture native en dessous — point 4). La rangee des
+ * langues grandit donc, et comme elle DESCEND — l'en-tete est ancre en haut —, ces points se
+ * prendraient sur l'espace que le client avait demande au-dessus de la barre de recherche.
+ * Sans cette correction, le bandeau des langues revenait se coller a la barre : exactement le
+ * defaut qu'il avait fait corriger.
+ *
+ * QUATRE POINTS, ET PAS DOUZE, ET C'EST LA COLONNE DE DIX BOUTONS QUI L'A IMPOSE. Elle se
+ * calcule sur ce qui reste sous l'en-tete : a 114, elle debordait de huit points sur un Android
+ * de 640 — verifier-colonne-fab.py le dit, chiffres a l'appui. La seconde ligne a donc ete
+ * serree a sa place (hauteur de ligne fixe, marge interieure des pastilles ramenee de six a
+ * trois, voir Header.tsx) jusqu'a ne couter que quatre points. Les dix boutons restent dix.
+ *
+ * TROIS ET NON QUATRE, pour la meme raison, poussee d'un cran : a 106 la colonne tombait
+ * EXACTEMENT a zero point de marge sur le petit Android, et une hauteur de ligne qui varie
+ * d'un demi-point d'un telephone a l'autre suffirait alors a faire sortir le dixieme bouton de
+ * l'ecran. Le point manquant est pris sur l'air sous les langues — dix devient neuf, ce qui ne
+ * se voit pas — plutot que sur un bouton, ce qui se verrait. */
+const HEADER_HEIGHT = 105;
 
 /* Couleurs du trace, reprises de `routeColors()` en v83.
  *
@@ -1798,6 +1816,11 @@ ${t(`report.badge_${report.kind}`)}`,
                  * formulaire de correction le lit maintenant — il aurait ouvert un champ
                  * vide, et l'enregistrement aurait efface le numero. */
                 viber: p.viber,
+                /* LA VIDEO ARRIVE AUSSI PAR LA CARTE — meme lecon que viber juste au-dessus :
+                 * un champ oublie dans cette fusion donne la meme fiche avec et sans sa video
+                 * selon qu'on l'ouvre depuis la recherche ou depuis la carte, et personne ne
+                 * s'en apercoit tant que rien ne le lit. */
+                videoUrl: p.videoUrl,
                 email: p.email,
                 promo: p.promo,
               }

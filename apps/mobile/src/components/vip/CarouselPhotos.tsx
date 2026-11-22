@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Image,
+  Linking,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -62,6 +63,15 @@ export type CouleursCarousel = Pick<Palette, 'accent' | 'gold' | 'surfaceAlt'>;
 type Props = {
   /** Adresses des photos, dans l'ordre d'affichage voulu. */
   photos: string[];
+  /**
+   * LA VIDEO DE PRESENTATION — document du 24 novembre, priorite 2 : << 1 video + jusqu'a
+   * 5 photos >>, et la video est le << slide principal du carousel >>.
+   *
+   * ELLE PASSE DONC DEVANT LES PHOTOS, et c'est voulu : c'est la seule chose de la fiche qui
+   * ait ete filmee pour elle. Absente, le carousel est exactement celui d'avant — la propriete
+   * est facultative, aucun appelant existant ne change.
+   */
+  video?: string | null;
   colors: CouleursCarousel;
   /** Le credit pose en bas de l'image, deja traduit. */
   credit?: string;
@@ -76,6 +86,7 @@ const VIGNETTE = 54;
 
 export function CarouselPhotos({
   photos,
+  video,
   colors,
   credit,
   hauteur = vip.carouselHeight,
@@ -101,7 +112,22 @@ export function CarouselPhotos({
    * position affichee mentirait sur ce qu'on regarde. */
   const defilement = useRef<ScrollView | null>(null);
 
-  const visibles = photos.filter((p) => !echecs[p]);
+  /**
+   * LES DIAPOS, VIDEO COMPRISE — et non plus une simple liste d'adresses de photos.
+   *
+   * Un seul tableau pour les deux sortes : la pagination, les pastilles, le compteur et les
+   * miniatures comptent tous des DIAPOS. Tenir la video a part aurait voulu dire << +1 >> a
+   * cinq endroits, et le jour ou l'un des cinq aurait ete oublie le carousel se serait arrete
+   * de travers — exactement le genre de defaut qu'on ne voit pas en relisant.
+   *
+   * LA VIDEO N'EST PAS SOUMISE A `echecs` : ce drapeau vient du `onError` d'une Image, et il
+   * n'y a pas d'Image ici. Une video injoignable le reste jusqu'a l'ouverture du lecteur, qui
+   * le dira lui-meme — mieux que de faire disparaitre une diapo sans explication.
+   */
+  const visibles: { cle: string; video: boolean }[] = [
+    ...(video ? [{ cle: video, video: true }] : []),
+    ...photos.filter((ph) => !echecs[ph]).map((ph) => ({ cle: ph, video: false })),
+  ];
   if (visibles.length === 0) return null;
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -139,22 +165,46 @@ export function CarouselPhotos({
          * defilements se disputent le doigt, et une photo sur deux ne bouge pas. */
         nestedScrollEnabled
       >
-        {visibles.map((url) => (
-          <View key={url} style={{ width: largeurPage, height: hauteur }}>
-            <Image
-              source={photoSource(url)}
-              style={styles.photo}
-              resizeMode="cover"
-              onLoad={() => setCharges((e) => ({ ...e, [url]: true }))}
-              onError={() => setEchecs((e) => ({ ...e, [url]: true }))}
-            />
-            {!charges[url] ? (
-              <View style={[StyleSheet.absoluteFill, styles.chargement]}>
-                <ActivityIndicator color={colors.accent} />
+        {visibles.map(({ cle, video: estVideo }) =>
+          estVideo ? (
+            /* LA DIAPO VIDEO — la maquette validee : fond sombre, gros bouton de lecture dore,
+               et le mot sous le bouton.
+               ELLE S'OUVRE DANS LE LECTEUR DU TELEPHONE, et non dans la fiche. Ce n'est pas un
+               pis-aller : trente secondes de presentation se regardent en plein ecran, avec le
+               son, la barre de defilement et le plein ecran que tout le monde connait deja — et
+               la fiche n'embarque aucun lecteur video, donc rien de neuf ne peut casser dans
+               une carte qui marche aujourd'hui. */
+            <Pressable
+              key={cle}
+              onPress={() => void Linking.openURL(cle)}
+              accessibilityRole="button"
+              accessibilityLabel={t('place.videoPlay')}
+              style={[{ width: largeurPage, height: hauteur }, styles.diapoVideo]}
+            >
+              <View style={[styles.boutonLecture, { borderColor: colors.gold }]}>
+                <Text style={[styles.triangle, { color: colors.gold }]}>{'\u25B6'}</Text>
               </View>
-            ) : null}
-          </View>
-        ))}
+              <Text style={styles.libelleVideo} numberOfLines={1}>
+                {t('place.videoPlay')}
+              </Text>
+            </Pressable>
+          ) : (
+            <View key={cle} style={{ width: largeurPage, height: hauteur }}>
+              <Image
+                source={photoSource(cle)}
+                style={styles.photo}
+                resizeMode="cover"
+                onLoad={() => setCharges((e) => ({ ...e, [cle]: true }))}
+                onError={() => setEchecs((e) => ({ ...e, [cle]: true }))}
+              />
+              {!charges[cle] ? (
+                <View style={[StyleSheet.absoluteFill, styles.chargement]}>
+                  <ActivityIndicator color={colors.accent} />
+                </View>
+              ) : null}
+            </View>
+          ),
+        )}
       </ScrollView>
 
       {/* Le credit reste pose sur l'image, comme sur la fiche ordinaire : il dit d'ou vient ce
@@ -170,9 +220,9 @@ export function CarouselPhotos({
       {visibles.length > 1 ? (
         <>
           <View style={[styles.pastilles, credit ? null : styles.pastillesSansCredit]} pointerEvents="none">
-            {visibles.map((url, i) => (
+            {visibles.map(({ cle }, i) => (
               <View
-                key={url}
+                key={cle}
                 style={[
                   styles.pastille,
                   i === index ? styles.pastilleActive : null,
@@ -199,12 +249,14 @@ export function CarouselPhotos({
 
   const barreVignettes = (
     <View style={vignettes === 'droite' ? styles.colonneVignettes : styles.rangeeVignettes}>
-      {visibles.map((url, i) => (
+      {visibles.map(({ cle, video: estVideo }, i) => (
         <Pressable
-          key={url}
+          key={cle}
           onPress={() => allerA(i)}
           accessibilityRole="button"
-          accessibilityLabel={t('place.photoCount', { n: i + 1, total: visibles.length })}
+          accessibilityLabel={
+            estVideo ? t('place.videoPlay') : t('place.photoCount', { n: i + 1, total: visibles.length })
+          }
           accessibilityState={{ selected: i === index }}
           style={[
             styles.vignette,
@@ -212,7 +264,16 @@ export function CarouselPhotos({
             { borderColor: i === index ? colors.gold : 'transparent' },
           ]}
         >
-          <Image source={photoSource(url)} style={styles.photo} resizeMode="cover" />
+          {/* LA MINIATURE DE LA VIDEO est un triangle sur fond sombre, et non la premiere image
+              du film : extraire celle-ci demanderait de decoder la video sur le telephone, pour
+              un carre de soixante points. Le triangle dit la meme chose, tout de suite. */}
+          {estVideo ? (
+            <View style={[styles.photo, styles.diapoVideo]}>
+              <Text style={[styles.triangleVignette, { color: colors.gold }]}>{'\u25B6'}</Text>
+            </View>
+          ) : (
+            <Image source={photoSource(cle)} style={styles.photo} resizeMode="cover" />
+          )}
         </Pressable>
       ))}
     </View>
@@ -234,6 +295,32 @@ const styles = StyleSheet.create({
   },
   cadreEnRangee: { width: undefined, flex: 1 },
   photo: { width: '100%', height: '100%' },
+  /* Le vert tres sombre de la maquette : la video se distingue des photos au premier coup
+   * d'oeil, meme avant de regarder le bouton. */
+  diapoVideo: {
+    backgroundColor: '#0A2A20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  boutonLecture: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  /* Le triangle est optiquement decentre vers la gauche dans sa police : les quatre points de
+   * marge le remettent au milieu du cercle. */
+  triangle: { fontSize: 30, marginLeft: 4, lineHeight: 34 },
+  triangleVignette: { fontSize: 18 },
+  libelleVideo: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700' as const,
+    letterSpacing: 1.2,
+  },
   chargement: { alignItems: 'center', justifyContent: 'center' },
   credit: {
     position: 'absolute',

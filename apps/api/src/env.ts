@@ -56,6 +56,21 @@ const schema = z.object({
   UPLOAD_MAX_BYTES: z.coerce.number().int().default(8 * 1024 * 1024),
 
   /**
+   * POIDS MAXIMUM D'UNE VIDEO DE PRESENTATION — document du 24 novembre, priorite 2.
+   *
+   * SEPAREE DE `UPLOAD_MAX_BYTES`, ET PAS PAR GOUT DU DETAIL. Trente secondes filmees par un
+   * telephone recent pesent entre cinq et vingt megaoctets selon la definition : la limite des
+   * photos refuserait une video sur deux. Elever `UPLOAD_MAX_BYTES` a 24 Mo reglerait le
+   * probleme et en ouvrirait un autre — des photos de 24 Mo entreraient par la meme porte,
+   * alors qu'aucune photo de fiche n'a de raison de peser cela.
+   *
+   * 24 Mo : trente secondes en 1080p a debit moyen, avec de la marge. Au-dela, c'est une video
+   * qui n'a pas ete bornee a trente secondes, ou une definition que le telephone du lecteur ne
+   * saura de toute facon pas charger sur un reseau algerien.
+   */
+  VIDEO_MAX_BYTES: z.coerce.number().int().default(24 * 1024 * 1024),
+
+  /**
    * Moteur de recherche d'adresses local, quand il existe (voir deploy/photon-local.sh).
    *
    * Vide par defaut : on interroge alors le service public photon.komoot.io, qui repond en

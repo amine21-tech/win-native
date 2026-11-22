@@ -28,7 +28,14 @@ function verifier(nom: string, ok: boolean, detail = ''): void {
   if (!ok) fautes += 1;
 }
 
-const lire = (...p: string[]) => readFileSync(join(__dirname, '..', ...p), 'utf8');
+/* LES FINS DE LIGNE SONT NORMALISEES A LA LECTURE, et ce n'est pas de la coquetterie : un
+ * aller-retour par git (un `stash`, une recuperation de branche) rend les fichiers en CRLF sur
+ * Windows. Les motifs ecrits ici avec un saut de ligne cessaient alors de correspondre, et ce
+ * fichier annoncait << la route de retrait n'a pas ete trouvee >> alors que la route n'avait
+ * pas bouge d'une ligne. Un verificateur qui depend de la facon dont le fichier a ete pose sur
+ * le disque ne verifie rien. */
+const lire = (...p: string[]) =>
+  readFileSync(join(__dirname, '..', ...p), 'utf8').replace(/\r\n/g, '\n');
 /** Le code sans ses commentaires : le correctif CITE ce qu'il a retire. */
 const sansCommentaires = (source: string) =>
   source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
@@ -41,7 +48,7 @@ const codeFormulaire = sansCommentaires(formulaire);
 const routes = readFileSync(
   join(__dirname, '..', '..', 'api', 'src', 'routes', 'places.ts'),
   'utf8',
-);
+).replace(/\r\n/g, '\n');
 
 /* On isole LA route de retrait : places.ts porte quatre routes qui touchent une fiche, et
  * chercher dans le fichier entier ferait passer pour juste une condition qui vit ailleurs. */
@@ -153,7 +160,7 @@ verifier(
 );
 verifier(
   'et viber arrive aussi par la carte',
-  /viber: p\.viber/.test(sansCommentaires(readFileSync(join(__dirname, '..', 'app', 'index.tsx'), 'utf8'))),
+  /viber: p\.viber/.test(sansCommentaires(lire('app', 'index.tsx'))),
   'il manquait a la fusion : la meme fiche le perdait selon la facon de l ouvrir',
 );
 

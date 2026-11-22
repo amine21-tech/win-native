@@ -407,19 +407,20 @@ export function PlaceSheet({
             precise, et il faudrait suivre la page affichee pour savoir laquelle. Sur une fiche
             partenaire les photos sont celles du commerce lui-meme, et << Gerer cette fiche >> —
             ouvert a tout le monde, plus bas — mene au meme signalement. */}
-        {place.isPartner && gallery.length > 0 ? (
+        {place.isPartner && (gallery.length > 0 || place.videoUrl) ? (
           /* LES MINIATURES CLIQUABLES A DROITE — point B du correctif v2 : << Carrousel : 1
              video (slide principale) + 3 photos en miniatures cliquables a droite, 4 dots de
              navigation en bas. >>
              Les dots existent depuis le 19 novembre et comptent les photos reelles ; les
-             miniatures sont la nouveaute, et elles tiennent dans la meme zone sans rien
+             miniatures sont venues ensuite, et elles tiennent dans la meme zone sans rien
              repousser, puisque le carousel mesure sa largeur au lieu de la supposer.
-             LA VIDEO N'EST PAS ENCORE LA, ET CE N'EST PAS UN OUBLI : aucune fiche n'a de
-             champ video, le serveur de photos refuse tout ce qui n'est pas une image, et la
-             question de l'hebergement des vingt megaoctets attend sa reponse. Le jour ou elle
-             arrive, la video devient la premiere diapositive de ce meme carousel. */
+             LA VIDEO EST ARRIVEE LE 24 NOVEMBRE (priorite 2), et elle est la diapositive
+             PRINCIPALE, comme les deux documents le demandaient. La condition d'affichage a
+             donc change avec elle : une fiche partenaire qui n'a QU'UNE VIDEO ouvrait un vide
+             a cet endroit, parce qu'on ne comptait que les photos. */
           <CarouselPhotos
             photos={gallery}
+            video={place.videoUrl}
             colors={colors}
             credit={t('place.photoByWin')}
             vignettes="droite"

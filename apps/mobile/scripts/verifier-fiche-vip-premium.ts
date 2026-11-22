@@ -259,16 +259,30 @@ verifier(
 );
 verifier(
   'il est reserve aux fiches partenaires',
-  /place\.isPartner && gallery\.length > 0/.test(fiche),
+  /place\.isPartner && \(gallery\.length > 0 \|\| place\.videoUrl\)/.test(fiche),
   '<< 1 vignette >> pour une fiche standard, << Carousel 3 photos >> pour une VIP',
+);
+/* LA CONDITION A CHANGE LE 24 NOVEMBRE, ET LA REGLE QU'ELLE GARDE N'A PAS BOUGE.
+ *
+ * On lisait `place.isPartner && gallery.length > 0`. La reserve aux fiches partenaires est
+ * intacte — c'est le premier terme, et il est toujours la. Ce qui s'est ajoute, c'est la
+ * VIDEO : une fiche partenaire qui n'a QU'UNE video et aucune photo ouvrait un vide a cet
+ * endroit, parce qu'on ne comptait que les photos. */
+verifier(
+  'une fiche partenaire SANS photo mais AVEC video ouvre quand meme le carousel',
+  /gallery\.length > 0 \|\| place\.videoUrl/.test(fiche),
+  'sinon la video payee ne s afficherait nulle part',
 );
 
 /* ------------------------------------------------------------------------------------------ */
 /* POINT B DU CORRECTIF v2 (22 novembre) — << la carte VIP ressemble a une fiche ordinaire >>. */
 /*                                                                                            */
-/* Trois exigences chiffrees, et une quatrieme qui attend : la bordure doree sur les quatre    */
-/* cotes, le bandeau a cinq teintes, les miniatures cliquables a droite, et la video dont      */
-/* personne ne sait encore ou elle est hebergee. Les trois premieres se verifient ici.         */
+/* Quatre exigences chiffrees : la bordure doree sur les quatre cotes, le bandeau a cinq       */
+/* teintes, les miniatures cliquables a droite — et la VIDEO, qui attendait de savoir ou elle  */
+/* serait hebergee. Elle est arrivee le 24 novembre : meme disque que les photos, table        */
+/* place_videos, migration 0016. Son chapitre a elle est dans                                  */
+/* verifier-correctifs-24-novembre.ts ; ici on verifie seulement qu'elle a bien pris la place  */
+/* de diapositive PRINCIPALE que les deux documents lui donnent.                               */
 /* ------------------------------------------------------------------------------------------ */
 console.log('\nPoint B du correctif v2 — bordure, bandeau a cinq teintes, miniatures');
 
