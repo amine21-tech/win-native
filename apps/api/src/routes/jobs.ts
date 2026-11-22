@@ -105,7 +105,11 @@ const creationInput = z.object({
    * algeriennes sont redigees depuis un bureau, loin du chantier.
    *
    * Les identifiants viennent de POST /photos, qui a deja recu et traite les images. */
-  photoIds: z.array(uuid).max(2).optional(),
+  /* CINQ PHOTOS AU PLUS — point C du correctif v2 (<< jusqu'a 5 photos par annonce >>), contre
+   * deux depuis le 10 novembre. Le plafond reste indispensable : sans lui, une annonce pourrait
+   * revendiquer mille photos deja telechargees et faire de sa carte un telechargement sans fin
+   * pour chaque chercheur qui la croise. */
+  photoIds: z.array(uuid).max(5).optional(),
   /* FORMULE ET DUREE : ce que l'employeur achete (doc 196, 5.1). Le RAYON n'est pas ici —
    * c'est une consequence de la formule, calculee par la base (colonne generee, migration
    * 0009), jamais une donnee qu'on transmet et qui pourrait diverger. */

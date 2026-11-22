@@ -36,6 +36,14 @@ export const palette = {
      * distinguer demandait un or qui ne ressemble pas a celui des badges ordinaires. */
     gold500: '#C8880E',
     gold300: '#F0B429',
+    /* LE BRUN D'OR DES DEUX BORDS DU BANDEAU — point B du correctif v2, qui chiffre le degrade
+     * teinte par teinte : << #7A4D00 -> #C8880E -> #F0B429 -> #C8880E -> #7A4D00 >>.
+     *
+     * C'EST UNE SIXIEME TEINTE, ET NON UN REMPLACEMENT. Les cinq autres portent la fiche VIP
+     * depuis le 19 novembre ; celle-ci n'existait pas, parce que le bandeau d'alors allait de
+     * l'or sature au clair et retour, sans assise sombre. Le brun ferme le motif aux deux bouts,
+     * ce qui donne au filet un relief de metal plutot qu'une lueur uniforme. */
+    gold700: '#7A4D00',
     goldBg: '#FFFAED',
     openGreen: '#1A7A40',
     openBg: '#E5F5EC',
@@ -68,6 +76,9 @@ export const palette = {
      * d'or, un soupcon de vert) en inversant la luminosite. */
     gold500: '#C8880E',
     gold300: '#F0B429',
+    /* Le brun d'or ne change pas la nuit, pour la raison ecrite juste au-dessus : il EST la
+     * partie sombre du degrade, l'assombrir davantage le confondrait avec le fond. */
+    gold700: '#7A4D00',
     goldBg: '#2A2416',
     openGreen: '#4FD188',
     openBg: '#13301F',

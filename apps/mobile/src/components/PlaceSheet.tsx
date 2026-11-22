@@ -321,6 +321,21 @@ export function PlaceSheet({
       style={[
         styles.sheet,
         { backgroundColor: colors.surface, paddingBottom: insets.bottom + spacing.lg },
+        /* LA BORDURE DOREE DE LA CARTE VIP — point B du correctif v2 : << Bordure doree
+         * complete autour de la carte (strokeColor #F0B429, les 4 cotes). >>
+         *
+         * SEULES LES FICHES PARTENAIRES L'ONT, et c'est tout le propos du point B : le client
+         * ecrit que la carte VIP << ressemble a une fiche ordinaire >>. Une fiche ordinaire ne
+         * doit donc surtout pas en recevoir une.
+         *
+         * ELLE EST AJOUTEE A LA FEUILLE, SANS RIEN LUI RETIRER : le rayon de trente points et
+         * le fond qui suit le theme restent ceux de sa maquette du 27 octobre. La bordure
+         * repousse le contenu de deux points vers l'interieur, ce qui est exactement ce qu'une
+         * bordure doit faire — et ce que les cent quarante points de marge laterale absorbent
+         * sans qu'une ligne se deplace. */
+        place.isPartner
+          ? { borderWidth: vip.strokeWidth, borderColor: colors.gold300 }
+          : null,
       ]}
     >
       <View style={[styles.grip, { backgroundColor: colors.border }]} />
@@ -393,7 +408,22 @@ export function PlaceSheet({
             partenaire les photos sont celles du commerce lui-meme, et << Gerer cette fiche >> —
             ouvert a tout le monde, plus bas — mene au meme signalement. */}
         {place.isPartner && gallery.length > 0 ? (
-          <CarouselPhotos photos={gallery} colors={colors} credit={t('place.photoByWin')} />
+          /* LES MINIATURES CLIQUABLES A DROITE — point B du correctif v2 : << Carrousel : 1
+             video (slide principale) + 3 photos en miniatures cliquables a droite, 4 dots de
+             navigation en bas. >>
+             Les dots existent depuis le 19 novembre et comptent les photos reelles ; les
+             miniatures sont la nouveaute, et elles tiennent dans la meme zone sans rien
+             repousser, puisque le carousel mesure sa largeur au lieu de la supposer.
+             LA VIDEO N'EST PAS ENCORE LA, ET CE N'EST PAS UN OUBLI : aucune fiche n'a de
+             champ video, le serveur de photos refuse tout ce qui n'est pas une image, et la
+             question de l'hebergement des vingt megaoctets attend sa reponse. Le jour ou elle
+             arrive, la video devient la premiere diapositive de ce meme carousel. */
+          <CarouselPhotos
+            photos={gallery}
+            colors={colors}
+            credit={t('place.photoByWin')}
+            vignettes="droite"
+          />
         ) : mainPhoto && photoState !== 'failed' ? (
           <View style={[styles.photoBox, { backgroundColor: colors.surfaceAlt }]}>
             {/* `key` lie l'image a son adresse : changer de lieu detruit et recree la vue au

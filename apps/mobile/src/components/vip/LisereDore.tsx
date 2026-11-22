@@ -19,6 +19,10 @@ import { palette, vip } from '../../theme';
  * suit le GPS pendant la navigation. Trois images decodees et permutees vingt fois par minute,
  * elles, passent par lui.
  *
+ * LES TEINTES VIENNENT DU POINT B DU CORRECTIF v2 — cinq au lieu de trois, du brun d'or au
+ * jaune clair et retour. Seule la liste des arrets a change ; le mouvement, sa duree et son
+ * arret au demontage sont ceux du 19 novembre.
+ *
  * LE DEGRADE EST LARGE DE DEUX FOIS LA CARTE et translate d'exactement une largeur de carte :
  * c'est ce qui rend la boucle invisible. Avec une bande de la largeur de la carte, le retour a
  * zero ferait reapparaitre le bord gauche d'un coup, et l'on verrait un clignotement a chaque
@@ -86,14 +90,31 @@ export function LisereDore({ hauteur = vip.goldStripeH }: { hauteur?: number }) 
         ]}
       >
         <LinearGradient
-          // #C8880E → #F0B429 → #C8880E, puis repete : la seconde moitie de la bande est
-          // identique a la premiere, sans quoi la translation decouvrirait du vide.
+          /* LES CINQ TEINTES DU POINT B DU CORRECTIF v2, ECRITES NEUF FOIS.
+           *
+           *   << Bandeau gradient en haut : #7A4D00 -> #C8880E -> #F0B429 -> #C8880E ->
+           *   #7A4D00. >>
+           *
+           * Le motif demande compte cinq arrets. La bande, elle, est large de DEUX cartes et
+           * glisse d'exactement une : il faut donc que le motif y tienne deux fois, soit neuf
+           * arrets puisque les deux moities partagent celui du milieu. Ecrit cinq fois sur une
+           * bande double, le meme degrade serait etire au point de n'etre plus qu'une lueur, et
+           * le retour a zero se verrait.
+           *
+           * LE MOTIF EST SYMETRIQUE, ET C'EST CE QUI REND LA BOUCLE INVISIBLE : il commence et
+           * finit sur le meme brun, donc le raccord entre les deux moities ne se lit pas comme
+           * une couture. Le client ne l'a probablement pas choisi pour cela, mais c'est ce qui
+           * permet de respecter sa suite a la lettre sans y ajouter de teinte de transition. */
           colors={[
+            palette.light.gold700,
             palette.light.gold500,
             palette.light.gold300,
             palette.light.gold500,
+            palette.light.gold700,
+            palette.light.gold500,
             palette.light.gold300,
             palette.light.gold500,
+            palette.light.gold700,
           ]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}

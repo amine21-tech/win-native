@@ -339,6 +339,9 @@ const ADMIN_COLORS: Palette = {
    * d'une fiche, les couleurs seront celles du reste de l'application. */
   gold500: '#C8880E',
   gold300: '#F0B429',
+  /* Le brun d'or du bandeau VIP, ajoute par le point B du correctif v2. Meme raison que les
+   * cinq precedents : ce panneau ne l'emploie pas, `Palette` l'exige. */
+  gold700: '#7A4D00',
   goldBg: '#FFFAED',
   openGreen: '#1A7A40',
   openBg: '#E5F5EC',

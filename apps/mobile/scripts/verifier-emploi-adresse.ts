@@ -141,11 +141,22 @@ verifier(
   'sans elle, il n y a rien a geocoder',
 );
 
-console.log('\nLES PHOTOS : DEUX AU PLUS, ET FACULTATIVES');
+/* CINQ, ET C'ETAIT DEUX — point C du correctif v2 (22 novembre).
+ *
+ * Le 10 novembre, le client ecrivait << une photo, deux photos en option >>, et ce controle
+ * gardait le chiffre. Il demande aujourd'hui << jusqu'a 5 photos par annonce >>. Ce n'est pas
+ * une contradiction a lui signaler : c'est la meme personne qui elargit son offre apres l'avoir
+ * vue tourner. On met donc le chiffre a jour EN GARDANT LE CONTROLE — ce qui compte ici n'a
+ * jamais ete le nombre, mais qu'il soit le meme dans le formulaire et dans la route publique.
+ *
+ * LE RESTE DU CHAPITRE NE CHANGE PAS D'UNE LIGNE : photos facultatives, annonce sauvee si un
+ * envoi echoue. C'est ce que le document demande, mot pour mot : << NE PAS MODIFIER le
+ * formulaire existant - AJOUTER uniquement le bloc photos. >> */
+console.log('\nLES PHOTOS : CINQ AU PLUS (point C du correctif v2), ET FACULTATIVES');
 verifier(
-  'le maximum est de deux',
-  /const PHOTOS_MAX = 2;/.test(form),
-  '« une photo, deux photos en option »',
+  'le maximum est de cinq',
+  /const PHOTOS_MAX = 5;/.test(form),
+  '<< jusqu a 5 photos par annonce >> ; c etait deux le 10 novembre',
 );
 verifier(
   'aucune photo n est exigee pour publier',
@@ -160,9 +171,19 @@ verifier(
 
 const api = readFileSync(resolve('apps/api/src/routes/jobs.ts'), 'utf8');
 verifier(
-  'le serveur refuse au-dela de deux photos',
-  /photoIds: z\.array\(uuid\)\.max\(2\)/.test(api),
+  'le serveur refuse au-dela de cinq photos',
+  /photoIds: z\.array\(uuid\)\.max\(5\)/.test(api),
   'le controle du telephone ne suffit pas : la route est publique',
+);
+/* LES DEUX CHIFFRES DOIVENT ETRE LE MEME, et c'est la seule chose que ce chapitre a jamais
+ * verifiee vraiment. Un formulaire a cinq et une route a deux rejetteraient une annonce APRES
+ * paiement — la faute la plus chere que ce module puisse commettre. */
+const maxEcran = /const PHOTOS_MAX = (\d+);/.exec(form)?.[1];
+const maxServeur = /photoIds: z\.array\(uuid\)\.max\((\d+)\)/.exec(api)?.[1];
+verifier(
+  "l'ecran et le serveur s'accordent au chiffre pres",
+  maxEcran !== undefined && maxEcran === maxServeur,
+  `ecran ${maxEcran ?? '?'}, serveur ${maxServeur ?? '?'}`,
 );
 verifier(
   'il ne rattache que des photos orphelines et celles de l appareil',

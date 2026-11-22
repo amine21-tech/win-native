@@ -263,6 +263,89 @@ verifier(
   '<< 1 vignette >> pour une fiche standard, << Carousel 3 photos >> pour une VIP',
 );
 
+/* ------------------------------------------------------------------------------------------ */
+/* POINT B DU CORRECTIF v2 (22 novembre) — << la carte VIP ressemble a une fiche ordinaire >>. */
+/*                                                                                            */
+/* Trois exigences chiffrees, et une quatrieme qui attend : la bordure doree sur les quatre    */
+/* cotes, le bandeau a cinq teintes, les miniatures cliquables a droite, et la video dont      */
+/* personne ne sait encore ou elle est hebergee. Les trois premieres se verifient ici.         */
+/* ------------------------------------------------------------------------------------------ */
+console.log('\nPoint B du correctif v2 — bordure, bandeau a cinq teintes, miniatures');
+
+verifier(
+  "le brun d'or #7A4D00 existe, de jour comme de nuit",
+  (theme.match(/gold700: '#7A4D00'/g) ?? []).length === 2,
+  'la teinte sombre des deux bords du bandeau du point B',
+);
+verifier(
+  'et il s AJOUTE aux cinq jetons du 19 novembre, sans en remplacer un',
+  theme.includes("gold500: '#C8880E'") && theme.includes("gold300: '#F0B429'"),
+  '<< ne rien casser du travail accompli precedemment >>',
+);
+
+/* LE MOTIF DU DOCUMENT, ARRET PAR ARRET : #7A4D00 -> #C8880E -> #F0B429 -> #C8880E -> #7A4D00.
+ * On le relit tel qu'il est ecrit dans le composant, puis on exige qu'il tienne DEUX fois sur
+ * la bande — qui est large de deux cartes et glisse d'une seule. Neuf arrets, le cinquieme
+ * servant de charniere. */
+const arrets = [...lisere.matchAll(/palette\.light\.(gold\d00)/g)].map((m) => m[1]);
+const MOTIF = ['gold700', 'gold500', 'gold300', 'gold500', 'gold700'];
+verifier(
+  'le bandeau porte les CINQ teintes du point B',
+  MOTIF.every((t) => arrets.includes(t)),
+  MOTIF.join(' -> '),
+);
+verifier(
+  'ecrites neuf fois, soit le motif deux fois bout a bout',
+  arrets.length === 9 &&
+    arrets.slice(0, 5).join() === MOTIF.join() &&
+    arrets.slice(4).join() === MOTIF.join(),
+  arrets.length === 9
+    ? 'les deux moities partagent l arret du milieu'
+    : `${arrets.length} arrets au lieu de 9 : la boucle sauterait`,
+);
+verifier(
+  'et le motif est symetrique, ce qui rend le raccord invisible',
+  arrets[0] === arrets[arrets.length - 1],
+  'un degrade qui ne finit pas sur sa teinte de depart se lit comme une couture',
+);
+
+verifier(
+  'la fiche partenaire porte une bordure doree sur les quatre cotes',
+  /borderWidth: vip\.strokeWidth, borderColor: colors\.gold300/.test(fiche),
+  '<< bordure doree complete autour de la carte, strokeColor #F0B429 >>',
+);
+verifier(
+  'et une fiche ORDINAIRE n en a pas',
+  /place\.isPartner\s*\?\s*\{ borderWidth: vip\.strokeWidth/.test(fiche),
+  'une bordure sur toutes les fiches ne distinguerait plus rien — c est le defaut signale',
+);
+
+verifier(
+  'le carousel sait poser des miniatures cliquables',
+  /vignettes\?: 'aucune' \| 'bas' \| 'droite'/.test(carousel) && /allerA\(i\)/.test(carousel),
+  'une miniature qui ne deplace pas l image ferait mentir la pastille',
+);
+verifier(
+  'elle defile par une reference, et non par un etat seul',
+  /defilement\.current\?\.scrollTo/.test(carousel),
+  "sans la reference, le carousel resterait ou il est",
+);
+verifier(
+  'la fiche VIP les demande A DROITE, comme le point B',
+  /vignettes="droite"/.test(fiche),
+  '<< 3 photos en miniatures cliquables a droite >>',
+);
+verifier(
+  "et sans demande, le carousel rend exactement ce qu'il rendait avant",
+  /vignettes = 'aucune'/.test(carousel),
+  'la valeur par defaut protege les appels d avant le correctif v2',
+);
+verifier(
+  'une seule photo ne recoit jamais de miniature',
+  /visibles\.length < 2/.test(carousel),
+  'une vignette qui reproduit l image qu on regarde vole de la place a celle-ci',
+);
+
 console.log('\nAmelioration 3 — badge a brillance');
 const badge = lire('src', 'components', 'vip', 'BadgeVipShimmer.tsx');
 verifier('le cycle de 2 800 ms', /CYCLE_MS = 2_800/.test(badge));

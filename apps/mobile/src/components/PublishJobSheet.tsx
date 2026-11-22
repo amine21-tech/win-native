@@ -78,8 +78,20 @@ type Props = {
 
 /* Pas de `onPublished` : une annonce qui vient d'etre envoyee est EN ATTENTE de paiement et
  * n'apparait donc dans aucune liste. Prevenir le parent ne lui donnerait rien a rafraichir. */
-/** Nombre maximal de photos : << une photo, deux photos en option >> (10 novembre). */
-const PHOTOS_MAX = 2;
+/**
+ * Nombre maximal de photos par annonce.
+ *
+ * CINQ — POINT C DU CORRECTIF v2, ET C'ETAIT DEUX : << Ajout d'un carrousel de photos dans les
+ * annonces d'emploi. Jusqu'a 5 photos par annonce. Photos optionnelles (annonce valide sans
+ * photo). >> La limite de deux venait de sa propre demande du 10 novembre (<< une photo, deux
+ * photos en option >>) ; il l'elargit, et le reste du bloc ne change pas d'un point.
+ *
+ * LE SERVEUR PORTE LA MEME LIMITE, et c'est lui qui compte vraiment : `photoIds` y est plafonne
+ * a cinq (voir apps/api/src/routes/jobs.ts). Ce nombre-ci n'est que la politesse de l'interface
+ * — il retire le bouton << ajouter >> quand il n'y a plus de place, plutot que de laisser
+ * choisir une sixieme photo pour la refuser ensuite.
+ */
+const PHOTOS_MAX = 5;
 
 export function PublishJobSheet({ visible, onClose, position }: Props) {
   const { t, i18n } = useTranslation();

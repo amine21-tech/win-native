@@ -252,6 +252,76 @@ verifier(
     "(formule = 'premium') DESC" in serveur,
 )
 
+# ===========================================================================================
+# LE CARROUSEL DE PHOTOS DES ANNONCES — point C du correctif v2.
+#
+#   << Ajout d'un carrousel de photos dans les annonces d'emploi. Jusqu'a 5 photos par annonce.
+#   Carrousel horizontal + miniatures + dots de navigation. Photos optionnelles (annonce valide
+#   sans photo). NE PAS MODIFIER le formulaire existant — AJOUTER uniquement le bloc photos. >>
+#
+# LES DEUX LIMITES SONT VERIFIEES, ET PAS SEULEMENT CELLE DE L'ECRAN : un formulaire qui laisse
+# choisir cinq photos et un serveur qui en refuse trois donneraient une annonce rejetee apres
+# paiement. C'est le genre de desaccord qui ne se voit qu'en production.
+# ===========================================================================================
+print('\nPHOTOS DES ANNONCES — cinq au plus, en carrousel (point C du correctif v2)')
+formulaire = lire(FORMULAIRE)
+app = lire(APP)
+verifier(
+    'le formulaire en accepte cinq',
+    'const PHOTOS_MAX = 5;' in formulaire,
+    "<< jusqu'a 5 photos par annonce >>, contre deux depuis le 10 novembre",
+)
+verifier(
+    'le serveur aussi, et c est lui qui tranche',
+    'photoIds: z.array(uuid).max(5).optional(),' in serveur,
+    'un ecran plus genereux que le serveur fait rejeter une annonce deja payee',
+)
+verifier(
+    'le plafond existe toujours, cote serveur',
+    '.max(5)' in serveur and 'z.array(uuid)' in serveur,
+    'sans plafond, une annonce pourrait revendiquer mille photos deja telechargees',
+)
+verifier(
+    'le bouton << ajouter >> disparait quand il n y a plus de place',
+    'photos.length < PHOTOS_MAX' in formulaire,
+    'choisir une sixieme photo pour la voir refusee ensuite',
+)
+verifier(
+    'la limite est DITE a l employeur, dans sa langue',
+    "t('jobs.photosHint', { max: PHOTOS_MAX })" in formulaire,
+    'le nombre vient de la constante : il ne peut pas rester a deux dans le texte',
+)
+verifier(
+    'les photos restent FACULTATIVES',
+    '.optional()' in serveur.split('photoIds')[1][:60],
+    '<< annonce valide sans photo >>',
+)
+verifier(
+    'la carte d annonce montre un carrousel, et non plus deux vignettes',
+    '<CarouselPhotos' in app and 'styles.photo}' not in app,
+    '<< carrousel horizontal + miniatures + dots de navigation >>',
+)
+verifier(
+    'avec les miniatures EN BAS, comme le point C',
+    'vignettes="bas"' in app,
+    'une colonne a droite prendrait un cinquieme de la largeur d une carte de liste',
+)
+verifier(
+    'et c est le MEME composant que la fiche VIP',
+    "from './vip/CarouselPhotos'" in app,
+    'deux carousels ecrits deux fois divergent au premier defaut corrige',
+)
+verifier(
+    'il affiche les vignettes du serveur, pas les originaux',
+    'ph.thumbUrl' in app and 'ph.url' not in app,
+    'cinq images pleine taille par annonce, sur vingt annonces : une liste qui n arrive jamais',
+)
+verifier(
+    'une annonce sans photo n affiche rien du tout',
+    'offre.photos && offre.photos.length > 0' in app,
+    'un cadre vide se lit comme une image qui ne charge pas',
+)
+
 print(
     '\nLes listes du module Emploi concordent.\n'
     if not fautes

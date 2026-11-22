@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIndicator,
-  Image,
   Linking,
   Modal,
   Pressable,
@@ -17,6 +16,7 @@ import { api } from '../api/client';
 import { dateDepuisServeur, formatDistance, type DureeEmploi, type FormuleEmploi } from '../shared';
 import { adresseLisible } from '../jobs/adresse';
 import { CurseurRayon, RAYON_MIN_KM } from './CurseurRayon';
+import { CarouselPhotos } from './vip/CarouselPhotos';
 import { radius, spacing } from '../theme';
 
 /**
@@ -47,6 +47,24 @@ const FOND = '#FFFFFF';
 const TEXTE = '#15201C';
 const TEXTE_DOUX = '#5E6B64';
 const PUCE = '#F3F4F6';
+
+/**
+ * LE CAROUSEL DE PHOTOS DES ANNONCES — point C du correctif v2.
+ *
+ * HAUTEUR : 140 POINTS, CONTRE 175 SUR LA FICHE VIP. Une carte d'annonce est un element de
+ * liste : elle porte deja un titre, un employeur, un secteur, une adresse, une distance et
+ * quatre boutons de contact. A 175 points, la photo pousserait tout le reste hors de l'ecran et
+ * l'on ne verrait plus qu'une annonce a la fois. A 140, elle montre le local sans prendre la
+ * place de ce qu'on cherche. Les vignettes du 10 novembre faisaient 96 points, mais elles
+ * etaient deux cote a cote : une image pleine largeur a besoin de plus de hauteur pour ne pas
+ * etre une meurtriere.
+ *
+ * LES COULEURS SONT CELLES DE LA MAQUETTE, PAS CELLES DU THEME, comme tout le reste de cette
+ * feuille (voir l'en-tete du fichier) : le fond d'attente est le gris des puces, le tourniquet
+ * est au vert WIN, et la miniature courante est cernee de l'or de la publication.
+ */
+const PHOTOS_HAUTEUR = 140;
+const PHOTOS_COULEURS = { surfaceAlt: PUCE, accent: VERT, gold: OR };
 
 /** Les sept secteurs, dans l'ordre de la maquette, avec le pictogramme de chacun. */
 /**
@@ -109,7 +127,7 @@ export type JobOffer = {
   city?: string | null;
   postcode?: string | null;
   /**
-   * Jusqu'a deux photos, dans l'ordre choisi par l'employeur.
+   * Jusqu'a cinq photos, dans l'ordre choisi par l'employeur (point C du correctif v2).
    *
    * FACULTATIF DANS LE TYPE, ET CE N'EST PAS UN OUBLI. Le serveur a jour rend toujours un
    * tableau, vide au besoin. Mais l'application s'installe souvent AVANT que le serveur soit
@@ -445,15 +463,28 @@ function CarteOffre({ offre, onNavigate }: { offre: JobOffer; onNavigate: (o: Jo
 
       {/* LES PHOTOS, EN PREMIER DANS LA CARTE. Une annonce d'emploi se lit en diagonale ; une
           image du local ou de l'equipe dit en un regard ce que trois lignes de description ne
-          disent pas. Les vignettes suffisent : la carte ne fait pas toute la largeur de
-          l'ecran, et telecharger deux images pleine taille par annonce couterait cher sur une
-          connexion algerienne. */}
+          disent pas.
+
+          EN CARROUSEL DEPUIS LE POINT C DU CORRECTIF v2 : << carrousel horizontal + miniatures
+          + dots de navigation >>. Deux vignettes cote a cote etaient lisibles a deux photos ;
+          a cinq, elles feraient cinq timbres de soixante points. Une image pleine largeur
+          qu'on fait glisser du doigt montre chaque photo en entier, et les miniatures disent
+          d'un coup d'oeil combien il en reste.
+
+          C'EST LE MEME COMPOSANT QUE LA FICHE VIP, avec les miniatures en bas plutot qu'a
+          droite — la carte est deja etroite, une colonne lui prendrait un cinquieme de sa
+          largeur.
+
+          ON AFFICHE TOUJOURS LES VIGNETTES DU SERVEUR (`thumbUrl`) ET NON LES ORIGINAUX : cinq
+          images pleine taille par annonce, sur une liste de vingt annonces et une connexion
+          algerienne, ce serait une carte qui n'arrive jamais. */}
       {offre.photos && offre.photos.length > 0 ? (
-        <View style={styles.photos}>
-          {offre.photos.map((ph) => (
-            <Image key={ph.url} source={{ uri: ph.thumbUrl }} style={styles.photo} />
-          ))}
-        </View>
+        <CarouselPhotos
+          photos={offre.photos.map((ph) => ph.thumbUrl)}
+          colors={PHOTOS_COULEURS}
+          hauteur={PHOTOS_HAUTEUR}
+          vignettes="bas"
+        />
       ) : null}
 
       {/* L'ADRESSE, sous le titre. Elle repond a la question que pose la distance : << a 3 km,
@@ -682,10 +713,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   carteTete: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  photos: { flexDirection: 'row', gap: spacing.sm },
-  /* Deux photos cote a cote : `flex: 1` les partage a egalite, et une seule prend toute la
-   * largeur — ce qui est juste, elle est alors la seule chose a montrer. */
-  photo: { flex: 1, height: 96, borderRadius: radius.md, backgroundColor: PUCE },
+  /* LES DEUX STYLES DES VIGNETTES COTE A COTE SONT PARTIS AVEC ELLES (point C du correctif
+   * v2) : le carousel porte ses propres mesures, et deux styles orphelins finissent toujours
+   * par etre recopies ailleurs << puisqu'ils existent >>. */
   adresse: { color: TEXTE_DOUX, fontSize: 12.5, lineHeight: 17 },
   /* LA PASTILLE A L'INITIALE : 34 points, comme la maquette. */
   pastille: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
