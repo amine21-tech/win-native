@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { useSession } from '../store/session';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { IconePieton, IconeVoiture } from './IconesTransport';
 import type { Route, RouteMode } from '../navigation/routing';
+import { voiePrincipale } from '../navigation/voiePrincipale';
 import { formatDistance, formatDuration } from '../shared';
 import { radius, spacing, typography, type Palette } from '../theme';
 
@@ -40,24 +40,33 @@ type Props = {
 };
 
 /**
- * LES TROIS PROFILS DANS L'ORDRE OU ILS S'AFFICHENT.
+ * LES TROIS BOUTONS DE PROFIL ONT QUITTE CETTE FICHE — point D du correctif v2.
  *
- * Une table plutot que trois blocs recopies : les deux boutons precedents etaient identiques
- * a la couleur et au libelle pres, et chacun repetait neuf lignes de style. Un troisieme en
- * aurait fait vingt-sept, ou une faute de copie se cache sans se voir - typiquement un
- * `prefs.profil` oublie qui laisse deux boutons allumes en meme temps.
+ *   << Le cadre resultat d'itineraire affiche 3 boutons non demandes : "Plus court" (source de
+ *   confusion) + "Autoroute" + "Sans autoroute" (redondants). Ces 3 boutons n'ont pas ete
+ *   demandes et encombrent l'interface. [...] Conserver : "En voiture" + "A pied" + les 3
+ *   alternatives (inchanges). >>
+ *
+ * IL FAUT DIRE QUE C'EST UN RETOURNEMENT, PARCE QUE C'EN EST UN. Le 21 novembre, le meme client
+ * ecrivait : << les 3 boutons UI existants (avec autoroute / sans autoroute / plus court)
+ * continuent de fonctionner exactement comme avant >>. Il n'y en avait alors que deux, et le
+ * troisieme — << Plus court >> — a ete ajoute pour lui. C'est lui qu'il appelle aujourd'hui
+ * << source de confusion >>. Les deux lectures se tiennent : trois boutons de reglage sous deux
+ * boutons de mode et au-dessus de trois alternatives, cela fait huit choix dans un cadre, et
+ * Waze comme Google Maps n'en montrent aucun a cet endroit.
+ *
+ * CE QUI N'EST PAS SUPPRIME POUR AUTANT : LE REGLAGE LUI-MEME. `routePrefs.profil` reste dans
+ * le store, reste envoye au serveur, et vaut toujours << le plus court >> par defaut — c'est
+ * d'ailleurs ce que le point G du meme document redemande (<< priorite = la route la plus
+ * courte >>). Seuls les BOUTONS partent. Sa parenthese << filtres avances -> Reglages globaux >>
+ * ne peut pas etre suivie aujourd'hui : l'application n'a pas d'ecran de reglages globaux. Le
+ * jour ou elle en aura un, le reglage y est deja, avec ses trois libelles encore traduits dans
+ * les cinq langues — il n'y aura qu'a l'afficher.
  */
-const PROFILS = [
-  { profil: 'court' as const, glyphe: '📏', cle: 'trip.shortest' },
-  { profil: 'autoroute' as const, glyphe: '🛣️', cle: 'trip.motorway' },
-  { profil: 'sansAutoroute' as const, glyphe: '🚫', cle: 'trip.noMotorway' },
-];
 
 /** Carte "resume de trajet" : reprise de `.tripcard` en v83 — distance/duree, bascule voiture/pied,
  * itineraires alternatifs, bouton demarrer. */
 export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode, onModeChange, onStart, colors }: Props) {
-  const prefs = useSession((s) => s.routePrefs);
-  const setProfil = useSession((s) => s.setProfil);
   const { t } = useTranslation();
   const selected = routes[selectedIndex];
 
@@ -134,52 +143,22 @@ export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode
             </Pressable>
           </View>
 
-          {/* LES TROIS CHOIX D'ITINERAIRE - point 5A du 21 novembre.
-           *
-           * << Les 3 boutons UI existants (avec autoroute / sans autoroute / plus court)
-           * continuent de fonctionner exactement comme avant. >> Il n'y en avait que DEUX : le
-           * troisieme avait ete fondu dans les autres en octobre, quand le reglage est devenu un
-           * simple booleen. On le remet, et c'est lui le defaut.
-           *
-           * POURQUOI LE PREMIER DE LA RANGEE EST << PLUS COURT >>. C'est le reglage par defaut,
-           * et un conducteur lit une rangee de gauche a droite : le premier bouton allume doit
-           * etre celui qui est actif quand on n'a rien choisi. Le trajet de l'aeroport d'Alger -
-           * 10 km annonces pour 2 km reels - venait de ce que ce choix n'existait pas.
-           *
-           * A pied, la rangee ne s'affiche pas : elle n'a aucun sens. */}
-          {mode === 'auto' ? (
-            <View style={[styles.modes, { backgroundColor: colors.background }]}>
-              {PROFILS.map(({ profil, glyphe, cle }) => {
-                const actif = prefs.profil === profil;
-                return (
-                  <Pressable
-                    key={profil}
-                    onPress={() => setProfil(profil)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: actif }}
-                    style={[styles.modeBtn, actif && { backgroundColor: colors.accent }]}
-                  >
-                    {/* DEUX LIGNES AUTORISEES, ET C'EST LE PASSAGE DE DEUX BOUTONS A TROIS QUI
-                        L'IMPOSE. A trois, chaque bouton fait environ 98 points de large sur un
-                        telephone de 360 : << Sans autoroute >> en demande 120 avec son glyphe.
-                        Sur une seule ligne, le libelle se serait coupe en << Sans autor... >> —
-                        un bouton qu'on ne peut plus lire. Le repli sur deux lignes garde les
-                        glyphes et les mots entiers, et la rangee grandit d'une ligne. */}
-                    <Text
-                      numberOfLines={2}
-                      style={[styles.modeLabel, { color: actif ? colors.accentText : colors.text }]}
-                    >
-                      {glyphe} {t(cle)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : null}
 
           {routes.length > 1 ? (
             <View style={styles.altRow}>
-              {routes.map((r, i) => (
+              {routes.map((r, i) => {
+                /* LA ROUTE PAR LAQUELLE CETTE ALTERNATIVE PASSE — point D du correctif v2.
+                 *
+                 * Le calcul est dans `navigation/voiePrincipale` et non ici : il tranche entre
+                 * plusieurs candidats, se tait quand aucun ne s'impose, et ces cas-la s'eprouvent
+                 * hors du telephone (voir scripts/verifier-voie-principale.ts).
+                 *
+                 * UN APPEL DE FONCTION, ET SURTOUT PAS UN HOOK : on est dans un `.map`, ou le
+                 * nombre d'elements change avec le nombre d'alternatives renvoyees par le
+                 * serveur. Un hook ici ferait varier le nombre de hooks d'un rendu a l'autre, et
+                 * c'est l'ecran noir qu'on a deja paye deux fois. */
+                const via = voiePrincipale(r.maneuvers);
+                return (
                 <Pressable
                   key={i}
                   onPress={() => onSelect(i)}
@@ -197,8 +176,21 @@ export function TripCard({ routes, selectedIndex, onSelect, loading, error, mode
                     {i === 0 ? t('trip.fastest') : t('trip.alternative')}
                   </Text>
                   <Text style={[styles.altChipSub, { color: colors.textMuted }]}>{formatDuration(r.durationS)}</Text>
+                  {/* << Via A1 · Autoroute >>. La ligne DISPARAIT quand la route n'a pas de nom
+                      — le cas le plus courant en Algerie, ou la plupart des voies ne sont pas
+                      nommees dans OpenStreetMap. Une ligne vide y serait pire que rien : les
+                      trois alternatives n'auraient plus la meme hauteur sans raison visible. */}
+                  {via.nom !== '' ? (
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.altChipVia, { color: colors.textMuted }]}
+                    >
+                      {t(via.surAutoroute ? 'trip.viaAutoroute' : 'trip.via', { nom: via.nom })}
+                    </Text>
+                  ) : null}
                 </Pressable>
-              ))}
+                );
+              })}
             </View>
           ) : null}
 
@@ -281,6 +273,10 @@ const styles = StyleSheet.create({
   altRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   altChip: { flex: 1, borderWidth: 1.5, borderRadius: radius.sm, padding: spacing.sm, alignItems: 'center' },
   altChipTitle: { fontSize: 12, fontWeight: '800' as const },
+  /* La mention de route, un cran plus discrete que la duree : c'est un complement, pas le
+   * titre. `fontSize` explicite plutot que `typography.caption` — on la veut sous la duree
+   * dans la hierarchie de lecture, et non a egalite. */
+  altChipVia: { fontSize: 10, lineHeight: 13, marginTop: 1, textAlign: 'center' },
   altChipSub: { fontSize: 11, marginTop: 2 },
   startBtn: {
     marginTop: spacing.md,

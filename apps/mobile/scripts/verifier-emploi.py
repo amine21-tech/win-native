@@ -153,16 +153,24 @@ verifier(
 # une seule fois : c'est la reference contre laquelle le code est verifie. Si le client change
 # ses prix, c'est ICI qu'on le constate — et le script dira exactement ou le code ne suit pas.
 #
-#   ESSENTIEL   500 / 1 500 DA    50 km
-#   STANDARD  1 000 / 3 000 DA   100 km
-#   PREMIUM   1 500 / 5 000 DA   Algerie entiere
+#   ESSENTIEL   500 / 1 500 DA    50 km      - plus en vente (point C du correctif v2)
+#   STANDARD  1 000 / 2 000 DA   Algerie     - la seule en vente
+#   PREMIUM   1 500 / 5 000 DA   Algerie     - plus en vente
+#
+# LES TROIS RESTENT DANS LE MODELE, ET LEURS CHIFFRES RESTENT VERIFIES. Le point C dit
+# << supprimer les 2 autres formules DE L'UI >> : des annonces deposees en octobre et en
+# novembre portent encore ces formules en base, et leur prix est ce qui a ete facture. Les
+# changer silencieusement ferait mentir l'ecran d'administration sur des paiements recus.
 print('\nFORMULES — les prix du document, au dinar pres')
 PARTAGE = RACINE / 'packages/shared/src/constants.ts'
 partage = lire(PARTAGE)
 
 ATTENDU = {
     'essentiel': (500, 1500, '50_000'),
-    'standard': (1000, 3000, '100_000'),
+    # << 1 000 DA / 7 jours OU 2 000 DA / 30 jours >> : le mois passe de 3 000 a 2 000, et la
+    # portee de cent kilometres au pays entier, puisque c'est desormais le CURSEUR DU CHERCHEUR
+    # qui decide jusqu'ou il regarde (voir la raison, au long, dans shared/constants.ts).
+    'standard': (1000, 2000, 'null'),
     'premium': (1500, 5000, 'null'),
 }
 
@@ -178,6 +186,33 @@ for nom, (semaine, mois, portee) in ATTENDU.items():
         f'trouve {sem} et {moi}',
     )
     verifier(f'{nom} : portee {portee}', por == portee, f'trouve {por}')
+
+# << SUPPRIMER LES 2 AUTRES FORMULES DE L'UI · GARDER UNIQUEMENT STANDARD POPULAIRE >>.
+#
+# Le controle porte sur les DEUX versants, parce que le premier seul se satisferait d'une liste
+# vide : une seule formule proposee, et c'est bien la standard.
+print('\nUNE SEULE FORMULE EST PROPOSEE A L EMPLOYEUR — point C du correctif v2')
+verifier(
+    "la liste des formules en vente n'en compte qu'une",
+    "FORMULES_EN_VENTE: readonly FormuleEmploi[] = ['standard']" in partage,
+    '<< garder uniquement STANDARD POPULAIRE >>',
+)
+verifier(
+    'et le formulaire boucle sur cette liste, non sur les trois',
+    'FORMULES_EN_VENTE.map' in lire(FORMULAIRE) and 'FORMULES.map' not in lire(FORMULAIRE),
+    "le jour ou une offre revient, une seule ligne de constante suffit",
+)
+verifier(
+    'la pastille radio ne parait que s il y a un choix a faire',
+    'FORMULES_EN_VENTE.length > 1' in lire(FORMULAIRE),
+    'une case a cocher deja cochee fait chercher les autres',
+)
+# Le MODELE, lui, garde les trois : c'est ce qui permet de relire les annonces deja deposees.
+verifier(
+    'le modele garde les trois formules',
+    "FORMULES: readonly FormuleEmploi[] = ['essentiel', 'standard', 'premium']" in partage,
+    'des annonces en base portent encore essentiel et premium',
+)
 
 verifier('une semaine vaut 7 jours', 'semaine: 7' in partage)
 verifier('un mois vaut 30 jours', 'mois: 30' in partage)

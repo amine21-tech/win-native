@@ -470,6 +470,8 @@
     "onFoot": "À pied",
     "fastest": "Le plus rapide",
     "alternative": "Alternatif",
+    "via": "Via {{nom}}",
+    "viaAutoroute": "Via {{nom}} · Autoroute",
     "sameDuration": "Même durée",
     "onTime": "Arrivée à l'heure annoncée.",
     "late": "{{minutes}} min de plus que prévu.",
@@ -766,7 +768,7 @@
     },
     "formulaDetail": {
       "essentiel": "Rayon 50 km · Offre standard",
-      "standard": "Rayon 100 km · Mise en avant",
+      "standard": "Algérie entière · Mise en avant",
       "premium": "Algérie entière · En tête de liste"
     },
     "duration": {

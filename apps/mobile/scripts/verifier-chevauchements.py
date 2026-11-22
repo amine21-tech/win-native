@@ -275,6 +275,57 @@ verifier(
     'React Native ne rogne pas : le document parle du XML Android',
 )
 
+print("\nLE MOT << TAMAZIGHT >> TIENT SUR UNE LIGNE DANS SON BOUTON")
+# POURQUOI CE CONTROLE EST ARITHMETIQUE ET NON TEXTUEL. Le client a vu << Tamazigh >> puis
+# << t >> sur une deuxieme ligne : illisible en conduite. On pourrait se contenter de verifier
+# que `numberOfLines` vaut 1 — mais un mot trop large pour une seule ligne se fait alors
+# ROGNER, et << Tamazigh... >> n'est pas mieux. Ce qui doit etre vrai, c'est que le mot ENTRE
+# dans la largeur. On le mesure donc, comme on mesure la colonne juste au-dessus.
+#
+# 0,56 : la largeur moyenne d'une lettre de Roboto Bold, en fraction de la taille de police.
+# C'est une approximation, et elle est du bon cote — les lettres de << Tamazight >> sont
+# plutot etroites (un i, un t, un z), donc le vrai mot est un peu plus court que ce calcul.
+LARGEUR_LETTRE = 0.56
+cote_langue = constante(langue, 'COTE')
+police = valeur_dans_style(langue, 'libelle', 'fontSize')
+bordure = 2.5  # la bordure epaisse, celle de l'audio coupe : le cas le plus serre
+verifier('la taille de police du libelle est lue', police is not None, '%s points' % police)
+if cote_langue is not None and police is not None:
+    utile = cote_langue - 2 * bordure
+    demande = len('Tamazight') * LARGEUR_LETTRE * police
+    print('    %s : %d lettres x %s x %s = %.1f points pour %.1f disponibles'
+          % ('Tamazight', len('Tamazight'), LARGEUR_LETTRE, police, demande, utile))
+    verifier(
+        'il tient dans la largeur du bouton',
+        demande <= utile,
+        'a 9 points il demandait %.1f points et se coupait' % (9 * 9 * LARGEUR_LETTRE),
+    )
+verifier(
+    'le repli sur deux lignes est interdit',
+    'numberOfLines={1}' in langue and 'numberOfLines={2}' not in langue,
+    '<< afficher Tamazight sur UNE SEULE ligne >>',
+)
+# LE GARDE-FOU QUI EXPLIQUE CE QU'ON A VU SUR LE TELEPHONE. Le bouton est de taille FIXE : si
+# le systeme a le droit de grossir la police (grande police d'accessibilite, x1,15 ou x1,3), le
+# calcul ci-dessus tombe quelle que soit la valeur ecrite dans le fichier.
+verifier(
+    'et la police ne peut pas etre grossie par le systeme',
+    'allowFontScaling={false}' in langue,
+    'un bouton de taille fixe ne peut pas accueillir une police qui grandit',
+)
+verifier(
+    'un dernier filet : la police se reduit plutot que de rogner le mot',
+    'adjustsFontSizeToFit' in langue,
+)
+
+# << LA COLONNE GAUCHE EST EXCLUSIVEMENT RESERVEE A : DARJA + TAMAZIGHT >>. Le client a lu
+# << FR >> sur ce bouton et l'a pris pour un bouton de francais qu'il n'avait pas demande.
+verifier(
+    'aucun sigle de langue n est ecrit en dur dans le bouton',
+    "'FR'" not in langue and "'AR'" not in langue and "'EN'" not in langue,
+    'le mot vient de ETIQUETTES, et les trois departs y disent << Retour >>',
+)
+
 print('')
 if fautes:
     print('A CORRIGER : %d verification(s) en echec.\n' % len(fautes))

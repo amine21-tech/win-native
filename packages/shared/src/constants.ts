@@ -141,10 +141,27 @@ export const TEMPORARY_TTL_MINUTES: Record<ReportKind, number> = {
 };
 
 /**
- * Nombre de votes « n'existe plus » provenant d'appareils differents avant
- * retrait d'un signalement permanent. Reprend WIN_SEUIL_SUPPRESSION de la v82.
+ * Nombre de votes « n'existe plus » provenant d'appareils DIFFERENTS avant retrait d'un
+ * signalement permanent.
+ *
+ * DEUX — POINT J DU CORRECTIF v2, ET C'ETAIT TROIS. Le client decrit le defaut tel qu'il le
+ * voit : << Un utilisateur vote "Disparu" -> le symbole reste visible sur la carte (aucun
+ * effet). Meme apres 2 votes "Disparu" de 2 utilisateurs differents -> le symbole ne disparait
+ * pas. >> Son diagnostic (<< les votes sont enregistres mais la logique de suppression n'est pas
+ * declenchee >>) n'est pas exact — elle l'etait, mais a trois. A deux votes, sur un radar, il ne
+ * se passait effectivement rien, et c'est bien ce qu'il a vu.
+ *
+ * << Cette correction s'applique a TOUS les symboles et signalisations de la carte : Radar,
+ * Accident, Obstacle, Travaux, Animal, Danger, Embouteillage, Controle, tout autre symbole. >>
+ * La dissymetrie qui donnait deux votes a la route barree et trois aux autres disparait donc.
+ *
+ * CE QUE CE CHIFFRE COUTE, PUISQU'IL FAUT LE DIRE : deux conducteurs de mauvaise foi effacent
+ * un radar. C'etait trois. Ce qui protege reellement n'est pas le nombre mais l'unicite — un
+ * appareil, un vote, enregistre en base — et le fait qu'un seul << toujours la >> remette le
+ * compteur a zero (voir ci-dessous). Un symbole reel est traverse par des dizaines de
+ * conducteurs par jour : il suffit qu'un seul le confirme pour annuler les deux autres.
  */
-export const ABSENT_VOTE_THRESHOLD = 3;
+export const ABSENT_VOTE_THRESHOLD = 2;
 
 /**
  * ROUTE BLOQUEE : DEUX TEMOINS POUR CONFIRMER (point 12 du client, 28 octobre).
@@ -306,12 +323,58 @@ export function realtimeCellsAround(lat: number, lon: number, radiusM = NEARBY_R
  */
 export const FORMULES_EMPLOI = {
   essentiel: { semaine: 500, mois: 1_500, porteeM: 50_000, prioritaire: false },
-  standard: { semaine: 1_000, mois: 3_000, porteeM: 100_000, prioritaire: false },
+  /**
+   * LA SEULE FORMULE EN VENTE DEPUIS LE POINT C DU CORRECTIF v2, ET SES PRIX ONT CHANGE.
+   *
+   *   << APRES — 1 seule formule : STANDARD POPULAIRE, 1 000 DA / 7 jours OU 2 000 DA /
+   *   30 jours. Paiement unique · Expire automatiquement. >>
+   *
+   * Le mois passe donc de 3 000 a 2 000 DA — c'est une baisse de prix, pas une coquille : il
+   * l'ecrit en grand dans son tableau << APRES >>, et la semaine, elle, reste a 1 000.
+   *
+   * `porteeM: null` — L'ALGERIE ENTIERE, LA OU CETTE FORMULE S'ARRETAIT A CENT KILOMETRES, ET
+   * C'EST UNE DECISION QUI ATTEND SA CONFIRMATION. La portee par formule n'existait que pour
+   * distinguer les trois offres : 50 km, 100 km, le pays. Avec une offre unique, elle ne
+   * distingue plus rien — elle ne fait plus que plafonner. Et elle entrerait en contradiction
+   * avec ce que le meme point C conserve explicitement : << curseur rayon (50/100/200km+)
+   * conserve tel quel >>. Un chercheur qui regle son curseur sur 300 km ne verrait aucune
+   * annonce au-dela de 100, sans jamais savoir pourquoi. C'est donc desormais le CHERCHEUR qui
+   * decide jusqu'ou il regarde, et l'employeur ne paie plus une distance — exactement la
+   * << meme logique que Waze / Google Maps >> que le client invoque au point D.
+   *
+   * LES ANNONCES DEJA EN LIGNE NE BOUGENT PAS : leur portee est ecrite dans leur ligne en base
+   * au moment du depot. Celui qui a paye Premium garde son pays, celui qui a paye Essentiel
+   * garde ses cinquante kilometres.
+   */
+  standard: { semaine: 1_000, mois: 2_000, porteeM: null, prioritaire: false },
   premium: { semaine: 1_500, mois: 5_000, porteeM: null, prioritaire: true },
 } as const;
 
 export type FormuleEmploi = keyof typeof FORMULES_EMPLOI;
+
+/**
+ * LES TROIS FORMULES RESTENT DANS LE MODELE, ET C'EST VOLONTAIRE.
+ *
+ * << Supprimer les 2 autres formules DE L'UI · Garder uniquement STANDARD POPULAIRE. >> Le
+ * client dit bien l'UI, et c'est heureux : des annonces deposees en octobre et en novembre
+ * portent `formule = 'essentiel'` ou `'premium'` dans la base. Retirer ces deux clefs du
+ * modele ferait echouer la lecture de ces annonces — un ecran d'administration vide pour
+ * effacer deux cartes de tarif.
+ */
 export const FORMULES: readonly FormuleEmploi[] = ['essentiel', 'standard', 'premium'];
+
+/**
+ * CE QUI EST PROPOSE A L'EMPLOYEUR AUJOURD'HUI — point C du correctif v2.
+ *
+ * UNE LISTE PLUTOT QU'UNE CONSTANTE, et c'est ce qui permet au formulaire de ne rien savoir du
+ * nombre d'offres : il boucle dessus comme il bouclait sur les trois. Le jour ou une offre
+ * revient, cette ligne suffit, et les cartes, les badges, les prix et le choix de duree
+ * reapparaissent tels quels.
+ */
+export const FORMULES_EN_VENTE: readonly FormuleEmploi[] = ['standard'];
+
+/** La formule par defaut du formulaire : la seule en vente. */
+export const FORMULE_UNIQUE: FormuleEmploi = 'standard';
 
 /** Duree d'affichage choisie par l'employeur, et ce qu'elle vaut en jours. */
 export const DUREES_EMPLOI = { semaine: 7, mois: 30 } as const;

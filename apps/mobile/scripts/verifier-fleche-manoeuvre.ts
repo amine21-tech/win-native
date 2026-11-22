@@ -152,10 +152,22 @@ verifier(
   'a partir du seuil calcule, et non d un 500 en dur',
   /distanceAnticipation\(limiteKmh\)/.test(panneau) && /distanceM <= seuilM/.test(panneau),
 );
+/* LE FILTRE DE GRAND AXE A QUITTE LA GRANDE FLECHE — point E du correctif v2.
+ *
+ * << Bug : pour certaines destinations la fleche clignote, pour d'autres non (meme route). >>
+ * << Gauche, droite, tout droit, bifurcation — TOUTES les directions declenchent le
+ * clignotement. >>
+ *
+ * Ce controle exigeait l'inverse, et il avait sa raison : en ville, une fleche qui clignote a
+ * chaque carrefour cesse d'alerter. Cette raison est tombee le 22 novembre, quand le seuil en
+ * agglomeration est passe a cinquante metres : la fleche ne clignote plus qu'a cinquante metres
+ * du carrefour, donc sur le bon. Le filtre ne protegeait plus de rien et cassait une destination
+ * sur deux, parce qu'il se decide en partie sur le NOM de la voie — absent de la plupart des
+ * routes algeriennes dans OpenStreetMap. */
 verifier(
-  'et sur grand axe seulement',
-  /surGrandAxe\(surAutoroute, nomVoie\)/.test(panneau),
-  'en ville, une fleche qui clignote a chaque carrefour cesse d alerter',
+  'et sur toutes les routes, non plus seulement sur grand axe',
+  !/surGrandAxe/.test(panneau),
+  '<< TOUTES les directions declenchent le clignotement >>',
 );
 
 console.log(

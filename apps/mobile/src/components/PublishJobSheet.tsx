@@ -23,8 +23,9 @@ import type { Language } from '../shared';
 import { SECTEURS_EMPLOI } from './JobsSheet';
 import {
   DUREES,
-  FORMULES,
+  FORMULE_UNIQUE,
   FORMULES_EMPLOI,
+  FORMULES_EN_VENTE,
   joursEmploi,
   prixEmploi,
   type DureeEmploi,
@@ -94,7 +95,10 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
   /* LA FORMULE ET LA DUREE sont deux choix separes, et c'est ce que demande le document :
    * << semaine ou mois au choix >> vaut pour les TROIS formules. Les melanger en six boutons
    * ferait relire six prix pour en comparer deux. */
-  const [formule, setFormule] = useState<FormuleEmploi>('essentiel');
+  /* << Garder uniquement STANDARD POPULAIRE >> — point C du correctif v2. La formule de depart
+   * est la seule en vente ; `setFormule` reste, et redeviendra utile le jour ou la liste des
+   * formules en vente en comptera plus d'une. */
+  const [formule, setFormule] = useState<FormuleEmploi>(FORMULE_UNIQUE);
   const [duree, setDuree] = useState<DureeEmploi>('mois');
   const [salaire, setSalaire] = useState('');
   const [description, setDescription] = useState('');
@@ -334,10 +338,13 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
                 })}
               </View>
 
-              {/* LES TROIS FORMULES, en cartes. Le prix de la duree choisie est en grand a
-                  droite ; l'autre est rappele en petit, parce qu'on compare toujours les deux
-                  avant de se decider. */}
-              {FORMULES.map((f) => {
+              {/* LES FORMULES EN VENTE, en cartes — une seule depuis le point C du correctif
+                  v2 (<< supprimer les 2 autres formules de l'UI >>). Le prix de la duree choisie
+                  est en grand a droite ; l'autre est rappele en petit, parce qu'on compare
+                  toujours les deux avant de se decider — et c'est maintenant la SEULE
+                  comparaison qui reste a faire, ce qui est tout l'objet du point C.
+                  Rien ici ne suppose qu'il y en ait une ou trois : la boucle lit la liste. */}
+              {FORMULES_EN_VENTE.map((f) => {
                 const actif = formule === f;
                 const autre = duree === 'mois' ? 'semaine' : 'mois';
                 return (
@@ -386,12 +393,15 @@ export function PublishJobSheet({ visible, onClose, position }: Props) {
                       <Text style={styles.tarifUnite}>{t(`jobs.durationShort.${duree}`)}</Text>
                     </View>
 
-                    {/* LA PASTILLE RADIO, A DROITE, comme la maquette. Elle dit ce que la
-                        bordure or seule disait mal : qu'on CHOISIT une formule parmi trois, et
-                        non qu'on en consulte une mise en avant. */}
-                    <View style={[styles.radio, actif ? styles.radioActif : null]}>
-                      {actif ? <View style={styles.radioPoint} /> : null}
-                    </View>
+                    {/* LA PASTILLE RADIO NE S'AFFICHE QUE S'IL Y A UN CHOIX A FAIRE.
+                        Elle disait ce que la bordure or disait mal : qu'on CHOISIT une formule
+                        parmi plusieurs. Devant une offre unique, elle dirait le contraire de la
+                        verite — une case a cocher deja cochee, qui laisse chercher les autres. */}
+                    {FORMULES_EN_VENTE.length > 1 ? (
+                      <View style={[styles.radio, actif ? styles.radioActif : null]}>
+                        {actif ? <View style={styles.radioPoint} /> : null}
+                      </View>
+                    ) : null}
                   </Pressable>
                 );
               })}

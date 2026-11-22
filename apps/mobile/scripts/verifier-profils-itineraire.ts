@@ -32,7 +32,31 @@ type Options = Record<string, unknown>;
 console.log('\nLE DEFAUT EST << LE PLUS COURT >> — c est le correctif du detour de l aeroport');
 verifier('le profil par defaut est court', PROFIL_DEFAUT === 'court', PROFIL_DEFAUT);
 const court = optionsAuto('court') as Options;
-verifier('court : shortest = true, on classe par distance', court.shortest === true);
+/* CE CONTROLE A CHANGE DE CAMP — point G du correctif v2 : << "shortest": false // false=plus
+ * rapide >>, << priorite = temps reel le plus court >>.
+ *
+ * ET C'EST UNE CORRECTION, PAS UN RECUL. `shortest: true` desactive, chez Valhalla, TOUS les
+ * autres couts : les quatre reglages << routes carrossables >> de ce meme profil n'avaient donc
+ * aucun effet, alors que le point G les redemande explicitement. Les deux ne pouvaient pas etre
+ * vrais ensemble. C'est `use_highways: 0.5` qui ecarte le detour autoroutier — et lui, il est
+ * desormais reellement applique. */
+verifier(
+  'court : shortest = false, le classement se fait par duree',
+  court.shortest === false,
+  '<< false = plus rapide >>, et les garde-fous carrossables reprennent effet',
+);
+verifier(
+  'court : use_highways = 0.5, l autoroute est une option et non une priorite',
+  court.use_highways === 0.5,
+  'c est cette ligne qui repare le detour de l aeroport d Alger',
+);
+/* ET LES GARDE-FOUS QUE `shortest: true` ANNULAIT : ils sont la raison du changement, donc ils
+ * doivent etre verifies ici et pas seulement ecrits dans le fichier. */
+verifier(
+  'court : les pistes et les dessertes restent penalisees',
+  court.use_tracks === 0.1 && court.service_penalty === 120 && court.exclude_unpaved === true,
+  '<< routes carrossables uniquement : exclure dirt / track / path >>',
+);
 verifier('court : use_highways = 0.5, ni cherchee ni fuie', court.use_highways === 0.5, String(court.use_highways));
 verifier('court : use_tolls = 0.5', court.use_tolls === 0.5, String(court.use_tolls));
 

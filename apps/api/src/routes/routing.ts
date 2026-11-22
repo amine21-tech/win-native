@@ -197,7 +197,23 @@ const routes: FastifyPluginAsync = async (app) => {
         directions_options: { units: 'kilometers', language: input.language },
       };
 
-      const timeoutMs = input.quick ? 5_000 : 12_000;
+      /**
+       * DEUX SECONDES ET DEMIE POUR UN RECALCUL EN ROULANT — point G du correctif v2 :
+       * << Duree max du recalcul : 2 a 2,5 secondes. >> C'etait cinq.
+       *
+       * UNE ECHEANCE PLUS COURTE NE REND PAS VALHALLA PLUS RAPIDE : elle decide a partir de
+       * quand sa reponse ne vaut plus la peine d'etre attendue. Et c'est la le fond de la
+       * demande. A 110 km/h, cinq secondes font cent cinquante metres : l'itineraire qui arrive
+       * part d'un endroit que le vehicule a quitte depuis longtemps, et il faudra le refaire.
+       * Abandonner a 2,5 s pour repartir de la position reelle donne une reponse juste plus vite
+       * qu'attendre une reponse perimee.
+       *
+       * LA REPRISE UNIQUE CI-DESSOUS RESTE, et le pire cas passe donc de dix secondes a cinq.
+       * Le telephone, lui, patiente neuf secondes (voir mobile/navigation/routing.ts) : il laisse
+       * toujours au serveur le temps de repondre LUI-MEME, parce que sa reponse dit pourquoi
+       * quand la notre ne dirait que << pas de reponse >>.
+       */
+      const timeoutMs = input.quick ? 2_500 : 12_000;
 
       const ask = async (body: unknown): Promise<Response> =>
         fetch(`${valhallaFor(input.from, input.to)}/route`, {

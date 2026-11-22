@@ -202,7 +202,9 @@ verifier(
   'en ville les voies changent a chaque carrefour : l affichage clignoterait sans rien apprendre',
 );
 
-console.log('\nLA DISTANCE D ANTICIPATION : 50 M EN VILLE, 500 M AILLEURS — point 6 du 22 novembre');
+console.log(
+  '\nLA DISTANCE D ANTICIPATION : 50 M EN VILLE, 500 M AILLEURS, 50 M QUAND ON NE SAIT PAS',
+);
 /* << Les fleches clignotent 500 m avant meme sur une RN en ville, avec des rues adjacentes.
  * Anticipation trop precoce en ville, confusion avec les autres carrefours. >>
  *
@@ -239,24 +241,42 @@ verifier(
   distanceAnticipation(120) === ANTICIPATION_RASE_M,
   `${distanceAnticipation(120)} m`,
 );
-/* LIMITE INCONNUE : ON GARDE 500, et c'est le defaut du document lui-meme (`?: 90.0`).
- * `useSpeedLimit` ne devine jamais : sur les troncons qu'OpenStreetMap ne renseigne pas, il
- * rend `null`, et cela arrive souvent en Algerie. Annoncer trop tot coute un peu d'attention ;
- * annoncer trop tard fait rater la sortie. */
+/* LIMITE INCONNUE : 50 M — ET CE CONTROLE A CHANGE DE CAMP AU CORRECTIF v2.
+ *
+ * Il exigeait 500, par le defaut que le document du 22 novembre citait (`?: 90.0`). Le point E
+ * du correctif v2 tranche dans l'autre sens, nommement : << Fallback : si maxSpeed = -1 ->
+ * appliquer 50 m par defaut (agglomeration supposee). Mieux vaut clignoter a 50 m sur une route
+ * nationale non taguee que ne pas clignoter du tout. >>
+ *
+ * CE QUI REND CE RENVERSEMENT SANS DANGER, et c'est une mesure et non un avis : `useSpeedLimit`
+ * ne rend presque jamais `null`. Il interroge les tuiles Valhalla, et a defaut DEDUIT la limite
+ * de la classe de route lue sur la carte — 120 sur autoroute, 100 sur nationale, 50 en ville.
+ * Il ne rend `null` que si la carte n'est pas encore prete ou si le vehicule n'est sur aucune
+ * route reconnue : deux situations ou l'on ne sait pas ou l'on est, et ou cinquante metres est
+ * la valeur qui ne promet rien.
+ *
+ * LES QUATRE FACONS DE DIRE << JE NE SAIS PAS >> doivent toutes donner le meme resultat : le
+ * `null` de notre code, l'`undefined` d'une propriete absente, le `-1` que le document cite, et
+ * le NaN d'un calcul rate. */
 verifier(
-  'limite inconnue (null) : 500 m',
-  distanceAnticipation(null) === ANTICIPATION_RASE_M,
+  'limite inconnue (null) : 50 m, agglomeration supposee',
+  distanceAnticipation(null) === ANTICIPATION_AGGLO_M,
   `${distanceAnticipation(null)} m`,
 );
 verifier(
-  'limite absente (undefined) : 500 m',
-  distanceAnticipation(undefined) === ANTICIPATION_RASE_M,
+  'limite absente (undefined) : 50 m',
+  distanceAnticipation(undefined) === ANTICIPATION_AGGLO_M,
 );
 verifier(
-  'valeur aberrante (0 ou NaN) : 500 m, et non 50',
-  distanceAnticipation(0) === ANTICIPATION_RASE_M &&
-    distanceAnticipation(Number.NaN) === ANTICIPATION_RASE_M,
-  'une limite a zero n est pas une agglomeration : c est une donnee manquante',
+  'le -1 que le document cite : 50 m',
+  distanceAnticipation(-1) === ANTICIPATION_AGGLO_M,
+  '<< Valhalla retourne maxSpeed = -1 sur les segments non tagues >>',
+);
+verifier(
+  'valeur aberrante (0 ou NaN) : 50 m elle aussi',
+  distanceAnticipation(0) === ANTICIPATION_AGGLO_M &&
+    distanceAnticipation(Number.NaN) === ANTICIPATION_AGGLO_M,
+  'une donnee manquante se traite comme une donnee manquante, pas comme une route rapide',
 );
 /* ET LA PROPRIETE GENERALE : le seuil ne vaut JAMAIS autre chose que l'une des deux valeurs.
  * C'est ce qui resisterait a quelqu'un qui remplacerait la regle par une interpolation. */
@@ -287,6 +307,24 @@ verifier(
   'la grande fleche calcule son seuil au lieu de l ecrire',
   panneau.includes('distanceAnticipation(limiteKmh)') && !panneau.includes('CLIGNOTEMENT_M ='),
   'plus aucune constante de 500 m dans PanneauDirection',
+);
+/* << TOUTES LES DIRECTIONS DECLENCHENT LE CLIGNOTEMENT >> — point E du correctif v2, et c'est
+ * le bug qu'il decrit : << pour certaines destinations la fleche clignote, pour d'autres non
+ * (meme route) >>. La cause etait le filtre de grand axe, qui se decide en partie sur le NOM de
+ * la voie : deux destinations sur la meme route donnent deux manoeuvres, l'une nommee << RN 12 >>
+ * et l'autre pas nommee du tout — la plupart des voies algeriennes ne le sont pas. */
+verifier(
+  'et elle ne filtre plus sur le grand axe',
+  !panneau.includes('surGrandAxe'),
+  'un nom de rue manquant dans OpenStreetMap empechait le clignotement',
+);
+/* LA RANGEE DE VOIES, ELLE, LE GARDE. Consigne du 3 novembre, jamais retiree : << elle NE
+ * s'active PAS sur les virages normaux en ville, les carrefours classiques, les ronds-points >>.
+ * Le point E demande que les deux fleches clignotent, pas que la rangee s'affiche partout. */
+verifier(
+  'la rangee de voies garde ses conditions du 3 novembre',
+  rangeeVoies.includes('surGrandAxe(surAutoroute, nomVoie)'),
+  'deux exigences differentes, et celle-la n a pas ete retiree',
 );
 verifier(
   'la rangee de voies calcule exactement le meme',

@@ -105,19 +105,40 @@ export function prochaineLangue(etat: EtatCycle, actuelle: Language): Language {
  * se lit que par ceux qui le connaissent deja — c'est-a-dire pas ceux a qui le bouton
  * s'adresse.
  *
- * LES TROIS AUTRES RESTENT EN SIGLE, et c'est voulu : elles ne sont jamais une DESTINATION du
- * cycle, seulement un RETOUR. « FR » sur un bouton de 44 points se lit d'un coup d'oeil ;
- * « Francais » demanderait deux lignes pour dire la meme chose a quelqu'un qui vient justement
- * de cette langue.
+ * LES TROIS AUTRES NE SE NOMMENT PLUS DU TOUT — point A du correctif v2 ; la raison est
+ * ecrite au-dessus de la table ETIQUETTES, plus bas dans ce fichier.
  */
 export function libelleProchain(etat: EtatCycle, actuelle: Language): string {
   return ETIQUETTES[prochaineLangue(etat, actuelle)];
 }
 
+/**
+ * << LA COLONNE GAUCHE EST EXCLUSIVEMENT RESERVEE A : DARJA + TAMAZIGHT >> — point A du
+ * correctif v2.
+ *
+ * LE CLIENT A VU UN << BOUTON FR >> DANS LA COLONNE, ET IL N'Y EN A PAS. C'est ce bouton-ci, a
+ * son troisieme palier : il annonce sa DESTINATION, et au troisieme appui la destination est la
+ * langue d'ou l'on vient. Un raccourci vers le darija et le tamazight qui affiche << FR >> se
+ * lit comme un bouton de francais que personne n'a demande — c'est mot pour mot ce qui a ete
+ * rapporte, et c'est une faute d'affichage, pas une faute de cycle.
+ *
+ * LES TROIS LANGUES DE DEPART DISENT DONC << RETOUR >>. Le palier, lui, ne disparait pas : le
+ * document le confirme deux lignes plus bas (<< Tap 3 = retour a la langue initiale >>), et le
+ * supprimer enfermerait dans le darija celui qui a essaye le bouton par curiosite. Seul le MOT
+ * change, ce qui est exactement la consigne du point A : << NE PAS MODIFIER la logique de cycle
+ * existante — CORRIGER uniquement l'affichage >>.
+ *
+ * UN MOT PLUTOT QU'UNE FLECHE, pour la raison deja donnee le 22 novembre a propos de << DZ >> et
+ * de << ☵ >> : un sigle ou un pictogramme ne se lit que par ceux qui savent deja ce qu'il veut
+ * dire. << Retour >> dit ce que l'appui fait.
+ */
+export const ETIQUETTE_RETOUR = 'Retour';
+
 const ETIQUETTES: Record<Language, string> = {
-  fr: 'FR',
   dz: 'Derija',
-  ar: 'AR',
-  en: 'EN',
   kab: 'Tamazight',
+  /* Les trois langues qui ne sont jamais une DESTINATION du cycle, seulement un RETOUR. */
+  fr: ETIQUETTE_RETOUR,
+  ar: ETIQUETTE_RETOUR,
+  en: ETIQUETTE_RETOUR,
 };

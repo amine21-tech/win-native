@@ -55,11 +55,26 @@ verifier(
   seuilDegagement('block') === 2,
   `${seuilDegagement('block')}`,
 );
+/* << DEUX VOTES "DISPARU" DE 2 UTILISATEURS DIFFERENTS -> SYMBOLE RETIRE DE LA CARTE POUR
+ * TOUS >>, ET POUR TOUS LES TYPES — point J du correctif v2 : << Cette correction s'applique a
+ * TOUS les symboles et signalisations de la carte : Radar, Accident, Obstacle, Travaux, Animal,
+ * Danger, Embouteillage, Controle, tout autre symbole. >>
+ *
+ * ON BALAIE LES QUATORZE TYPES plutot que d'en citer trois : la regle est universelle, et un
+ * type oublie serait exactement le defaut que le client a rapporte — un symbole qui ne disparait
+ * pas quand deux personnes disent qu'il n'est plus la. */
+const seuilsAutres = REPORT_KINDS.filter((k) => seuilDegagement(k) !== 2);
 verifier(
-  `les autres permanents en demandent ${ABSENT_VOTE_THRESHOLD}`,
-  seuilDegagement('radar') === ABSENT_VOTE_THRESHOLD &&
-    seuilDegagement('bump') === ABSENT_VOTE_THRESHOLD &&
-    seuilDegagement('pothole') === ABSENT_VOTE_THRESHOLD,
+  'les quatorze types demandent deux votes, sans exception',
+  seuilsAutres.length === 0,
+  seuilsAutres.length === 0
+    ? `${REPORT_KINDS.length} types eprouves`
+    : seuilsAutres.map((k) => `${k} -> ${seuilDegagement(k)}`).join(', '),
+);
+verifier(
+  `et le seuil general vaut bien ${ABSENT_VOTE_THRESHOLD}`,
+  ABSENT_VOTE_THRESHOLD === 2,
+  'il valait trois jusqu au correctif v2',
 );
 verifier(
   'le degagement est plus facile que la confirmation n\'est stricte',

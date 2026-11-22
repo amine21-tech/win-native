@@ -13,7 +13,14 @@
  * Usage, depuis la racine du depot :
  *   npx tsx apps/mobile/scripts/verifier-cycle-langue.ts
  */
-import { AU_REPOS, appuiLangue, CYCLE, libelleProchain, type EtatCycle } from '../src/i18n/cycleLangue';
+import {
+  AU_REPOS,
+  appuiLangue,
+  CYCLE,
+  ETIQUETTE_RETOUR,
+  libelleProchain,
+  type EtatCycle,
+} from '../src/i18n/cycleLangue';
 import { LANGUAGES, type Language } from '../src/shared/constants';
 
 let fautes = 0;
@@ -136,11 +143,36 @@ verifier(
   libelleProchain(premier.etat, 'dz') === 'Tamazight',
   libelleProchain(premier.etat, 'dz'),
 );
+/* LE CONTROLE QUI A CHANGE DE CAMP — point A du correctif v2.
+ *
+ * Il exigeait << FR >> ici. Le client a lu ce mot comme un bouton de francais ajoute dans une
+ * colonne qu'il reserve au darija et au tamazight, et c'est une lecture juste : le bouton
+ * n'annonce pas un etat, il annonce une destination, et aucune des trois langues de depart n'a
+ * sa place dans cette colonne. Le palier reste, le mot devient << Retour >>. */
 verifier(
-  'au palier tamazight, il annonce la langue de retour',
-  libelleProchain(second.etat, 'kab') === 'FR',
+  'au palier tamazight, il annonce le retour — et jamais << FR >>',
+  libelleProchain(second.etat, 'kab') === ETIQUETTE_RETOUR,
   libelleProchain(second.etat, 'kab'),
 );
+/* LA COLONNE GAUCHE EST RESERVEE A DEUX LANGUES : aucun sigle de langue ne doit pouvoir
+ * s'afficher sur ce bouton, depuis aucun depart et a aucun palier. On balaie les cinq departs
+ * et les trois paliers plutot que le seul cas vu sur le telephone. */
+for (const depart of LANGUAGES) {
+  let etat: EtatCycle = AU_REPOS;
+  let actuelle = depart;
+  const vus: string[] = [];
+  for (let n = 0; n < 3; n += 1) {
+    vus.push(libelleProchain(etat, actuelle));
+    const pas = appuiLangue(etat, actuelle);
+    etat = pas.etat;
+    actuelle = pas.langue;
+  }
+  verifier(
+    `depuis ${depart}, les trois paliers n annoncent que Derija, Tamazight ou Retour`,
+    vus.every((mot) => mot === 'Derija' || mot === 'Tamazight' || mot === ETIQUETTE_RETOUR),
+    vus.join(' > '),
+  );
+}
 /* Aucun libelle ne doit etre vide : un bouton muet au volant est un bouton casse. */
 for (const depart of LANGUAGES) {
   verifier(

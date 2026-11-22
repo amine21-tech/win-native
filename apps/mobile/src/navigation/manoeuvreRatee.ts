@@ -40,10 +40,20 @@ export const EST_SORTIE = new Set([17, 18, 19, 20, 21]);
 /**
  * Depassement au-dela duquel une manoeuvre est consideree comme ratee.
  *
- * VINGT METRES, valeur du 8 novembre. C'etait trente, et la regle ne valait que pour les
- * sorties (point 10B du 27 octobre).
+ * DIX METRES — point G du correctif v2 : << Declencheur : 10 m apres avoir depasse une sortie
+ * ou bifurcation ratee (et non 20 m). >> C'etait trente au 27 octobre et pour les sorties
+ * seulement, vingt au 8 novembre et pour tous les virages, dix aujourd'hui.
+ *
+ * POURQUOI DESCENDRE A DIX NE COUTE RIEN ICI, ALORS QUE DESCENDRE LE SEUIL D'ECART LATERAL A
+ * DIX SERAIT DANGEREUX. Ce ne sont pas deux reglages comparables. Dix metres d'ECART LATERAL
+ * sont dans le bruit du GPS — un telephone qui saute d'un trottoir a l'autre les franchit a
+ * l'arret. Dix metres de DEPASSEMENT LE LONG DU TRACE, eux, ne se mesurent qu'en avancant, et
+ * la seconde condition de cette fonction tient toujours : il faut etre AUSSI hors du trace,
+ * au-dela de la tolerance liee a la vitesse. On n'a donc pas affaibli la regle, on a seulement
+ * cesse d'attendre dix metres de plus avant de l'appliquer — un tiers de seconde a 110 km/h,
+ * et c'est exactement ce que le client vient chercher.
  */
-export const MANOEUVRE_RATEE_M = 20;
+export const MANOEUVRE_RATEE_M = 10;
 
 export type Depassement = {
   /** Type Valhalla de la manoeuvre qu'on vient de depasser. */

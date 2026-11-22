@@ -15,15 +15,30 @@ import type { Language } from '../shared';
 import type { Palette } from '../theme';
 
 /**
- * Le cote du bouton, en points — 44, la valeur du document du 22 novembre.
+ * Le cote du bouton, en points — 52 depuis le correctif v2, et c'est LE MOT QUI LES RECLAME.
  *
- * IL ETAIT A 36 LA VEILLE, ET C'ETAIT UNE ERREUR DE LECTURE DE MA PART. Le 21 novembre, le
- * << 44dp -> 36dp >> du document ne visait pas ce bouton-la mais le bouton d'ALERTE, qui
- * debordait sur le cadre vert. Le document du 22 le dit sans ambiguite : le bouton d'alerte
- * descend meme a 26, et le bouton de langue, lui, reste a 44. C'est coherent — l'un porte un
- * pictogramme, l'autre porte un mot de neuf lettres.
+ * SON HISTOIRE EN TROIS LIGNES. 36 le 21 novembre, par une erreur de lecture de ma part : le
+ * << 44dp -> 36dp >> de ce document-la ne visait pas ce bouton mais celui d'ALERTE, qui
+ * debordait sur le cadre vert. 44 le 22 novembre, la valeur ecrite noir sur blanc. 52
+ * aujourd'hui, parce que le client a vu le mot se couper et que le point A autorise lui-meme ce
+ * reglage : << ou ajuster la largeur du bouton >>.
+ *
+ * L'ARITHMETIQUE, QUI EST AUSSI CELLE DU CONTROLE. << Tamazight >> fait neuf lettres ; une
+ * lettre de Roboto Bold mesure environ 0,56 fois la taille de la police. A huit points, le mot
+ * demande donc 40 points. Un bouton de 44 portant sa bordure epaisse (2,5 de chaque cote, le
+ * cas de l'audio coupe) n'en offre que 39 : il manquait un point et demi, et c'est ce point et
+ * demi qui renvoyait le << t >> a la ligne suivante. A 52, il en reste 47.
+ *
+ * REDUIRE ENCORE LA POLICE ETAIT L'AUTRE VOIE, ET ON L'A ECARTEE : a sept points le mot tenait
+ * dans 44, mais le reproche du client est justement que le bouton est << illisible en
+ * conduite >>. On ne repond pas a un probleme de lisibilite en rapetissant le texte.
+ *
+ * CE QUE CES HUIT POINTS NE TOUCHENT PAS. La colonne reste large de 58 — c'est le compteur de
+ * vitesse qui la fixe, et 52 passe dessous. Sa hauteur totale passe de 258 a 266 points sur les
+ * 667 d'un ecran courant : il en reste 75 libres. Le controle des chevauchements refait les
+ * deux calculs a chaque execution, et mesure le mot dans le bouton.
  */
-const COTE = 44;
+const COTE = 52;
 
 /**
  * LES COULEURS D'IDENTITE DU BOUTON — point 1 du 22 novembre.
@@ -142,8 +157,23 @@ export const BoutonLangueNav = memo(function BoutonLangueNav({ colors }: Props) 
         },
       ]}
     >
+      {/* UNE SEULE LIGNE, ET TROIS GARDE-FOUS PLUTOT QU'UN — point A du correctif v2.
+       *
+       * << ACTUEL : le bouton affiche "Tamazigh" + "t" sur une 2e ligne -> illisible en
+       * conduite. CORRECTION : afficher "Tamazight" sur UNE SEULE ligne. >>
+       *
+       * `numberOfLines={1}` interdit le repli, `adjustsFontSizeToFit` reduit le mot au lieu de
+       * le couper si la place manque quand meme, et `allowFontScaling={false}` est le garde-fou
+       * QUI EXPLIQUE CE QU'ON A VU. A huit points le mot tient dans les quarante-et-un points
+       * utiles du bouton ; mais un telephone regle sur une grande police multiplie la taille
+       * par 1,15 ou 1,3, et le calcul tombe. C'est un bouton de taille FIXE : la police ne peut
+       * pas grandir sans le casser, et le mot doit rester lisible pour tout le monde — ce que
+       * deux lignes coupees ne font pour personne. */}
       <Text
-        numberOfLines={2}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+        allowFontScaling={false}
         style={[styles.libelle, { color: voixActive ? identite.texte : colors.danger }]}
       >
         {libelleProchain(cycle.current, actuelle)}
@@ -165,9 +195,14 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
-  /* 9 points, la taille du document (<< android:textSize="9sp" >>), et c'est la largeur qui
-   * l'impose : << Tamazight >> fait neuf lettres pour 44 points de cote. A 14 points le mot
-   * se serait coupe ; a 9 il tient sur une ligne, et le repli sur deux reste disponible pour
-   * les langues plus longues qu'on ajouterait un jour. */
-  libelle: { fontSize: 9, lineHeight: 11, fontWeight: '800', textAlign: 'center' },
+  /* HUIT POINTS, ET C'EST UNE MESURE, PAS UN GOUT — point A du correctif v2.
+   *
+   * On etait a 9, la taille que le document du 22 novembre ecrivait (<< android:textSize="9sp"
+   * >>), et le client a vu le mot coupe : en gras, une lettre de Roboto fait environ 0,56 fois
+   * la taille de la police, donc << Tamazight >> — neuf lettres — demande 45 points quand le
+   * bouton de 44 en offre 41 entre ses bordures. A huit, le mot demande 40 points : il passe.
+   *
+   * Le document autorise cet ecart lui-meme (<< reduire legerement la taille de police si
+   * necessaire, ex. 10sp -> 8sp >>) et il arrive a la meme valeur par le meme raisonnement. */
+  libelle: { fontSize: 8, lineHeight: 10, fontWeight: '800', textAlign: 'center' },
 });

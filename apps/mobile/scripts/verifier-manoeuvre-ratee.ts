@@ -53,7 +53,7 @@ verifier(
   'un rond-point eloigne du point de manoeuvre sans jamais quitter le trace',
 );
 
-console.log('\nLE VIRAGE MANQUE DECLENCHE, AU-DELA DE 20 m ET HORS DU TRACE');
+console.log(`\nLE VIRAGE MANQUE DECLENCHE, AU-DELA DE ${MANOEUVRE_RATEE_M} m ET HORS DU TRACE`);
 verifier(
   `a ${MANOEUVRE_RATEE_M + 1} m du point, 45 m hors du trace`,
   manoeuvreRatee({ type: 10, depassementM: 21, ecartM: 45, toleranceM: TOLERANCE }),
@@ -69,16 +69,36 @@ verifier(
   'a 110 km/h la tolerance descend a 20 m',
 );
 
-console.log('\nLE SEUIL EST BIEN A 20 m, PAS A 30');
+/* LE SEUIL A TROIS AGES, ET LE CONTROLE SUIT LE DERNIER. Trente metres au 27 octobre, pour les
+ * sorties seulement. Vingt au 8 novembre, pour tous les virages. Dix depuis le point G du
+ * correctif v2 : << Declencheur : 10 m apres avoir depasse une sortie ou bifurcation ratee (et
+ * non 20 m). >> Les deux bornes se lisent depuis la constante, pour que le jour ou elle bouge
+ * encore, ce soit la constante qu'on change et non quatre nombres ecrits a la main. */
+console.log(`\nLE SEUIL EST BIEN A ${MANOEUVRE_RATEE_M} m, ET IL S EPROUVE DES DEUX COTES`);
 verifier(
-  '20 m pile : pas encore',
-  !manoeuvreRatee({ type: 10, depassementM: 20, ecartM: 60, toleranceM: TOLERANCE }),
-  'le document ecrit « > 20 », strictement',
+  `${MANOEUVRE_RATEE_M} m pile : pas encore`,
+  !manoeuvreRatee({
+    type: 10,
+    depassementM: MANOEUVRE_RATEE_M,
+    ecartM: 60,
+    toleranceM: TOLERANCE,
+  }),
+  'le document ecrit un depassement, strictement',
 );
 verifier(
-  '20,5 m : oui',
-  manoeuvreRatee({ type: 10, depassementM: 20.5, ecartM: 60, toleranceM: TOLERANCE }),
-  'il fallait 30 m jusqu au 8 novembre, et seulement pour les sorties',
+  `${MANOEUVRE_RATEE_M + 0.5} m : oui`,
+  manoeuvreRatee({
+    type: 10,
+    depassementM: MANOEUVRE_RATEE_M + 0.5,
+    ecartM: 60,
+    toleranceM: TOLERANCE,
+  }),
+  'trente metres au 27 octobre, vingt au 8 novembre, dix au correctif v2',
+);
+verifier(
+  'et le seuil vaut bien les dix metres du point G',
+  MANOEUVRE_RATEE_M === 10,
+  `${MANOEUVRE_RATEE_M} m`,
 );
 
 /* ------------------------------------------------------------------ */
@@ -123,8 +143,13 @@ verifier(
   'depassement negatif : on n a pas encore atteint le point',
 );
 verifier(
-  'hors du trace, 10 m apres le point',
-  !manoeuvreRatee({ type: 10, depassementM: 10, ecartM: 70, toleranceM: TOLERANCE }),
+  'hors du trace, mais a peine au-dela du point',
+  !manoeuvreRatee({
+    type: 10,
+    depassementM: MANOEUVRE_RATEE_M / 2,
+    ecartM: 70,
+    toleranceM: TOLERANCE,
+  }),
   'la deviation ordinaire s en charge, avec son delai de confirmation',
 );
 verifier(
@@ -153,7 +178,7 @@ verifier(
 
 console.log(
   fautes === 0
-    ? '\nLe virage manque est repere a 20 m, et le virage pris ne declenche rien.\n'
+    ? `\nLe virage manque est repere a ${MANOEUVRE_RATEE_M} m, et le virage pris ne declenche rien.\n`
     : `\nA CORRIGER : ${fautes} verification(s) en echec.\n`,
 );
 process.exit(fautes === 0 ? 0 : 1);

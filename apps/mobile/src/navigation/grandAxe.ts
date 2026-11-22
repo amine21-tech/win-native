@@ -75,15 +75,33 @@ export function surGrandAxe(surAutoroute: boolean, nomVoie: string | null | unde
  * demande est donc a l'ecran depuis le 79e correctif ; il n'avait simplement jamais servi a
  * autre chose qu'a etre affiche.
  *
- * ET QUAND ELLE EST INCONNUE, ON GARDE 500. C'est le defaut du document lui-meme
- * (`?: 90.0 km/h`), et c'est le bon sens de l'erreur : annoncer trop tot une manoeuvre sur une
- * route de campagne fait perdre un peu d'attention, l'annoncer trop tard fait rater la sortie.
- * `useSpeedLimit` ne devine jamais — pas de limite connue, pas de pastille — si bien que
- * `null` arrive reellement, et souvent.
+ * ET QUAND ELLE EST INCONNUE, ON APPLIQUE 50 — CORRECTION DU POINT E DU CORRECTIF v2, qui
+ * renverse ce qui etait ecrit ici le 22 novembre.
  *
- * CE QUI N'EST PAS TOUCHE : le clignotement lui-meme (son rythme, son opacite, les fleches qui
- * s'y synchronisent) et la condition de GRAND AXE. << uniquement le seuil de declenchement est
- * modifie, pas la logique de clignotement. >> Cette fonction ne rend qu'un nombre de metres.
+ *   << Cause : Valhalla retourne maxSpeed = -1 sur les segments non tagues -> le clignotement ne
+ *   se declenche pas. Fallback : si maxSpeed = -1 -> appliquer 50 m par defaut (agglomeration
+ *   supposee). Mieux vaut clignoter a 50 m sur une route nationale non taguee que ne pas
+ *   clignoter du tout. >>
+ *
+ * On avait choisi 500, et le raisonnement etait : annoncer trop tot fait perdre un peu
+ * d'attention, annoncer trop tard fait rater la sortie. Le client tranche dans l'autre sens, et
+ * ce qui fait pencher la balance est une mesure, pas une preference : CE CAS EST RARE CHEZ NOUS.
+ * `useSpeedLimit` interroge d'abord les tuiles Valhalla, et a defaut DEDUIT la limite de la
+ * classe de la route lue sur la carte (motorway 120, trunk et primary 100, tertiary 80,
+ * residential et minor 50...). Il ne rend donc `null` que dans deux situations : la carte n'est
+ * pas encore prete, ou le vehicule n'est sur aucune route reconnue. Dans les deux, << on ne sait
+ * pas ou l'on est >> — et 50 m est alors la valeur prudente, celle qui ne promet rien.
+ *
+ * (La ligne du 22 novembre qui disait ici que `useSpeedLimit` << ne devine jamais >> etait
+ * fausse : la deduction par classe de route existe depuis le 79e correctif. C'est elle qui rend
+ * ce renversement sans danger.)
+ *
+ * CE QUI N'EST PAS TOUCHE : le clignotement lui-meme — son rythme, son opacite, les fleches qui
+ * s'y synchronisent. << NE PAS MODIFIER la logique de clignotement existante. >> Cette fonction
+ * ne rend qu'un nombre de metres.
+ *
+ * LA CONDITION DE GRAND AXE, ELLE, A QUITTE LA GRANDE FLECHE au correctif v2 : voir
+ * PanneauDirection.tsx, qui porte la raison. Elle reste sur la rangee de voies.
  */
 
 /** Au-dessus de ce chiffre, on est hors agglomeration. Valeur du document. */
@@ -93,8 +111,11 @@ export const ANTICIPATION_AGGLO_M = 50;
 export const ANTICIPATION_RASE_M = 500;
 
 export function distanceAnticipation(limiteKmh: number | null | undefined): number {
+  /* LIMITE INCONNUE : 50 M, << AGGLOMERATION SUPPOSEE >> (point E du correctif v2). Un `null`,
+   * un `undefined`, un NaN et le `-1` que le document cite passent tous par ici — ce sont
+   * quatre facons de dire la meme chose, et aucune ne doit se lire comme une route rapide. */
   if (typeof limiteKmh !== 'number' || !Number.isFinite(limiteKmh) || limiteKmh <= 0) {
-    return ANTICIPATION_RASE_M;
+    return ANTICIPATION_AGGLO_M;
   }
   return limiteKmh <= LIMITE_AGGLO_KMH ? ANTICIPATION_AGGLO_M : ANTICIPATION_RASE_M;
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { FlecheManoeuvre } from './FlecheManoeuvre';
-import { distanceAnticipation, surGrandAxe } from '../navigation/grandAxe';
+import { distanceAnticipation } from '../navigation/grandAxe';
 import { localizedInstruction, roadRef } from '../navigation/instructions';
 import type { Maneuver } from '../navigation/routing';
 import { formatDistance, type Language } from '../shared';
@@ -70,8 +70,32 @@ const TAILLE_FLECHE = 80;
  * MEMES VALEURS QUE LA RANGEE : de 1,0 a 0,2 en 500 ms, aller-retour, sans fin. Deux objets
  * qui clignotent cote a cote a des rythmes differents se disputeraient le regard.
  *
- * ET SEULEMENT SUR GRAND AXE, comme la rangee : en ville, les manoeuvres s'enchainent a chaque
- * carrefour et une fleche qui clignote en permanence cesse d'alerter.
+ * ET PLUS SEULEMENT SUR GRAND AXE — POINT E DU CORRECTIF v2, ET C'EST LE BUG QU'IL DECRIT.
+ *
+ *   << Bug : pour certaines destinations la fleche clignote, pour d'autres non (meme route). >>
+ *   << Gauche, droite, tout droit, bifurcation — TOUTES les directions declenchent le
+ *   clignotement. >>
+ *
+ * LA CAUSE ETAIT ICI, ET ELLE EXPLIQUE EXACTEMENT CE QU'IL A VU. La condition de grand axe se
+ * decide sur deux choses : le drapeau `highway` de Valhalla, et le NOM de la voie de la
+ * manoeuvre. Sur une meme route, deux destinations differentes donnent deux manoeuvres
+ * differentes : l'une a << RN 12 >> dans son nom de voie, l'autre a un nom vide — la plupart des
+ * voies algeriennes n'etant pas nommees dans OpenStreetMap. La premiere clignotait, la seconde
+ * non. Meme route, meme conducteur, meme vitesse : le seul ecart etait un nom de rue manquant
+ * dans la base.
+ *
+ * ET LA RAISON QUI JUSTIFIAIT CE FILTRE A DISPARU D'ELLE-MEME. On ecrivait : << en ville, les
+ * manoeuvres s'enchainent a chaque carrefour et une fleche qui clignote en permanence cesse
+ * d'alerter >>. C'etait vrai quand le seuil valait 500 m partout. Depuis le point 6 du
+ * 22 novembre, le seuil en agglomeration est de 50 m : la fleche ne clignote plus qu'a cinquante
+ * metres du carrefour, c'est-a-dire a l'endroit et au moment ou elle designe le bon. Le filtre
+ * de grand axe ne protegeait donc plus de rien, et il cassait une destination sur deux.
+ *
+ * LA RANGEE DE VOIES, ELLE, GARDE SON FILTRE, et ce n'est pas un oubli. Le client a ecrit le
+ * 3 novembre, et n'est jamais revenu dessus : << elle NE s'active PAS sur les virages normaux en
+ * ville, les carrefours classiques, les ronds-points >>. Son point E demande que les deux
+ * fleches CLIGNOTENT, pas que la rangee de voies s'affiche partout — ce sont deux exigences
+ * differentes, et la seconde a deja sa reponse ecrite.
  */
 /**
  * CINQ CENTS METRES N'EST PLUS UNE CONSTANTE — point 6 du 22 novembre.
@@ -96,17 +120,18 @@ type Props = {
   ecartSuivanteM: number | null;
   lang: Language;
   arrived: boolean;
-  /** Nom de la voie en cours, pour reconnaitre une nationale. Voir grandAxe. */
-  nomVoie: string | null;
-  /** Valhalla marque l'autoroute et la voie rapide ; la nationale se lit au nom. */
-  surAutoroute: boolean;
   /**
    * Limite reglementaire du troncon en cours, en km/h — point 6 du 22 novembre.
    *
    * ELLE NE SERT PAS A L'AFFICHER ICI mais a savoir si l'on est EN VILLE : c'est le critere du
-   * document (<< maxspeed <= 50 km/h >>), et cette limite est la seule source de la
-   * reponse Valhalla qui le dise. `null` quand elle est inconnue — le seuil reste alors a
-   * cinq cents metres. Voir `distanceAnticipation`.
+   * document (<< maxspeed <= 50 km/h >>), et cette limite est la seule source de la reponse
+   * Valhalla qui le dise. `null` quand elle est inconnue — le seuil tombe alors a cinquante
+   * metres, << agglomeration supposee >> (point E du correctif v2). Voir `distanceAnticipation`.
+   *
+   * C'EST DESORMAIS LA SEULE CHOSE DONT LE CLIGNOTEMENT DEPEND. `nomVoie` et `surAutoroute`
+   * etaient ici pour la condition de grand axe ; elle a quitte cette fleche au correctif v2
+   * (voir l'en-tete), et ces deux proprietes avec elle. La rangee de voies les recoit toujours,
+   * directement de la manoeuvre.
    */
   limiteKmh?: number | null;
 };
@@ -118,8 +143,6 @@ export function PanneauDirection({
   ecartSuivanteM,
   lang,
   arrived,
-  nomVoie,
-  surAutoroute,
   limiteKmh,
 }: Props) {
   const { t } = useTranslation();
@@ -186,8 +209,7 @@ export function PanneauDirection({
    * condition de GRAND AXE est inchangee — en ville hors nationale, la fleche ne clignote
    * toujours pas du tout. */
   const seuilM = distanceAnticipation(limiteKmh);
-  const clignoter =
-    distanceM != null && distanceM <= seuilM && surGrandAxe(surAutoroute, nomVoie);
+  const clignoter = distanceM != null && distanceM <= seuilM;
 
   return (
     <View style={styles.bloc} pointerEvents="none">

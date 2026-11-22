@@ -239,13 +239,17 @@ export const NavigationOverlay = memo(function NavigationOverlay({
           ecartSuivanteM={ecartSuivanteM}
           lang={lang}
           arrived={arrived}
-          /* POUR LE CLIGNOTEMENT A 500 M : la fleche ne doit s'animer que sur autoroute et
-           * nationale — les memes conditions que la rangee de voies. */
-          nomVoie={nextManeuver?.streetName ?? null}
-          surAutoroute={nextManeuver?.surAutoroute ?? false}
           /* LE SEUIL DEPEND DE LA LIMITE REGLEMENTAIRE — point 6 du 22 novembre : 50 m en
-           * agglomeration, 500 m ailleurs. C'est le meme chiffre que la pastille rouge de la
-           * colonne de gauche affiche deja ; il ne servait qu'a etre lu. */
+           * agglomeration, 500 m ailleurs, 50 m aussi quand elle est inconnue (point E du
+           * correctif v2). C'est le meme chiffre que la pastille rouge de la colonne de gauche
+           * affiche deja ; il ne servait qu'a etre lu.
+           *
+           * ET C'EST TOUT CE QUE LA FLECHE RECOIT POUR SON CLIGNOTEMENT. Elle prenait aussi le
+           * nom de la voie et le drapeau d'autoroute, pour ne clignoter que sur grand axe : ce
+           * filtre faisait qu'une destination sur deux ne clignotait pas du tout, parce que la
+           * plupart des voies algeriennes n'ont pas de nom dans OpenStreetMap. Le point E du
+           * correctif v2 demande que TOUTES les directions clignotent ; la rangee de voies, elle,
+           * garde ses conditions du 3 novembre et les lit directement de la manoeuvre. */
           limiteKmh={limitKmh}
         />
 

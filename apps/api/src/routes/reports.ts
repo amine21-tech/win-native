@@ -84,7 +84,28 @@ const reportColumns = sql`
   r.created_at  AS "createdAt",
   r.expires_at  AS "expiresAt",
   (SELECT count(*)::int FROM report_votes v WHERE v.report_id = r.id AND v.vote = 'confirm') AS "confirmCount",
-  (SELECT count(*)::int FROM report_votes v WHERE v.report_id = r.id AND v.vote = 'absent')  AS "absentCount",
+  /* LES VOTES << DISPARU >> NE SONT COMPTES QUE DEPUIS LE DERNIER << TOUJOURS LA >> — point J
+   * du correctif v2 : << 1 vote "Toujours la" de n'importe quel utilisateur -> compteur remis a
+   * zero, symbole reste. >>
+   *
+   * ON NE SUPPRIME PAS LES LIGNES, ON DEPLACE LE POINT DE DEPART DU COMPTE, et la nuance porte
+   * tout. Effacer les votes << disparu >> remettrait bien le compteur a zero, mais rendrait
+   * aussi leur droit de vote a ceux qui l'avaient deja utilise : l'index unique ne les
+   * reconnaitrait plus, et deux personnes pourraient faire disparaitre un symbole a elles seules
+   * en alternant les deux votes. Ici l'historique reste entier et auditable, et un appareil
+   * garde un seul vote pour toujours.
+   *
+   * La date -infinity est le point de depart quand personne n a encore confirme : tous les
+   * << disparu >> comptent alors, ce qui est le cas ordinaire. */
+  (SELECT count(*)::int FROM report_votes v
+    WHERE v.report_id = r.id
+      AND v.vote = 'absent'
+      AND v.created_at > COALESCE(
+            (SELECT max(c.created_at) FROM report_votes c
+              WHERE c.report_id = r.id AND c.vote = 'confirm'),
+            '-infinity'::timestamptz
+          )
+  ) AS "absentCount",
   ${temoinsColumn} AS "temoins"
 `;
 
@@ -255,11 +276,14 @@ const routes: FastifyPluginAsync = async (app) => {
       const after = await loadReport(report.id);
       if (!after) throw notFound();
 
-      /* LE SEUIL DEPEND DU TYPE. Deux votes << plus la >> suffisent a reouvrir une route
-       * bloquee, contre trois pour les autres permanents (voir seuilDegagement) : un blocage
-       * confirme detourne chaque itineraire qui passait par la, et laisser fermee une route
-       * rendue a la circulation est plus grave que l'inverse — le conducteur detourne ne
-       * decouvre jamais son erreur. */
+      /* DEUX VOTES, POUR TOUS LES TYPES — point J du correctif v2.
+       *
+       * Le seuil dependait du type : deux pour une route bloquee, trois pour les autres
+       * permanents. Le client demande deux partout (<< Cette correction s'applique a TOUS les
+       * symboles et signalisations de la carte >>), et la raison qui valait pour la route barree
+       * vaut en fait pour tous : un symbole qui n'est plus la et qui reste affiche fait douter
+       * de tous les autres. `seuilDegagement` est conserve — il nomme l'intention, et il
+       * suffirait d'un chiffre a changer si un type devait un jour redevenir different. */
       const seuil = seuilDegagement(report.kind as ReportKind);
 
       if (after.absentCount >= seuil) {

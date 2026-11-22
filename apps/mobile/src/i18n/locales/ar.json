@@ -470,6 +470,8 @@
     "onFoot": "سيرًا",
     "fastest": "الأسرع",
     "alternative": "بديل",
+    "via": "عبر {{nom}}",
+    "viaAutoroute": "عبر {{nom}} · الطريق السيار",
     "sameDuration": "نفس المدة",
     "onTime": "وصلت في الوقت المتوقع.",
     "late": "{{minutes}} دقيقة أكثر من المتوقع.",
@@ -766,7 +768,7 @@
     },
     "formulaDetail": {
       "essentiel": "نطاق 50 كلم · إعلان عادي",
-      "standard": "نطاق 100 كلم · إبراز",
+      "standard": "كل الجزائر · إبراز",
       "premium": "كل الجزائر · في أعلى القائمة"
     },
     "duration": {

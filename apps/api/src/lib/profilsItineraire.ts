@@ -84,42 +84,52 @@ const CARROSSABLE = {
 export function optionsAuto(profil: ProfilItineraire) {
   switch (profil) {
     /**
-     * LE PLUS COURT — le nouveau defaut, et le correctif du detour de l'aeroport.
-     *
-     * `shortest: true` classe les itineraires par DISTANCE et non par duree. C'est la ligne qui
-     * repare le trajet decrit par le client : a 2 km de l'aeroport, la route la plus rapide
-     * passait par l'autoroute et faisait 10 km ; la plus courte fait 2 km par les secondaires.
+     * LE PLUS COURT — le defaut, et le correctif du detour de l'aeroport.
      *
      * `use_highways: 0.5` n'est pas un compromis mou, c'est le sens meme du choix : << autoroutes
      * OK si vraiment plus courtes >>. A 1 le moteur va la chercher ; a 0 il la fuit meme quand
-     * elle est le chemin direct. A 0,5 il la prend si elle est sur le trajet.
+     * elle est le chemin direct. A 0,5 il la prend si elle est sur le trajet. C'est la valeur
+     * que le client ecrit deux fois, le 21 novembre puis dans le point G du correctif v2, et
+     * c'est elle qui repare son trajet de l'aeroport d'Alger — 10 km annonces pour 2 km reels.
+     *
+     * `shortest: false` — ET C'EST UN CHANGEMENT, APRES AVOIR ETE A `true`.
+     *
+     * Le point G du correctif v2 l'ecrit noir sur blanc, avec son commentaire : << "shortest":
+     * false // false=plus rapide, true=plus court en km >>, et sa regle : << Priorite = temps
+     * reel le plus court - Meme logique que Waze et Google Maps. >>
+     *
+     * IL A RAISON, ET POUR UNE RAISON QUI N'EST PAS CELLE QU'IL DONNE. La documentation de
+     * Valhalla dit de `shortest: true` : << this will disable all other costings & penalties >>.
+     * Donc, tant qu'il etait a `true`, TOUT le reste de ce profil ne servait a rien — y compris
+     * `use_tracks: 0.1` et les penalites de desserte, c'est-a-dire precisement les garde-fous
+     * << routes carrossables uniquement >> que le meme point G redemande trois lignes plus haut.
+     * On ne pouvait pas avoir les deux : classer par distance pure, c'est accepter qu'une piste
+     * de terre serve de raccourci. `shortest: false` rend leur effet aux quatre reglages, et
+     * `use_highways: 0.5` suffit a ecarter le detour autoroutier — ce qui etait le probleme a
+     * resoudre.
+     *
+     * CE QU'ON PERD, ET IL FAUT LE SAVOIR : le classement se fait de nouveau par DUREE. Si
+     * Valhalla estime un detour d'autoroute plus rapide malgre `use_highways: 0.5`, il le
+     * proposera. C'est le choix du client, ecrit par lui, et c'est aussi ce que font Waze et
+     * Google Maps.
      */
     case 'court':
-      return { ...SANS_FERRY, ...CARROSSABLE, shortest: true, use_highways: 0.5, use_tolls: 0.5 };
+      return { ...SANS_FERRY, ...CARROSSABLE, shortest: false, use_highways: 0.5, use_tolls: 0.5 };
 
-    /* CE QUE `shortest: true` FAIT AUX AUTRES REGLAGES, ET C'EST A SAVOIR AVANT D'Y TOUCHER.
+    /* CE QUE `shortest: true` FAISAIT AUX AUTRES REGLAGES, GARDE ICI PARCE QUE C'EST LA RAISON
+     * DU CHANGEMENT, ET PARCE QUE LE JOUR OU QUELQU'UN VOUDRA LE REMETTRE IL DOIT LE LIRE.
      *
-     * La documentation de Valhalla est explicite sur cette option : << Note, this will disable
-     * all other costings & penalties >>, et plus bas << will solely use distance as cost and
-     * disregard all other costs, penalties and factors >>.
+     * << Note, this will disable all other costings & penalties >>, et plus bas << will solely
+     * use distance as cost and disregard all other costs, penalties and factors >>. Tant que le
+     * profil par defaut etait a `true`, `use_highways`, `use_tolls`, `use_tracks` et les deux
+     * penalites de desserte n'avaient donc AUCUN effet : une allee de ferme goudronnee pouvait
+     * servir de raccourci. Seul `exclude_unpaved` avait des chances de survivre, parce que ce
+     * n'est pas un cout mais une autorisation (<< not allowed to have them in the middle of the
+     * route path >>).
      *
-     * Donc, dans CE profil et dans celui-la seulement :
-     *   - `use_highways: 0.5` et `use_tolls: 0.5` sont tres probablement IGNORES. Ils restent
-     *     ecrits parce que le document les nomme, et parce qu'ils redeviendraient actifs si
-     *     `shortest` partait un jour — mais il ne faut pas compter sur eux ici. Ce n'est pas
-     *     grave : a distance egale, le plus court passe de toute facon par l'autoroute quand
-     *     elle est le chemin direct, ce qui est exactement l'intention du client.
-     *   - `use_tracks` et les penalites de desserte sont IGNORES eux aussi. Une voie de
-     *     desserte goudronnee peut donc servir de raccourci dans ce profil.
-     *   - `exclude_unpaved` n'est PAS un cout mais une AUTORISATION (<< not allowed to have them
-     *     in the middle of the route path >>), et devrait donc survivre. La documentation ne le
-     *     dit pas noir sur blanc : c'est la seule incertitude de ce fichier, et elle se mesure
-     *     sur le moteur en service plutot que de se deviner ici.
-     *
-     * POURQUOI ON GARDE QUAND MEME `shortest`. Le client le demande par ecrit, et c'est la ligne
-     * qui repare le trajet de l'aeroport : `use_highways: 0.5` seul classerait encore par DUREE,
-     * et la route de 10 km par l'autoroute resterait la plus rapide. Sans `shortest`, le defaut
-     * ne corrige pas ce qu'il est cense corriger. */
+     * C'est pour cela que le point G du correctif v2 est coherent avec lui-meme en demandant
+     * `shortest: false` ET << routes carrossables uniquement >> : les deux ne peuvent pas etre
+     * vrais en meme temps. */
 
     /** AVEC AUTOROUTE — le plus rapide, inchange par rapport a ce que faisait le bouton. */
     case 'autoroute':

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Easing, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { egsaForAirport, isAirport, isTrainStation, SNTF_URL } from '../reports/transport';
 import type { Route, RouteMode } from '../navigation/routing';
 import type { GeocodedResult } from '../search/geocode';
@@ -782,6 +782,26 @@ function usePhotoSelection(gallery: string[], wikiPhoto: string | null): [string
   return [selected ?? gallery[0] ?? wikiPhoto, setSelected];
 }
 
+/**
+ * LE FLASH CONTINU DU LIEN OFFICIEL — point F du correctif v2.
+ *
+ *   << Le lien SNTF / Aeroport en bas de fiche est statique -> peu visible quand l'utilisateur
+ *   defile. Les utilisateurs ratent ce lien vers le site officiel alors qu'ils cherchent des
+ *   horaires. [...] Amplitude douce : opacite 100% -> 40% -> 100% sur ~1,5 secondes en boucle.
+ *   Le flash doit etre visible pendant toute la consultation de la fiche. >>
+ *
+ * LES DEUX VALEURS SONT CELLES DE SON XML : `android:duration="750"` avec
+ * `repeatMode="reverse"` et `repeatCount="infinite"`, de 1,0 a 0,4 — soit 1,5 seconde par
+ * aller-retour, exactement ce que sa phrase annonce.
+ *
+ * POURQUOI CE RYTHME N'EST PAS CELUI DE LA FLECHE DE NAVIGATION (500 ms, 1,0 a 0,2), ET
+ * POURQUOI C'EST BIEN. Ce ne sont pas deux clignotements qui se font face : l'un est une ALERTE
+ * au volant, qui doit attraper le regard en moins d'une seconde ; celui-ci est une INVITATION
+ * sur une fiche qu'on lit a l'arret. Un battement rapide et profond y serait du harcelement.
+ */
+const FLASH_MS = 750;
+const FLASH_MIN = 0.4;
+
 /** Carte de lien externe (horaires vols/trains) — v83 ne fait, lui non plus, que renvoyer vers le site officiel. */
 function TransportLink({
   emoji,
@@ -796,17 +816,51 @@ function TransportLink({
   url: string;
   colors: Palette;
 }) {
+  /* UN `useRef` ET NON UN `useState` : la valeur animee ne doit pas provoquer de rendu — c'est
+   * le pilote natif qui la lit. Et les deux hooks sont au tout debut du composant, avant tout
+   * retour conditionnel : c'est la regle qui a coute un ecran noir le 20 novembre. */
+  const flash = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const boucle = Animated.loop(
+      Animated.sequence([
+        Animated.timing(flash, {
+          toValue: FLASH_MIN,
+          duration: FLASH_MS,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(flash, {
+          toValue: 1,
+          duration: FLASH_MS,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    boucle.start();
+    /* << pas de duree limite >> : la boucle ne s'arrete qu'au demontage de la fiche. Sans ce
+     * nettoyage, une animation continuerait a tourner sur un composant disparu. */
+    return () => boucle.stop();
+  }, [flash]);
+
   return (
     <Pressable
       onPress={() => void Linking.openURL(url)}
       style={({ pressed }) => [styles.transportLink, { backgroundColor: '#DBE8FB', opacity: pressed ? 0.85 : 1 }]}
     >
-      <Text style={{ fontSize: 20 }}>{emoji}</Text>
-      <View style={{ flex: 1 }}>
-        <Text style={[typography.caption, { color: '#1C3F70', fontWeight: '700' as const }]}>{title}</Text>
-        <Text style={[typography.caption, { color: '#2A5EA8' }]}>{sub}</Text>
-      </View>
-      <Text style={{ color: '#2A5EA8', fontWeight: '800' as const }}>↗</Text>
+      {/* L'OPACITE EST POSEE SUR LE CONTENU, PAS SUR LA CARTE. Le `Pressable` calcule deja la
+          sienne a l'appui (`pressed ? 0.85 : 1`) : deux opacites sur le meme noeud se
+          disputeraient, et le creux du flash avalerait le retour tactile de l'appui. Le fond
+          bleu de la carte, lui, reste franc — c'est le texte et la fleche qui respirent. */}
+      <Animated.View style={[styles.transportContenu, { opacity: flash }]}>
+        <Text style={{ fontSize: 20 }}>{emoji}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[typography.caption, { color: '#1C3F70', fontWeight: '700' as const }]}>{title}</Text>
+          <Text style={[typography.caption, { color: '#2A5EA8' }]}>{sub}</Text>
+        </View>
+        <Text style={{ color: '#2A5EA8', fontWeight: '800' as const }}>↗</Text>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -935,6 +989,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     marginTop: spacing.xs,
   },
+  /* La rangee a demenage d'un cran : c'est `transportContenu` qui porte maintenant la mise en
+   * ligne, parce que c'est lui qui clignote. La carte garde son fond, sa bordure et sa marge. */
+  transportContenu: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   transportLink: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -470,6 +470,8 @@
     "onFoot": "Walking",
     "fastest": "Fastest",
     "alternative": "Alternative",
+    "via": "Via {{nom}}",
+    "viaAutoroute": "Via {{nom}} · Motorway",
     "sameDuration": "Same duration",
     "onTime": "Arrived on the announced time.",
     "late": "{{minutes}} min longer than expected.",
@@ -766,7 +768,7 @@
     },
     "formulaDetail": {
       "essentiel": "50 km radius · Standard listing",
-      "standard": "100 km radius · Highlighted",
+      "standard": "All of Algeria · Featured",
       "premium": "All of Algeria · Top of the list"
     },
     "duration": {
