@@ -7,7 +7,6 @@ import {
   type CameraRef,
   type MapRef,
 } from '@maplibre/maplibre-react-native';
-import type { FilterSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useKeepAwake } from 'expo-keep-awake';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -164,11 +163,6 @@ const HEADER_HEIGHT = 102;
  *
  * LA NUIT NE SUIT PAS. Un vert fonce sur un fond sombre disparait, et c'est precisement ce que
  * le client avait signale avant — ses maquettes sont dessinees de jour. Le turquoise reste. */
-/* Le type du filtre d'une couche vient de la specification de style de MapLibre, que le paquet
- * React Native reexpedie telle quelle. L'ecrire a la main — un tableau d'expressions — serait
- * recopier une grammaire entiere pour une seule ligne. */
-type FiltreCouche = FilterSpecification;
-
 const ROUTE_COLORS = {
   day: { main: '#0D6E4F', casing: '#063B2A', halo: '#FFFFFF', alt: '#9AA89F', parcouru: '#B4E6D2' },
   night: { main: '#2EE6A6', casing: '#0B6B4E', halo: '#06251C', alt: '#5B6B63', parcouru: '#1B4D3E' },
@@ -491,11 +485,31 @@ const NAV_PUCK_SIZE = 40;
 const LOT_PROJECTION = 8;
 
 /**
- * Distance, en metres, parcourue APRES un signalement avant que son icone ne s'efface.
+ * PLUS RIEN NE S'EFFACE AU PASSAGE — point 3 du 24 novembre.
  *
- * Vingt metres : valeur du document du 11 novembre (C6). Voir `filtreNonDepasse`.
+ * Il y avait ici une constante, `DEPASSEMENT_EFFACEMENT_M = 20`, et un filtre de couche qui
+ * retirait de la carte tout signalement depasse de plus de vingt metres. C'etait le point C6
+ * du 11 novembre, mot pour mot : << l'icone disparait 20 m APRES le passage du conducteur >>.
+ *
+ * LE CLIENT EST REVENU SUR CETTE CONSIGNE LE 24 NOVEMBRE, apres l'avoir vue au volant. Ce
+ * qu'il a constate : << tous les symboles concernant les signalisations ont disparu sur la
+ * route >>. Il croyait a une regression, et c'etait sa propre regle qui s'appliquait — chaque
+ * symbole croise pendant un trajet guide s'effacait derriere lui, de sorte qu'au bout de
+ * vingt kilometres la carte n'en portait plus aucun.
+ *
+ * ET SA REGLE D'AUJOURD'HUI NE PEUT PAS COHABITER AVEC CELLE-LA : << au bout de deux
+ * notifications, si on choisit "disparu" par deux utilisateurs differents, le symbole
+ * disparait >>. Un symbole a donc UNE SEULE facon de quitter la carte — deux conducteurs qui
+ * disent qu'il n'est plus la — plus l'expiration des types temporaires, qui vient du serveur.
+ * Avoir conduit devant n'en est plus une.
+ *
+ * CE QUE CELA CHANGE A L'ECRAN, ET QUI EST DEFENDABLE : on voit desormais derriere soi ce
+ * qu'on vient de croiser. La carte montre une REGION, pas seulement la route devant ; et un
+ * conducteur qui regarde en arriere pour verifier ce qu'il a vu le trouve encore la.
+ *
+ * (`positionsSurTrace` reste, et sert toujours : c'est elle qui dit << bouchon dans 300 m >>
+ * et qui declenche le recalcul sur blocage. Elle ne commande simplement plus l'affichage.)
  */
-const DEPASSEMENT_EFFACEMENT_M = 20;
 
 /** Colonne de boutons : nombre de boutons, et place occupee en haut par le bandeau de marque,
  * la barre de recherche et la rangee de categories. Sert a calculer une taille de bouton qui
@@ -1085,32 +1099,6 @@ export default function MapScreen() {
   );
 
   /**
-   * FILTRE DES COUCHES DE SIGNALEMENT : on garde ce qui est encore devant nous.
-   *
-   * MARGE DE VINGT METRES derriere le vehicule — valeur du document du 11 novembre (C6) :
-   * << l'icone disparait 20 m APRES le passage du conducteur >>. Elle etait de quarante.
-   *
-   * ELLE N'EST PAS DECORATIVE, et c'est pourquoi elle ne descend pas a zero. Le calage sur la
-   * route a une precision de l'ordre de la dizaine de metres ; un signalement efface a
-   * l'instant exact ou l'on arrive dessus disparaitrait sous les yeux du conducteur au moment
-   * ou il le cherche. Vingt metres, c'est le temps qu'il soit reellement derriere le
-   * pare-brise.
-   *
-   * HORS NAVIGATION, RIEN N'EST EFFACE. Tous les points portent alors -1, et c'est la
-   * premiere branche du filtre — l'egalite explicite a -1 — qui les garde. Se fier a la
-   * comparaison numerique seule ne marcherait pas : des que l'avance depasse trente-neuf
-   * metres, -1 devient inferieur au seuil et TOUS les signalements disparaitraient.
-   */
-  const filtreNonDepasse = useMemo<FiltreCouche>(
-    () => [
-      'any',
-      ['==', ['get', 'surTraceM'], -1],
-      ['>', ['get', 'surTraceM'], avanceSurTraceM - DEPASSEMENT_EFFACEMENT_M],
-    ],
-    [avanceSurTraceM],
-  );
-
-  /**
    * LE SIGNALEMENT A VENIR LE PLUS PROCHE, DANS LES 500 METRES — point 6 du 9 novembre.
    *
    * << Alerte dans la barre d'info (ex : 'Bouchon dans 300m') lorsqu'on est a moins de 500m. >>
@@ -1167,15 +1155,17 @@ ${t(`report.badge_${report.kind}`)}`,
            * courante : un signalement cesse de pulser au bout de dix minutes sans qu'on
            * reconstruise cette liste. Voir PulseSignalements. */
           creeA: Date.parse(report.createdAt) || 0,
-          /* SA POSITION SUR LE TRACE, en metres depuis le depart — ou -1 quand il n'est pas sur
-           * notre route, ou qu'on ne navigue pas. Le filtre des couches s'en sert pour effacer
-           * ce qu'on a depasse ; -1 n'est jamais efface, puisqu'il n'est pas sur le trajet. */
-          surTraceM: positionsSurTrace?.get(report.id)?.distanceDepuisDepart ?? -1,
+          /* LA POSITION SUR LE TRACE A QUITTE CETTE LISTE — point 3 du 24 novembre. Elle ne
+           * servait qu'au filtre d'effacement, qui n'existe plus ; et elle y coutait cher. Elle
+           * changeait a chaque releve GPS, ce qui remettait `positionsSurTrace` dans les
+           * dependances de ce calcul : la liste entiere des marqueurs se reconstruisait donc
+           * une fois par seconde en roulant. Elle ne se reconstruit plus que quand les
+           * signalements changent vraiment. */
         },
         geometry: { type: 'Point', coordinates: [report.lon, report.lat] },
       })),
     }),
-    [liveReports, nuit, t, positionsSurTrace],
+    [liveReports, nuit, t],
   );
 
   /** Marqueur de destination : celle choisie dans la fiche du lieu, ou celle en cours
@@ -2761,9 +2751,10 @@ ${t(`report.badge_${report.kind}`)}`,
               un emoji, et un emoji ne se compose pas ici — la police servie avec les tuiles
               n'en contient aucun, c'est la lecon du 31 octobre. Il est donc dessine a l'avance :
               voir scripts/make-report-markers.py. */}
+          {/* AUCUN FILTRE : un symbole reste affiche tant que deux conducteurs n'ont pas dit
+              qu'il n'est plus la (point 3 du 24 novembre). Voir la note en tete de fichier. */}
           <Layer
             id="reports-marker"
-            filter={filtreNonDepasse}
             type="symbol"
             source="reports"
             layout={{
@@ -2784,7 +2775,6 @@ ${t(`report.badge_${report.kind}`)}`,
               l'autre. Le marqueur, lui, reste. */}
           <Layer
             id="reports-label"
-            filter={filtreNonDepasse}
             type="symbol"
             source="reports"
             layout={{

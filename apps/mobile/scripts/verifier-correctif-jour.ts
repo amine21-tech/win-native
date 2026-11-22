@@ -36,6 +36,16 @@ const pastille = lire('apps/mobile/src/components/RecalcToast.tsx');
 /* La regle de duree a quitte le composant : elle est eprouvee a part. */
 const regle = lire('apps/mobile/src/components/pastilleRecalcul.ts');
 const ecran = lire('apps/mobile/app/index.tsx');
+/**
+ * L'ECRAN SANS SES COMMENTAIRES.
+ *
+ * Un correctif qui retire une regle EXPLIQUE ce qu'il a retire, sinon la regle revient six
+ * mois plus tard. L'ecran cite donc nommement la constante et le filtre d'effacement que le
+ * point 3 du 24 novembre a supprimes — et un controle qui cherche leur nom dans le fichier
+ * entier trouve la citation et conclut que rien n'a change. Ce qu'on eprouve est ce qui
+ * S'EXECUTE.
+ */
+const codeEcran = ecran.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
 const voies = lire('apps/mobile/src/components/LaneGuidance.tsx');
 const menu = lire('apps/mobile/src/components/ReportMenu.tsx');
 
@@ -263,17 +273,31 @@ verifier(
   'NavigationOverlay pose le compteur a la meme marge',
 );
 /* ------------------------------------------------------------------ */
-console.log("\nC6 — L ICONE DISPARAIT 20 m APRES LE PASSAGE");
+console.log("\nC6 — L ICONE NE DISPARAIT PLUS AU PASSAGE (renverse le 24 novembre)");
 
+/* CE CHAPITRE EXIGEAIT L'INVERSE JUSQU'AU 24 NOVEMBRE, et le document du 11 le disait mot pour
+ * mot : << l'icone disparait 20 m APRES le passage du conducteur >>. Le client est revenu
+ * dessus apres l'avoir vue au volant — il a signale que << tous les symboles ont disparu sur
+ * la route >>, croyant a une regression, alors que c'etait sa propre regle qui s'appliquait.
+ *
+ * SA REGLE D'AUJOURD'HUI EST EXCLUSIVE : un symbole quitte la carte sur deux votes << disparu >>
+ * de deux conducteurs differents, et autrement non. On verifie donc que l'effacement au
+ * passage a bien disparu — y compris de la liste des marqueurs, ou la position sur le trace
+ * n'a plus de raison d'etre. */
 verifier(
-  'le seuil est de 20 metres',
-  /DEPASSEMENT_EFFACEMENT_M = 20/.test(ecran),
-  'il etait de quarante',
+  'plus aucun effacement au passage',
+  !/DEPASSEMENT_EFFACEMENT_M = \d/.test(codeEcran) && !/filtreNonDepasse/.test(codeEcran),
+  'deux votes << disparu >> sont le seul moyen de retirer un symbole',
 );
 verifier(
-  'le filtre se sert de cette constante',
-  /avanceSurTraceM - DEPASSEMENT_EFFACEMENT_M/.test(ecran),
-  'une valeur en dur ici et une constante la-bas finiraient par diverger',
+  'et la position sur le trace ne commande plus l affichage',
+  !/surTraceM:/.test(codeEcran),
+  'elle remettait la liste des marqueurs a plat une fois par seconde en roulant',
+);
+verifier(
+  'mais elle sert toujours a annoncer ce qui vient',
+  /positionsSurTrace/.test(ecran),
+  '<< bouchon dans 300 m >>, et le recalcul sur blocage',
 );
 verifier(
   'le libelle sous le marqueur existe toujours',
@@ -370,9 +394,10 @@ verifier(
   '34 points, en 1x/2x/3x',
 );
 verifier(
-  'le marqueur garde le filtre des signalements depasses',
-  /id="reports-marker"[\s\S]{0,120}filter=\{filtreNonDepasse\}/.test(ecran),
-  "sans lui, l'icone ne disparaitrait plus 20 m apres le passage",
+  'le marqueur ne porte plus aucun filtre',
+  /id="reports-marker"[\s\S]{0,160}type="symbol"/.test(ecran) &&
+    !/id="reports-marker"[\s\S]{0,160}filter=/.test(ecran),
+  'un symbole reste jusqu aux deux votes << disparu >> (point 3 du 24 novembre)',
 );
 
 verifier(
