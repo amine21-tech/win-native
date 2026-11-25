@@ -142,13 +142,34 @@ export function distanceAnticipation(limiteKmh: number | null | undefined): numb
  * corrige pas ici : il venait d'un filtre de grand axe qui restait sur la rangee de voies.
  * Voir LaneGuidance.tsx.)
  *
- * L'ORDRE DES QUESTIONS N'EST PAS CELUI DU DOCUMENT, ET C'EST LE SEUL ECART. Son code pose
- * `maxSpeed in 1..50 || isUrban() -> 50` AVANT de regarder la classe de route : une autoroute
- * qui traverse une ville — l'A1 a Birtouta, la rocade sud d'Alger — clignoterait alors a
- * cinquante metres. A cent dix kilometres a l'heure, cinquante metres font une seconde et
- * demie : ni le temps de se rabattre, ni celui de lire la fleche. Et le document lui-meme
- * exige 500 m sur autoroute dans deux de ses sept cas d'essai, dont la sortie non taguee.
- * L'autoroute passe donc EN PREMIER ; pour tout le reste, l'ordre est le sien.
+ * ================================================================================
+ * L'ORDRE DES QUESTIONS EST CELUI DU DOCUMENT — RELANCE v3, 25 NOVEMBRE
+ * ================================================================================
+ *
+ *   << isUrban() = true -> 50 m IMMEDIATEMENT · Peu importe maxSpeed, peu importe roadClass. >>
+ *   << if (step.isUrban()) return 50.0 doit etre la PREMIERE ligne de getBlinkThreshold(). >>
+ *
+ * CET ORDRE EST DESORMAIS APPLIQUE A LA LETTRE, et il faut dire ce que cela change et ce que
+ * cela coute, parce que c'est un renversement.
+ *
+ * L'AUTOROUTE PASSAIT EN PREMIER JUSQU'ICI, ET LA RAISON ETAIT CELLE-CI : une autoroute qui
+ * traverse une ville — l'A1 a Birtouta, la rocade sud d'Alger — clignote maintenant a cinquante
+ * metres. A cent dix kilometres a l'heure, cinquante metres font une seconde et demie : ni le
+ * temps de se rabattre, ni celui de lire la fleche. Cet ecart avait ete pose volontairement, et
+ * il avait ete SIGNALE au client comme un ecart.
+ *
+ * LE CLIENT A TRANCHE, ET SA DECISION EST APPLIQUEE. Il a renvoye la regle mot pour mot apres
+ * qu'elle lui a ete signalee : l'agglomeration passe donc avant tout le reste. Le cas qui le
+ * motive — une nationale taguee 100 km/h au milieu d'une ville, devant six carrefours — est
+ * celui qu'il rencontre REELLEMENT a chaque essai, deux documents de suite ; l'autoroute
+ * urbaine, lui, est un cas que nous avons imagine et qu'il n'a pas rapporte. Entre une gene
+ * supposee et un defaut constate, on corrige le defaut constate.
+ *
+ * CE QUI PROTEGE L'AUTOROUTE, DESORMAIS, C'EST LA DETECTION ELLE-MEME : une autoroute en rase
+ * campagne ne porte ni rue nommee, ni commerce, ni bati a cent cinquante metres, donc
+ * `agglomeration` y est faux et la question 1 ne se declenche pas. Ce qui veut dire que la
+ * JUSTESSE de agglomeration.ts porte maintenant tout le poids de cette regle — c'est pour cela
+ * que ce fichier-la exige trois preuves, et non une.
  *
  * Les sept cas de sa liste de controle sont rejoues dans scripts/verifier-fleches-synchro.ts.
  */
@@ -186,25 +207,48 @@ export type TronconCourant = {
   surAutoroute?: boolean | null;
 };
 
+/**
+ * Classes de route qui valent la rase campagne SANS etre des voies rapides.
+ *
+ * `primary` est la classe d'OpenMapTiles pour la plupart des nationales algeriennes — celles
+ * que Valhalla ne marque pas. Le document du client lui donne sa propre ligne, apres
+ * l'autoroute : << primary -> 500 m >>.
+ */
+export const CLASSES_GRAND_AXE = ['primary'] as const;
+
+/** Cette classe de route est-elle celle d'une nationale, au sens des tuiles ? */
+export function estClassePrimaire(classeRoute: string | null | undefined): boolean {
+  if (!classeRoute) return false;
+  return (CLASSES_GRAND_AXE as readonly string[]).includes(classeRoute.toLowerCase());
+}
+
 /** A quelle distance de la manoeuvre les DEUX fleches commencent a clignoter, en metres. */
 export function seuilClignotementM(troncon: TronconCourant): number {
-  /* 1. AUTOROUTE ET VOIE RAPIDE : toujours 500 m, bati ou pas, limite taguee ou non. */
-  if (estVoieRapide(troncon.surAutoroute, troncon.classeRoute)) return ANTICIPATION_RASE_M;
+  /* 1. EN AGGLOMERATION : CINQUANTE METRES, IMMEDIATEMENT.
+   *
+   *    << isUrban() = true -> 50 m IMMEDIATEMENT · Peu importe maxSpeed, peu importe
+   *    roadClass >>. C'est la premiere ligne de la fonction parce que le document l'exige comme
+   *    la premiere ligne, et parce que c'est le seul ordre qui corrige le bug rapporte deux fois
+   *    de suite : une nationale taguee 100 km/h EN VILLE (RN 68 a Jijel, CW 158 a Azeffoun).
+   *    Voir la note en tete de fichier pour ce que ce choix coute sur l'autoroute urbaine. */
+  if (troncon.agglomeration === true) return ANTICIPATION_AGGLO_M;
 
   const limite = troncon.limiteKmh;
   const limiteConnue = typeof limite === 'number' && Number.isFinite(limite) && limite > 0;
 
-  /* 2. LIMITE DE VILLE : la limite se suffit a elle-meme quand elle est basse. */
-  if (limiteConnue && limite <= LIMITE_AGGLO_KMH) return ANTICIPATION_AGGLO_M;
+  /* 2. LIMITE AU-DESSUS DE CINQUANTE : on est dehors, et la limite le dit. */
+  if (limiteConnue && limite > LIMITE_AGGLO_KMH) return ANTICIPATION_RASE_M;
 
-  /* 3. DU BATI AUTOUR : on est en ville, quoi que dise la limite — c'est le bug 1. */
-  if (troncon.agglomeration === true) return ANTICIPATION_AGGLO_M;
+  /* 3. AUTOROUTE ET VOIE RAPIDE, meme sans limite taguee — c'est le bug 3, la sortie
+   *    d'autoroute sans `maxspeed` ou le repli prudent serait le pire des choix. */
+  if (estVoieRapide(troncon.surAutoroute, troncon.classeRoute)) return ANTICIPATION_RASE_M;
 
-  /* 4. HORS AGGLOMERATION CONFIRME PAR LA VITESSE. */
-  if (limiteConnue) return ANTICIPATION_RASE_M;
+  /* 4. NATIONALE, meme sans limite taguee : << primary -> 500 m >>. */
+  if (estClassePrimaire(troncon.classeRoute)) return ANTICIPATION_RASE_M;
 
-  /* 5. RIEN DE SUR : cinquante metres, << agglomeration supposee >> (point E du correctif v2).
-   *    Mieux vaut clignoter trop tard sur une route qu'on ne reconnait pas que promettre un
-   *    carrefour a cinq cents metres sans savoir lequel. */
+  /* 5. TOUT LE RESTE : cinquante metres. Cela couvre la limite de ville (50 km/h tague) et le
+   *    cas << rien de sur >>, << agglomeration supposee >> du point E du correctif v2. Mieux
+   *    vaut clignoter trop tard sur une route qu'on ne reconnait pas que promettre un carrefour
+   *    a cinq cents metres sans savoir lequel. */
   return ANTICIPATION_AGGLO_M;
 }

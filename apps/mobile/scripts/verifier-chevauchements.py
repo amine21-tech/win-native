@@ -190,13 +190,31 @@ verifier(
 )
 
 print('\nL ARITHMETIQUE DE LA COLONNE, REFAITE DEPUIS LES TAILLES REELLES')
+#
+# DEUX BOUTONS DE LANGUE DEPUIS LA RELANCE v3, ET NON PLUS UN. << Carre Tamazight EN DESSOUS de
+# Derija >> : le bouton qui tournait est devenu deux boutons nommes, donc la colonne porte une
+# hauteur de plus et un ecart de plus. C'est tout l'objet de ce calcul : il refait la somme
+# depuis les fichiers plutot que de la supposer.
 hauteurs = [
     ("pastille d'alerte", valeur_dans_style(alerte, 'reduit', 'height')),
     ('compteur de vitesse', valeur_dans_style(vitesse, 'badge', 'height')),
     ('limite reglementaire', valeur_dans_style(limite, 'badge', 'height')),
     ("vue d'ensemble", valeur_dans_style(overlay, 'overviewBtn', 'height')),
-    ('bouton de langue', constante(langue, 'COTE')),
+    ('bouton Derija', constante(langue, 'HAUTEUR')),
+    ('bouton Tamazight', constante(langue, 'HAUTEUR')),
 ]
+# LES LARGEUURS SE LISENT A PART, ET C'EST LE DEFAUT QUE LA RELANCE A REVELE. Ce controle
+# comparait la colonne a `max(hauteurs)` pour savoir ou commencer le message d'echec : c'etait
+# juste tant que tout etait carre, et faux des que les boutons de langue ont cesse de l'etre.
+largeurs = [
+    ("pastille d'alerte", valeur_dans_style(alerte, 'reduit', 'width')),
+    ('compteur de vitesse', valeur_dans_style(vitesse, 'badge', 'width')),
+    ('limite reglementaire', valeur_dans_style(limite, 'badge', 'width')),
+    ("vue d'ensemble", valeur_dans_style(overlay, 'overviewBtn', 'width')),
+    ('boutons de langue', constante(langue, 'LARGEUR')),
+]
+for nom, l in largeurs:
+    verifier('largeur lue pour %s' % nom, l is not None, '%s points' % l)
 for nom, h in hauteurs:
     verifier('hauteur lue pour %s' % nom, h is not None, '%s points' % h)
 
@@ -225,14 +243,31 @@ if all(h is not None for _, h in hauteurs) and ecart is not None:
     # LE MESSAGE D'ECHEC DE CALCUL commence a la meme hauteur, et il est large. En portrait il
     # doit demarrer APRES la colonne, sinon il passe derriere les pastilles — c'est le message
     # qu'il faut le moins masquer de tous.
-    large = max(h for _, h in hauteurs)
+    large = max(l for _, l in largeurs if l is not None)
     import re as _re
-    m_echec = _re.search(r'landscape \? null : \{ left: spacing\.md \+ ([0-9]+) \}', overlay)
-    decale = float(m_echec.group(1)) if m_echec else None
+    # Le decalage est desormais ECRIT depuis la largeur de la colonne, et non en dur : on lit
+    # donc la constante qu'il nomme, plus la marge eventuelle ajoutee derriere.
+    m_echec = _re.search(
+        r'landscape \? null : \{ left: spacing\.md \+ LARGEUR_COLONNE(?:\s*\+\s*([0-9]+))? \}',
+        overlay,
+    )
+    marge_echec = float(m_echec.group(1) or 0) if m_echec else None
+    colonne_declaree = constante(overlay, 'LARGEUR_COLONNE')
+    verifier(
+        "le message d'echec se decale depuis la LARGEUR de la colonne, pas d'un nombre en dur",
+        m_echec is not None and colonne_declaree is not None,
+        'un nombre en dur redevient faux au premier element plus large' if m_echec is None else '',
+    )
+    decale = (colonne_declaree + marge_echec) if (colonne_declaree is not None and marge_echec is not None) else None
     verifier(
         "le message d'echec demarre apres la colonne en portrait",
         decale is not None and decale >= large,
         'decale de %s pour une colonne large de %s' % (decale, large),
+    )
+    verifier(
+        'et la largeur declaree est bien celle du plus large element',
+        colonne_declaree is not None and colonne_declaree >= large,
+        'declaree %s, mesuree %s' % (colonne_declaree, large),
     )
 
     # ET LA COLONNE DOIT TENIR SUR L'ECRAN LE PLUS PETIT QU'ON AIT VU DEBORDER : 667 points,
@@ -286,20 +321,68 @@ print("\nLE MOT << TAMAZIGHT >> TIENT SUR UNE LIGNE DANS SON BOUTON")
 # C'est une approximation, et elle est du bon cote — les lettres de << Tamazight >> sont
 # plutot etroites (un i, un t, un z), donc le vrai mot est un peu plus court que ce calcul.
 LARGEUR_LETTRE = 0.56
-cote_langue = constante(langue, 'COTE')
-police = valeur_dans_style(langue, 'libelle', 'fontSize')
+# LE MINIMUM DE LA RELANCE v3 : << taille de police plus grande (minimum 18sp) >> pour la ligne
+# latine, << 14sp >> pour l'ecriture native. C'est ce minimum qui a fait perdre au bouton sa
+# forme carree : a dix-huit points, << Tamazight >> demande 91 points de large, et un carre de
+# 52 n'en offre que 41. Le controle verifie les deux : la police EST au minimum, et le mot
+# ENTRE. Les deux ensemble, c'est-a-dire ce que le carre ne pouvait pas tenir.
+MINIMUM_LATIN = 18
+largeur_langue = constante(langue, 'LARGEUR')
+# LES DEUX TAILLES SONT DES CONSTANTES NOMMEES, et c'est voulu : le calcul de la largeur du
+# bouton en depend, et un nombre pose dans la feuille de style se change sans que personne ne
+# refasse le calcul. On les lit donc la ou elles sont declarees, puis on verifie que la feuille
+# de style les emploie vraiment — sans quoi la constante dirait une chose et l'ecran une autre.
+police = constante(langue, 'TAILLE_LATIN')
+police_native = constante(langue, 'TAILLE_NATIVE')
+verifier(
+    'la feuille de style emploie bien ces deux constantes',
+    'fontSize: TAILLE_LATIN' in langue and 'fontSize: TAILLE_NATIVE' in langue,
+    'sinon le calcul de largeur porterait sur un chiffre qui ne sert pas',
+)
 bordure = 2.5  # la bordure epaisse, celle de l'audio coupe : le cas le plus serre
-verifier('la taille de police du libelle est lue', police is not None, '%s points' % police)
-if cote_langue is not None and police is not None:
-    utile = cote_langue - 2 * bordure
+marge = valeur_dans_style(langue, 'lignes', 'paddingHorizontal') or 0
+verifier('la taille de police du latin est lue', police is not None, '%s points' % police)
+verifier(
+    'elle vaut au moins les %s points du document' % MINIMUM_LATIN,
+    police is not None and police >= MINIMUM_LATIN,
+    '<< taille de police plus grande (minimum 18sp) >>',
+)
+verifier(
+    "l'ecriture native est a 14 points, comme demande",
+    police_native is not None and police_native >= 14,
+    '%s points' % police_native,
+)
+if largeur_langue is not None and police is not None:
+    utile = largeur_langue - 2 * bordure - 2 * marge
     demande = len('Tamazight') * LARGEUR_LETTRE * police
     print('    %s : %d lettres x %s x %s = %.1f points pour %.1f disponibles'
           % ('Tamazight', len('Tamazight'), LARGEUR_LETTRE, police, demande, utile))
     verifier(
         'il tient dans la largeur du bouton',
         demande <= utile,
-        'a 9 points il demandait %.1f points et se coupait' % (9 * 9 * LARGEUR_LETTRE),
+        'dans un carre de 52 il aurait demande %.1f points pour 47' % demande,
     )
+# LES DEUX BOUTONS FONT LA MEME TAILLE — << Meme taille que btnDerija >>. Ils partagent le meme
+# style, donc la seule facon de les desaccorder serait d'en ecrire un second : on verifie qu'il
+# n'y en a pas.
+verifier(
+    'les deux boutons partagent le meme style, donc la meme taille',
+    langue.count('width: LARGEUR') == 1 and langue.count('height: HAUTEUR') == 1,
+    '<< Meme taille que btnDerija >>',
+)
+verifier(
+    'les deux langues y sont, et le tamazight EN DESSOUS du derija',
+    0 < langue.find("langue: 'dz'") < langue.find("langue: 'kab'"),
+    '<< Carre Tamazight EN DESSOUS de Derija >>',
+)
+verifier(
+    "chacun porte sa ligne latine et son ecriture native",
+    "latin: 'Derija'" in langue
+    and 'دارجة' in langue
+    and "latin: 'Tamazight'" in langue
+    and 'ⵜⴰⵎⴰⵣⵉⵖⵜ' in langue,
+    'phonetique latine en grand, ecriture native en dessous',
+)
 verifier(
     'le repli sur deux lignes est interdit',
     'numberOfLines={1}' in langue and 'numberOfLines={2}' not in langue,
@@ -321,9 +404,9 @@ verifier(
 # << LA COLONNE GAUCHE EST EXCLUSIVEMENT RESERVEE A : DARJA + TAMAZIGHT >>. Le client a lu
 # << FR >> sur ce bouton et l'a pris pour un bouton de francais qu'il n'avait pas demande.
 verifier(
-    'aucun sigle de langue n est ecrit en dur dans le bouton',
+    'aucun sigle de langue n est ecrit en dur dans les boutons',
     "'FR'" not in langue and "'AR'" not in langue and "'EN'" not in langue,
-    'le mot vient de ETIQUETTES, et les trois departs y disent << Retour >>',
+    'la colonne est reservee au darija et au tamazight : aucun bouton FR, AR ou EN',
 )
 
 print('')

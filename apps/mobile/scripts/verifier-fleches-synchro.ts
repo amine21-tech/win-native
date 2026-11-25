@@ -25,7 +25,12 @@ import {
   BATIMENTS_MIN,
   estBatiment,
   estEnAgglomeration,
+  estLocalite,
+  estPointInteret,
+  estRueHabitee,
   estZoneHabitee,
+  preuvesAgglomeration,
+  PREUVES_MIN,
   type TraitDeCarte,
 } from '../src/navigation/agglomeration';
 
@@ -49,7 +54,26 @@ const zoneHabitee = (): TraitDeCarte => ({ polygone: true, proprietes: { class: 
 /** Une route : une ligne, jamais un polygone. */
 const route = (classe: string): TraitDeCarte => ({
   polygone: false,
+  forme: 'ligne',
   proprietes: { class: classe },
+});
+/** Une rue de quartier RELEVEE : les tuiles la donnent en `minor` + `subclass`. */
+const rueNommee = (nom: string, sousClasse = 'residential'): TraitDeCarte => ({
+  polygone: false,
+  forme: 'ligne',
+  proprietes: { class: 'minor', subclass: sousClasse, name: nom },
+});
+/** Un service nomme : la mairie, la poste, le cafe de la photo d'Azeffoun. */
+const service = (classe: string, nom: string): TraitDeCarte => ({
+  polygone: false,
+  forme: 'point',
+  proprietes: { class: classe, name: nom },
+});
+/** Le point que la carte pose au milieu du bourg. */
+const localite = (classe: string, nom: string): TraitDeCarte => ({
+  polygone: false,
+  forme: 'point',
+  proprietes: { class: classe, name: nom },
 });
 
 console.log('\n============================================================');
@@ -107,12 +131,28 @@ verifier(
   'par prudence : on ne promet pas un carrefour a cinq cents metres',
 );
 
-console.log('\nET LE CAS QUE LE DOCUMENT NE CITE PAS : UNE AUTOROUTE EN PLEINE VILLE');
+console.log("\nL'AGGLOMERATION PASSE AVANT TOUT — DECISION DU CLIENT, RELANCE v3");
 verifier(
-  "l'autoroute l'emporte sur le bati — rocade sud d'Alger, A1 a Birtouta",
-  seuilClignotementM({ limiteKmh: 80, classeRoute: 'motorway', agglomeration: true }) === RASE &&
-    seuilClignotementM({ limiteKmh: null, classeRoute: 'trunk', agglomeration: true }) === RASE,
-  'a 110 km/h, cinquante metres font une seconde et demie',
+  "<< isUrban() = true -> 50 m IMMEDIATEMENT · peu importe maxSpeed, peu importe roadClass >>",
+  seuilClignotementM({ limiteKmh: 80, classeRoute: 'motorway', agglomeration: true }) === AGGLO &&
+    seuilClignotementM({ limiteKmh: null, classeRoute: 'trunk', agglomeration: true }) === AGGLO,
+  "y compris sur l'autoroute urbaine : le client a tranche apres qu'on lui a signale l'ecart",
+);
+verifier(
+  "l'agglomeration est la PREMIERE question posee",
+  /^[\s\S]{0,900}?troncon\.agglomeration === true/.test(
+    (lire('src', 'navigation', 'grandAxe.ts').split('export function seuilClignotementM')[1] ?? '')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/\/\/[^\n]*/g, ' '),
+  ),
+  '<< doit etre la PREMIERE ligne de getBlinkThreshold() >>',
+);
+verifier(
+  'et hors agglomeration, autoroute et nationale valent toujours 500 m',
+  seuilClignotementM({ limiteKmh: 80, classeRoute: 'motorway', agglomeration: false }) === RASE &&
+    seuilClignotementM({ limiteKmh: null, classeRoute: 'trunk' }) === RASE &&
+    seuilClignotementM({ limiteKmh: null, classeRoute: 'primary' }) === RASE,
+  'ce qui protege l autoroute, desormais, c est la justesse de la detection',
 );
 verifier(
   'et la bretelle d autoroute vaut l autoroute',
@@ -167,6 +207,83 @@ verifier(
   !estEnAgglomeration([route('primary'), { polygone: true, proprietes: { class: 'farmland' } }]),
 );
 verifier('une lecture vide ne dit pas << ville >>', !estEnAgglomeration([]));
+
+console.log("\nAZEFFOUN : UNE VILLE SANS UN SEUL BATIMENT SUR LA CARTE — relance v3");
+/* LA CAPTURE D'ECRAN DU CLIENT, TRAIT POUR TRAIT. Autour du vehicule, sur la CW 158 : aucun
+ * batiment, aucun landuse, et trois services nommes — c'est ce qui faisait repondre NON a
+ * l'ancienne detection, et c'est tout le bug de la relance. */
+const azeffoun: TraitDeCarte[] = [
+  route('primary'),
+  service('town_hall', 'Mairie Azzefoune'),
+  service('post', 'Bureau de poste de Azeffoun'),
+  service('cafe', 'Cafe'),
+];
+verifier(
+  'trois services nommes font une agglomeration',
+  estEnAgglomeration(azeffoun),
+  `${preuvesAgglomeration(azeffoun)} preuves sur ${PREUVES_MIN} — une mairie et une poste ne se batissent pas en rase campagne`,
+);
+verifier(
+  "et les fleches y clignotent donc a 50 m malgre le tag 100 km/h",
+  seuilClignotementM({
+    limiteKmh: 100,
+    classeRoute: 'primary',
+    agglomeration: estEnAgglomeration(azeffoun),
+  }) === AGGLO,
+  "c'est le bug que le client renvoie pour la deuxieme fois",
+);
+verifier(
+  'un seul service isole ne fait pas une ville',
+  !estEnAgglomeration([service('fuel', 'Naftal'), route('primary')]),
+  'une station-service au bord d une nationale en est une, et elle est seule',
+);
+verifier(
+  'deux rues de quartier NOMMEES suffisent',
+  estEnAgglomeration([rueNommee('Rue des Freres Bouadou'), rueNommee('Rue de la Poste')]),
+  `une rue relevee vaut deux preuves sur ${PREUVES_MIN}`,
+);
+verifier(
+  'le point de localite suffit a lui seul',
+  estLocalite(localite('town', 'Azeffoun')) &&
+    estEnAgglomeration([localite('village', 'Tifrit')]) &&
+    estEnAgglomeration([localite('suburb', 'Bab El Oued')]),
+  'ce noeud est AU MILIEU du bourg : le voir, c est y etre',
+);
+verifier(
+  'UN SOMMET, UNE SOURCE, UNE PLAGE NE SONT PAS UNE VILLE',
+  !estEnAgglomeration([
+    service('peak', 'Lalla Khedidja'),
+    service('spring', 'Ain Zerga'),
+    service('beach', 'Plage du Caroubier'),
+    service('isolated_dwelling', 'Ferme Belkacem'),
+  ]),
+  'ils portent un nom eux aussi, et ils disent le contraire',
+);
+verifier(
+  'un point SANS nom ne compte pas',
+  !estPointInteret({ polygone: false, forme: 'point', proprietes: { class: 'cafe' } }) &&
+    !estPointInteret({ polygone: false, forme: 'point', proprietes: { name: 'Sans classe' } }),
+  'il faut le nom ET la classe : un releve a moitie fait ne prouve rien',
+);
+verifier(
+  'une rue SANS nom ne compte pas',
+  !estRueHabitee(route('residential')) &&
+    !estRueHabitee({ polygone: false, forme: 'ligne', proprietes: { subclass: 'residential' } }),
+  'c est ce qui laisse vrai le controle de la ligne precedente',
+);
+verifier(
+  'LA FORME COMPTE : residential est une ligne, un polygone ET un point',
+  !estRueHabitee({ polygone: true, forme: 'polygone', proprietes: { class: 'residential', name: 'Z' } }) &&
+    !estLocalite(route('residential')) &&
+    estZoneHabitee({ polygone: true, forme: 'polygone', proprietes: { class: 'residential' } }),
+  'la meme classe sur trois formes veut dire trois choses differentes',
+);
+verifier(
+  "sans `forme`, un trait se lit comme avant le 25 novembre",
+  estEnAgglomeration([batiment(), batiment(), batiment()]) &&
+    !estEnAgglomeration([{ polygone: false, proprietes: { class: 'town', name: 'X' } }]),
+  'les cas d essai ecrits avant continuent de dire ce qu ils disaient',
+);
 verifier(
   'un batiment se reconnait a ses champs, pas au nom de sa couche',
   estBatiment(batiment()) &&

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { MapRef } from '@maplibre/maplibre-react-native';
 import { api } from '../api/client';
 import { haversine } from '../shared';
-import { estEnAgglomeration, type TraitDeCarte } from './agglomeration';
+import { estEnAgglomeration, type FormeTrait, type TraitDeCarte } from './agglomeration';
 
 /**
  * Limite de vitesse reglementaire du troncon en cours (v79 #7 du site).
@@ -176,11 +176,25 @@ export function useSpeedLimit({ active, mapRef, vehiclePoint, here }: Props): Et
           [x + PROBE_AGGLO, y + PROBE_AGGLO],
         ]);
         if (cancelled) return;
-        const traits: TraitDeCarte[] = (autour ?? []).map((feature) => ({
-          polygone:
-            feature.geometry?.type === 'Polygon' || feature.geometry?.type === 'MultiPolygon',
-          proprietes: (feature.properties ?? {}) as Record<string, unknown>,
-        }));
+        /* LA FORME DE CHAQUE TRAIT EST TRANSMISE DEPUIS LE 25 NOVEMBRE, et non plus seulement
+         * << polygone ou non >>. La detection d'agglomeration a besoin de distinguer un POINT
+         * d'une LIGNE : une mairie, une poste et un cafe sont des points ; une rue nommee est une
+         * ligne ; et `residential` designe les deux a la fois selon la couche. C'est ce qui
+         * manquait pour reconnaitre Azeffoun, ou la carte ne porte aucun batiment. */
+        const traits: TraitDeCarte[] = (autour ?? []).map((feature) => {
+          const type = feature.geometry?.type;
+          const forme: FormeTrait =
+            type === 'Polygon' || type === 'MultiPolygon'
+              ? 'polygone'
+              : type === 'Point' || type === 'MultiPoint'
+                ? 'point'
+                : 'ligne';
+          return {
+            polygone: forme === 'polygone',
+            forme,
+            proprietes: (feature.properties ?? {}) as Record<string, unknown>,
+          };
+        });
 
         // La valeur des panneaux prime toujours sur la deduction.
         const limiteKmh = fromServer.current ?? (best ? (LIMITS[best] ?? null) : null);

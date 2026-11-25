@@ -111,17 +111,30 @@ for (const cas of CAS) {
   verifier(`${cas.nom} -> ${cas.attendu} m`, obtenu === cas.attendu, obtenu === cas.attendu ? '' : `rendu : ${obtenu} m`);
 }
 
-/* L'ECART ASSUME AVEC LE PSEUDO-CODE DU DOCUMENT, ET POURQUOI IL EST DANS CE SENS.
+/* L'ECART A ETE LEVE PAR LE CLIENT — RELANCE v3, 25 NOVEMBRE.
  *
- * La page 3 teste `isUrban()` AVANT la classe de route. Une autoroute urbaine — la rocade sud
- * d'Alger, par exemple — clignoterait donc a 50 m, soit une seconde et demie a 110 km/h. La
- * checklist de la page 8 demande elle-meme 500 m sur autoroute dans DEUX cas sur dix, taguee
- * ou non. On teste donc la voie rapide EN PREMIER. */
-console.log('\nL ECART ASSUME : une autoroute reste a 500 m, meme entouree de bati');
+ * Ce fichier testait l'inverse jusqu'au 24 novembre, et sa raison etait bonne : la page 3 pose
+ * `isUrban()` AVANT la classe de route, donc une autoroute urbaine — la rocade sud d'Alger —
+ * clignote a 50 m, soit une seconde et demie a 110 km/h. L'ecart avait ete pose volontairement,
+ * et il avait ete SIGNALE au client comme un ecart.
+ *
+ * IL A RENVOYE LA REGLE MOT POUR MOT APRES CE SIGNALEMENT : << isUrban() = true -> 50 m
+ * IMMEDIATEMENT · Peu importe maxSpeed, peu importe roadClass >>. C'est sa decision, elle est
+ * appliquee, et ce controle dit desormais ce qu'elle dit. Ce qui protege l'autoroute est
+ * maintenant la detection elle-meme : en rase campagne il n'y a ni rue nommee, ni commerce, ni
+ * bati a cent cinquante metres — `agglomeration` y est donc faux. Voir grandAxe.ts. */
+console.log("\nL AGGLOMERATION PASSE AVANT TOUT — DECISION DU CLIENT, RELANCE v3");
 verifier(
-  'autoroute urbaine : 500 m et non 50',
-  seuilClignotementM({ limiteKmh: null, classeRoute: 'motorway', agglomeration: true }) === ANTICIPATION_RASE_M,
-  'une seconde et demie d avance a 110 km/h ne previent personne',
+  'autoroute urbaine : 50 m, parce que le client a tranche dans ce sens',
+  seuilClignotementM({ limiteKmh: null, classeRoute: 'motorway', agglomeration: true }) === ANTICIPATION_AGGLO_M,
+  '<< peu importe maxSpeed, peu importe roadClass >>',
+);
+verifier(
+  'et une autoroute en rase campagne garde ses cinq cents metres',
+  seuilClignotementM({ limiteKmh: null, classeRoute: 'motorway', agglomeration: false }) ===
+    ANTICIPATION_RASE_M &&
+    seuilClignotementM({ limiteKmh: 120, classeRoute: 'motorway' }) === ANTICIPATION_RASE_M,
+  'la detection est ce qui fait la difference entre les deux',
 );
 
 console.log('\nAUCUNE FLECHE NE NAIT TRANSPARENTE');

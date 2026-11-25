@@ -85,6 +85,45 @@ export function appuiLangue(
 }
 
 /**
+ * UN APPUI SUR UN BOUTON QUI NOMME SA LANGUE — relance v3, 25 novembre.
+ *
+ *   << Bouton 2 (A AJOUTER) : "Tamazight" en grand (latin) · ⵜⴰⵎⴰⵣⵉⵖⵜ en Tifinagh dessous ·
+ *   meme taille. Les 2 boutons : colonne gauche · empiles verticalement. Clic Derija ->
+ *   voix/texte arabe · Clic Tamazight -> voix/texte Tamazight · Ne rien casser du reste. >>
+ *
+ * LE CLIENT REMPLACE UN BOUTON QUI TOURNE PAR DEUX BOUTONS QUI NOMMENT. Un bouton qui annonce
+ * sa destination demande de savoir ou l'on en est du cycle ; deux boutons nommes ne demandent
+ * rien, et c'est mieux au volant. `appuiLangue` ci-dessus N'EST PAS TOUCHE — le cycle reste
+ * exact, verifie, et utilisable si le client revenait en arriere.
+ *
+ * CE QUE CETTE FONCTION AJOUTE, ET QUI N'ALLAIT PAS DE SOI : LE CHEMIN DU RETOUR. Avec deux
+ * boutons seulement, un conducteur qui essaie le tamazight par curiosite n'a plus aucun moyen
+ * de revenir au francais pendant le trajet — le selecteur de l'accueil est sous le bandeau de
+ * navigation, donc hors d'atteinte. APPUYER SUR LA LANGUE DEJA ACTIVE RAMENE DONC A CELLE D'OU
+ * L'ON VIENT. C'est le troisieme palier du cycle, garde entier, mais attache au bouton qui le
+ * rend evident : celui qui est allume.
+ *
+ * La langue de depart n'est retenue qu'au moment ou on la QUITTE (`etat.pas === 0`), pour la
+ * meme raison qu'au-dessus : entre deux appuis, elle peut avoir change ailleurs.
+ */
+export function appuiDirect(
+  etat: EtatCycle,
+  actuelle: Language,
+  cible: Language,
+): { etat: EtatCycle; langue: Language } {
+  if (cible !== actuelle) {
+    const avant = etat.pas === 0 ? actuelle : (etat.avant ?? actuelle);
+    /* `pas` dit seulement << le cycle est reveille >> : avec deux boutons nommes, le numero du
+     * palier ne sert plus a choisir la langue suivante. On garde 1 pour que `avant` cesse
+     * d'etre reecrit a chaque appui. */
+    return { etat: { avant, pas: 1 }, langue: cible };
+  }
+  /* DEJA DANS CETTE LANGUE : on repart d'ou l'on venait, et le cycle se rendort. Le repli sur
+   * le francais couvre le cas ou personne n'a encore rien quitte. */
+  return { etat: AU_REPOS, langue: etat.avant ?? 'fr' };
+}
+
+/**
  * La langue que le PROCHAIN appui donnera — c'est elle que le bouton annonce, et non celle qui
  * est active.
  *

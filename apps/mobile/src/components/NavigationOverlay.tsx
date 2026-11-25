@@ -33,6 +33,27 @@ const CARD_MARGIN = spacing.sm;
  */
 const BADGE_GAP = 6;
 
+/**
+ * LARGEUR DE LA COLONNE DE GAUCHE EN PORTRAIT, en points — relance v3, 25 novembre.
+ *
+ * La colonne ne se donne pas de largeur : elle prend celle de son plus large enfant et centre
+ * les autres. Ce chiffre n'est donc pas une contrainte posee sur elle, c'est LA MESURE de son
+ * plus large enfant, ecrite a l'endroit ou quelque chose doit s'en ecarter — aujourd'hui le
+ * seul message d'echec d'itineraire.
+ *
+ * IL VALAIT 64, ET C'ETAIT JUSTE TANT QUE TOUT ETAIT CARRE : le compteur de vitesse, 58 points,
+ * etait l'element le plus large. Les deux boutons de langue de la relance v3 font 104 points —
+ * il leur faut dix-huit points de police pour que << Tamazight >> se lise en roulant, et
+ * dix-huit points de police demandent quatre-vingt-onze points de large. Le message d'echec
+ * serait donc passe PAR-DESSUS eux, c'est-a-dire exactement le defaut que son decalage avait
+ * ete ecrit pour corriger.
+ *
+ * LE CONTROLE REFAIT CE CALCUL depuis les tailles reelles des deux fichiers, et il compare
+ * desormais des LARGEURS : il comparait des hauteurs, ce qui ne se voyait pas tant que les
+ * elements etaient carres. Voir scripts/verifier-chevauchements.py.
+ */
+const LARGEUR_COLONNE = 104;
+
 
 
 type Props = {
@@ -313,7 +334,7 @@ export const NavigationOverlay = memo(function NavigationOverlay({
             style={[
               styles.echec,
               { top: bannerHeight + spacing.sm },
-              landscape ? null : { left: spacing.md + 64 },
+              landscape ? null : { left: spacing.md + LARGEUR_COLONNE + 4 },
             ]}
             pointerEvents="none"
           >
