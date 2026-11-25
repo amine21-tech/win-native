@@ -107,9 +107,42 @@ const temoinsColumn = sql`
  * LE DELAI AVANT REOUVERTURE PROVISOIRE : sept jours pour des travaux, trente pour un chemin
  * sans issue. Les deux nombres viennent de `probation.ts`, interpoles ici : il n'y a donc PAS
  * deux verites, une en SQL et une en TypeScript, meme si la phrase est ecrite deux fois.
+ *
+ * ================================================================================
+ * LE TRANSTYPAGE N'EST PAS UNE PRECAUTION DE STYLE : SANS LUI, LA CARTE EST VIDE
+ * ================================================================================
+ *
+ * Cette ligne s'ecrivait sans `::double precision`, et elle a casse TOUT L'AFFICHAGE DES
+ * SIGNALEMENTS pendant neuf jours. C'est le << les symboles n'apparaissent pas comme avant >>
+ * du client, et voici la chaine complete, parce qu'elle est instructive.
+ *
+ * CE QUI SE PASSE. Une valeur interpolee dans un gabarit `sql` de drizzle n'est pas ecrite dans
+ * la requete : elle part comme PARAMETRE, et PostgreSQL la recoit de type `unknown`. Pour un
+ * operateur dont une seule operande est `unknown`, PostgreSQL suppose qu'elle a le type de
+ * l'autre — il cherche donc ici `interval * interval`, qui n'existe pas, et refuse la requete
+ * entiere avec le code 42883. Un `7` ecrit en clair aurait fonctionne ; le meme 7 passe en
+ * parametre ne fonctionne pas. C'est la difference que je n'avais pas vue.
+ *
+ * CE QUE CELA A COUTE. `degageSql`, juste en dessous, est dans le WHERE de GET /reports/nearby —
+ * la SEULE route par laquelle l'application charge les symboles. Elle repondait donc 500 a
+ * chaque appel, pour tout le monde, partout. Le depot et les votes, eux, n'en dependent pas :
+ * la base a continue de se remplir normalement (cinquante-et-un dos d'ane, vingt-trois trous,
+ * deux radars) pendant que la carte restait vide. Une panne totale deguisee en absence de
+ * donnees.
+ *
+ * ET POURQUOI ELLE A SURVECU A MA PROPRE VERIFICATION. J'ai interroge la route en direct et lu
+ * le resultat avec un defaut a liste vide (`data.get('items', [])`). Le corps d'erreur ne porte
+ * pas de champ `items` : j'ai donc lu << zero signalement >> dans un 500, dix fois de suite, et
+ * conclu que la base etait vide. C'est pour cela que verifier-serveur-en-ligne.py exige
+ * desormais le CODE HTTP avant de regarder le corps.
+ *
+ * `::double precision` et non `::int` : l'operateur existant est `double precision * interval`.
+ * Un entier y arriverait par conversion implicite, mais autant nommer le type que l'operateur
+ * demande — c'est precisement l'approximation qui a produit la panne.
  */
 const delaiSql = sql`
-  (CASE WHEN r.kind = 'works' THEN ${JOURS_TRAVAUX} ELSE ${JOURS_SANS_ISSUE} END * interval '1 day')
+  ((CASE WHEN r.kind = 'works' THEN ${JOURS_TRAVAUX}::double precision
+         ELSE ${JOURS_SANS_ISSUE}::double precision END) * interval '1 day')
 `;
 
 /** Les reponses << praticable >> recues DEPUIS la confirmation en cours (voir bloque_le). */
@@ -136,8 +169,9 @@ const totalSql = sql`
  */
 const degageSql = sql`
   (r.bloque_le IS NOT NULL
-   AND (${ouiSql} >= ${OUI_POUR_DEBLOQUER}
-        OR now() >= r.bloque_le + ${delaiSql} + ${PROBATION_HEURES} * interval '1 hour'))
+   AND (${ouiSql} >= ${OUI_POUR_DEBLOQUER}::int
+        OR now() >= r.bloque_le + ${delaiSql}
+                  + (${PROBATION_HEURES}::double precision * interval '1 hour')))
 `;
 
 const reportColumns = sql`

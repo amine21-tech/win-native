@@ -180,6 +180,59 @@ else:
              'amelioration 5 : le seuil de trois avis se calcule dessus')
 
 print('')
+print("LES SYMBOLES DE LA CARTE - LE CODE HTTP D'ABORD, LE CORPS ENSUITE")
+# LA LECON DU 25 NOVEMBRE, ET ELLE EST A MOI. GET /reports/nearby repondait 500 (code Postgres
+# 42883 : un parametre non transtype multiplie par un interval, voir routes/reports.ts). Le
+# client disait << les symboles n'apparaissent pas comme avant >>, et c'etait exact : c'est la
+# SEULE route par laquelle l'application charge les symboles.
+#
+# J'ai interroge cette route dix fois, sur dix regions, et conclu << zero signalement, la base
+# est vide >>. Elle contenait cinquante-et-un dos d'ane. Mon tort : j'ai lu le corps avec un
+# defaut a liste vide — `data.get('items', [])` — et un corps d'erreur ne porte pas de champ
+# `items`. Un 500 se lisait donc exactement comme une zone sans signalement.
+#
+# D'OU CES DEUX CONTROLES SEPARES, ET DANS CET ORDRE. Le premier ne regarde que le CODE : une
+# route qui echoue doit le dire, meme si le corps a la forme attendue. Le second regarde le
+# contenu, et il n'est joue que si le premier a passe.
+code_sig, sig = demander('/reports/nearby?lat=36.7538&lon=3.0588&radius=25000')
+verifier(
+    'GET /reports/nearby repond 200, et non 500',
+    code_sig == 200,
+    'code %s%s' % (code_sig, ' - pg %s' % (sig or {}).get('details', {}).get('pgCode', '?')
+                   if code_sig != 200 else ''),
+)
+if code_sig == 200:
+    verifier(
+        'et son corps porte bien une LISTE d items',
+        isinstance((sig or {}).get('items'), list),
+        "c'est la forme que l'application attend : une absence de champ n'est pas une liste vide",
+    )
+    # ET LA ROUTE DOIT RENDRE QUELQUE CHOSE QUELQUE PART. Une liste vide est legitime au milieu
+    # du Sahara ; elle ne l'est pas sur toute l'Algerie a la fois. On balaie donc les regions ou
+    # le client essaie, et il suffit qu'UNE seule reponde pour que le filtre de lecture soit
+    # dedouane. C'est ce test-la qui aurait crie le 16 novembre.
+    REGIONS = [
+        ('Alger', 36.7538, 3.0588), ('Oran', 35.6970, -0.6308),
+        ('Constantine', 36.3650, 6.6147), ('Tizi Ouzou', 36.7169, 4.0497),
+        ('Bejaia', 36.7509, 5.0567), ('Azeffoun', 36.8928, 4.4247),
+        ('Blida', 36.4703, 2.8277), ('Setif', 36.1898, 5.4108),
+        ('Annaba', 36.9000, 7.7667), ('Bouira', 36.3752, 3.9021),
+        ('Boumerdes', 36.7667, 3.4772), ('Tipaza', 36.5892, 2.4486),
+    ]
+    trouves = []
+    for nom, la, lo in REGIONS:
+        c, d = demander('/reports/nearby?lat=%s&lon=%s&radius=25000' % (la, lo))
+        n = len(d.get('items', [])) if (c == 200 and isinstance(d, dict)) else -1
+        if n > 0:
+            trouves.append('%s:%d' % (nom, n))
+    verifier(
+        'au moins une region du nord renvoie des symboles',
+        len(trouves) > 0,
+        ', '.join(trouves) if trouves else
+        'douze regions a vide : ce n est plus une absence de donnees, c est un filtre de lecture',
+    )
+
+print('')
 if all(resultats):
     print('Le serveur en ligne est a jour : tout ce que les syntheses demandent y repond.')
     print('')
