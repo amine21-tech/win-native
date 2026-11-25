@@ -79,6 +79,20 @@
  * classe d'occupation du sol (un polygone) et une classe de lieu (un point), et les trois ne
  * veulent pas dire la meme chose.
  *
+ * LE CAS OU CETTE DETECTION SE TROMPERA, ET IL FAUT L'ECRIRE AVANT QU'IL ARRIVE : UNE AIRE DE
+ * REPOS D'AUTOROUTE. Station-service, restaurant, hotel — trois services nommes a cent
+ * cinquante metres les uns des autres, donc trois preuves, donc << ville >>, donc clignotement
+ * a cinquante metres a cent vingt kilometres a l'heure. Depuis que le client a demande que
+ * l'agglomeration passe avant l'autoroute (voir grandAxe.ts), plus rien n'y fait obstacle.
+ *
+ * ON NE L'A PAS GARDE POUR AUTANT, et pour deux raisons. La premiere est que les aires
+ * algeriennes sont tres peu relevees dans OpenStreetMap — c'est le meme manque de donnees qui
+ * fait tout ce bug, et il joue ici dans le bon sens. La seconde est qu'ajouter un passe-droit
+ * pour l'autoroute reviendrait a remettre en place, par la porte de derriere, l'ordre que le
+ * client vient de refuser. Si le cas se presente sur le terrain, la reponse est de demander une
+ * preuve qui ne soit pas un point d'interet quand on roule sur une voie rapide — pas de ruser
+ * avec la regle.
+ *
  * ON NE PEUT PAS SE TROMPER DANS LES DEUX SENS AU MEME PRIX. Croire la ville absente alors
  * qu'elle est la — le bug du client — fait clignoter les fleches cinq cents metres trop tot,
  * donc devant le mauvais carrefour. Croire la ville presente en rase campagne fait clignoter
